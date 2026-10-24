@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Get verified for loans · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Get verified for loans" data-dest="account" data-back="../account/index.html" data-compact>
+
+  <p class="proto-note"><b>MK1 · Get verified for loans (note 20, draft revision 2; UI-60).</b> What GroFunder holds on the member, in the member's words, one group per row, each with where it stands: <i>Verified</i> (a check that counts), <i>Checked at your visit, being reviewed</i> (a check on a visit not yet approved), <i>You told us</i> (declared, not checked), <i>Needed</i> (lending needs it and there's nothing yet). Reached from Account (M13), not a destination: it's a task (shell owner, 2026-10-24).</p>
+  <p class="proto-note"><b>What a member never sees here</b> (notes 05, 20): farm and home map points, the agent's notes and warnings, and the reviewer's notes. Farms show their name, village and size only.</p>
+  <p class="proto-note"><b>State switcher.</b> <i>loaded</i> is the record shown: Wanjiku at Kijani (visit v-101 being reviewed), or nothing yet if you switch to Mawingu on Home. <i>approved</i>, <i>visit</i> and <i>pending</i> show the same list under the other cards: verified, a visit booked, and an application the cooperative hasn't confirmed (proposed amendment to note 05: applicants may declare while PENDING).</p>
+  <p class="proto-note proto-gap"><b>G60:</b> consent isn't designed yet (note 20 Q6). Until the consents app exists, this screen can't be used.</p>
+  <p class="proto-note proto-gap"><b>G62:</b> drawn from note 20 while it is still a draft (owner's request, 2026-10-24).</p>
+
+  <div data-roles="out" class="empty">
+    <span class="mdi mdi-account-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">You're signed out</span>
+    <span class="text-body-md">Sign in to see what GroFunder holds for your loans.</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a>
+  </div>
+
+  <div data-state="loaded approved visit pending" class="col gap-6" data-roles="in">
+    <div id="status"></div>
+
+    <section class="section" id="groups-sec">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">What GroFunder holds</span>
+        <span class="text-body-md tone-muted" id="groups-sub"></span></div></div>
+      <div class="list rowcards" id="groups"></div>
+    </section>
+
+    <div class="col gap-3" id="update-block">
+      <a class="btn btn-filled btn-block" href="declare.html" id="update-btn"><span class="mdi mdi-pencil-outline" aria-hidden="true"></span>Update your details</a>
+      <div class="disclosure">
+        <div class="disclosure-item">
+          <button class="disclosure-trigger" type="button" aria-expanded="false">Why we ask</button>
+          <div class="disclosure-panel" hidden>
+            <p class="text-body-md">Lenders lend on what GroFunder has checked. Your ID, your photo, your phone and at least one farm are checked by your agent at a visit. What you tell us about other income and loans helps us offer a loan you can repay.</p>
+            <p class="text-body-md" id="coop-sees"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-state="empty" class="empty" data-roles="in">
+    <span class="mdi mdi-sprout-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Tell us about your farm</span>
+    <span class="text-body-md" id="empty-text"></span>
+    <a class="btn btn-filled" href="declare.html">Start</a>
+  </div>
+
+  <div data-state="loading" class="col gap-4" data-roles="in">
+    <div class="skeleton-card" style="height:120px"></div>
+    <div class="skeleton" style="width:50%;height:24px"></div>
+    <div class="skeleton-card" style="height:320px"></div>
+  </div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Your details show again once you're back online. Nothing you told us is lost.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var A = MemberApp, K = GF.kyc, f = GF.fmt, esc = A.esc, me = A.current;
+var coop = A.coopName(me);
+var items = K.current(me.id);
+var visits = K.visitsOf(me.id), live = K.liveVisit(me.id), last = visits[0];
+var bg = K.background(me.id);
+var short = function (iso) { return f.date(iso, "short"); };
+
+/* The member's words for an item's state. */
+function word(it) {
+  if (K.counts(it)) return ["success", "Verified"];
+  var v = it.verification ? K.get(it.verification) : null;
+  if (it.status === "VERIFIED" && v && (v.status === "SUBMITTED" || v.status === "OPEN")) return ["info", "Checked at your visit, being reviewed"];
+  return ["neutral", "You told us"];
+}
+/* For a whole group: the best word every item shares, or Needed. */
+function groupWord(list, needed, approvedDemo) {
+  if (!list.length) return needed ? ["warning", "Needed"] : ["neutral", "Nothing yet"];
+  var words = list.map(function (it) {
+    if (approvedDemo && it.status === "VERIFIED") return ["success", "Verified"];
+    return word(it);
+  });
+  var rank = { "Verified": 0, "Checked at your visit, being reviewed": 1, "You told us": 2 };
+  words.sort(function (a, b) { return rank[b[1]] - rank[a[1]]; });
+  return words[0];
+}
+var of = function (t) { return items.filter(function (i) { return i.data_type === t; }); };
+var acres = function (n) { return n == null ? "" : String(Math.round(n * 100) / 100) + (n === 1 ? " acre" : " acres"); };
+
+function groups(state) {
+  var demo = state === "approved";
+  var idp = of("IDENTITY").concat(of("PORTRAIT")), ph = of("PHONE"), farms = of("FARM"), crops = of("CROP"),
+      inc = of("INCOME"), ob = of("OBLIGATION"), kin = of("NEXT_OF_KIN");
+  var noIncome = bg && bg.details.has_other_income === false, noOb = bg && bg.details.has_obligations === false;
+  var rows = [
+    { icon: "card-account-details-outline", title: "Your ID and photo",
+      sub: idp.length ? "Your ID was seen and your photo taken" + (idp[0].verification ? " at your visit on " + short(K.get(idp[0].verification).notes.visit.met_at) : "") : "Your agent sees your ID and takes your photo at the visit",
+      w: groupWord(idp, true, demo) },
+    { icon: "cellphone", title: "Your phone",
+      sub: ph.length ? f.phone(ph[0].details.phone) + " · M-Pesa name checked" : "Your agent checks it's with you, and its M-Pesa name",
+      w: groupWord(ph, true, demo) },
+    { icon: "map-marker-radius-outline", title: "Your farms",
+      sub: farms.length ? farms.map(function (it) { return esc(it.details.name || "Farm") + (it.details.village ? ", " + esc(it.details.village) : "") + (it.data.size_acres != null ? " · " + acres(it.data.size_acres) : ""); }).join("<br>") : "Tell us where you farm. Your agent visits at least one",
+      w: groupWord(farms, true, demo) },
+    { icon: "sprout-outline", title: "What you grow",
+      sub: crops.length ? crops.map(function (it) {
+        var name = it.data.value_chain ? GF.get(it.data.value_chain).name : esc(it.details.other_name || "Other");
+        return name + (it.data.is_main ? " (most income)" : "") + (it.source === "COOPERATIVE_RECORD" ? " · from your deliveries to " + esc(coop) : "");
+      }).join("<br>") : "Tell us what you grow or keep for income",
+      w: groupWord(crops, true, demo) },
+    { icon: "cash-multiple", title: "Other income",
+      sub: inc.length ? inc.map(function (it) { return K.L.incomeKind[it.data.kind] + ", " + K.L.band[it.data.monthly_band] + " a month"; }).join("<br>") : noIncome ? "You told us you have none" : "Tell us if you earn from anything besides farming",
+      w: inc.length ? groupWord(inc, true, demo) : noIncome ? ["neutral", "You told us"] : ["warning", "Needed"] },
+    { icon: "calendar-sync-outline", title: "Loans and regular payments",
+      sub: ob.length ? ob.map(function (it) {
+        var d = it.data;
+        return (d.kind === "LOAN" ? "Loan from a " + (d.lender_type === "SACCO" ? "SACCO" : K.L.lender[d.lender_type].toLowerCase()) + ", " + f.money(d.owed_cents, { whole: true }) + " owed" : K.L.obligationKind[d.kind]) + ", " + f.money(d.monthly_cents, { whole: true }) + " a month";
+      }).join("<br>") : noOb ? "You told us you have none" : "Tell us about loans you're repaying, rent or school fees",
+      w: ob.length ? groupWord(ob, true, demo) : noOb ? ["neutral", "You told us"] : ["warning", "Needed"] },
+    { icon: "account-heart-outline", title: "Next of kin",
+      sub: kin.length ? esc(kin[0].details.name) + " (" + esc((kin[0].details.relationship || "").toLowerCase()) + "), " + f.phone(kin[0].details.phone) : "Someone we can call if we can't reach you",
+      w: groupWord(kin, true, demo) }
+  ];
+  document.getElementById("groups").innerHTML = rows.map(function (r) {
+    return '<a class="rowcard" href="declare.html"><span class="mdi mdi-' + r.icon + '" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">' + r.title + '</span>' +
+      '<span class="text-body-md tone-muted">' + r.sub + '</span><span><span class="status status-' + r.w[0] + '">' + r.w[1] + "</span></span></span>" +
+      '<span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>';
+  }).join("");
+  var told = rows.filter(function (r) { return r.w[1] === "Needed"; }).length;
+  document.getElementById("groups-sub").textContent = told ? told + " still needed before a loan" : "Nothing missing for a loan";
+}
+
+/* The earliest date a required check stops counting, as if approved on approvedOn. */
+function verifiedUntil(approvedOn) {
+  var dates = items.filter(function (it) { return it.status === "VERIFIED" && K.TYPES[it.data_type].months && ["PORTRAIT", "PHONE", "FARM"].indexOf(it.data_type) > -1; }).map(function (it) {
+    if (K.counts(it)) return K.validUntil(it);
+    var d = new Date(approvedOn + "T00:00:00Z"); d.setUTCMonth(d.getUTCMonth() + K.TYPES[it.data_type].months); return d.toISOString().slice(0, 10);
+  }).sort();
+  return dates[0];
+}
+
+function card(state) {
+  var agent = function (v) { return esc(K.staffName(v.agent)); };
+  var html;
+  if (state === "approved" || (state === "loaded" && K.standing(me.id).verified)) {
+    var until = verifiedUntil(GF.TODAY);
+    html = '<div class="banner banner-success"><span class="mdi mdi-check-decagram-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">You\'re verified</span>' +
+      '<span class="text-body-md">GroFunder has checked your ID, phone and farm. This counts until ' + (until ? f.date(until) : "your details change") + ". We'll ask for a new visit before then.</span></div></div>";
+  } else if (state === "pending") {
+    html = '<div class="banner banner-info"><span class="mdi mdi-account-clock-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">' + esc(coop) + " hasn't confirmed you yet</span>" +
+      '<span class="text-body-md">You can tell us about your farm now. GroFunder arranges your visit once ' + esc(coop) + " confirms you as a member.</span></div></div>";
+  } else if (state === "visit" || (state === "loaded" && live && live.status === "OPEN")) {
+    var v = live || { agent: "u-kevin" };
+    html = '<div class="banner banner-info"><span class="mdi mdi-calendar-account-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">' + agent(v) + " will visit you</span>" +
+      '<span class="text-body-md">You\'ll get a call on ' + f.phone(A.login.phone) + " first. Have your ID with you, and be ready to show your farm.</span></div></div>";
+  } else if (live && live.status === "SUBMITTED") {
+    html = '<div class="banner banner-info"><span class="mdi mdi-progress-clock" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Your visit is being reviewed</span>' +
+      '<span class="text-body-md">Your visit with ' + agent(live) + " on " + short(live.notes.visit.met_at) + " is being reviewed by GroFunder. We'll send you an SMS.</span></div></div>";
+  } else if (last && last.status === "FAILED") {
+    html = '<div class="banner banner-warning"><span class="mdi mdi-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Your visit couldn\'t confirm everything</span>' +
+      '<span class="text-body-md">Call GroFunder to talk it through. Your cooperative membership doesn\'t change.</span></div></div>';
+  } else {
+    html = '<div class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">No visit booked yet</span>' +
+      '<span class="text-body-md">Tell us about your farm and money. GroFunder then books a visit by a Farmer Support Agent.</span></div></div>';
+  }
+  document.getElementById("status").innerHTML = html;
+}
+
+var nothing = !items.length && !visits.length;
+document.getElementById("empty-text").textContent = "GroFunder has nothing from you yet for " + coop + ". It takes about 10 minutes: your farms, what you grow, other income and loans, and someone to call. A Farmer Support Agent then visits you.";
+document.getElementById("coop-sees").textContent = coop + " only sees whether you're verified, not what you tell us here.";
+
+var EMPTY = document.querySelector('[data-state="empty"]').outerHTML.replace('data-state="empty"', "").replace('data-roles="in"', "");
+function draw(state) {
+  if (state === "loaded" && nothing) {
+    document.getElementById("status").innerHTML = EMPTY;
+    document.getElementById("groups-sec").classList.add("hidden"); document.getElementById("update-block").classList.add("hidden");
+    return;
+  }
+  document.getElementById("groups-sec").classList.remove("hidden"); document.getElementById("update-block").classList.remove("hidden");
+  card(state); groups(state);
+}
+document.addEventListener("proto:state", function (e) { if (["loaded", "approved", "visit", "pending"].indexOf(e.detail) > -1) draw(e.detail); });
+draw("loaded");
+</script>
+</body>
+</html>

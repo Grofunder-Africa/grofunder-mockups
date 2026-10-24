@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Verifications · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../assets/console.js"></script>
+<script src="kyc-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Verifications" data-dest="kyc" data-wide
+     data-action='{"label":"Open a verification","icon":"plus","roles":"owner full ops","on":"openVerification()"}'
+     data-menu='[{"label":"Download as CSV","icon":"download","on":"Proto.snack(&apos;Downloading the list as shown&apos;)"}]'>
+
+  <p class="proto-note"><b>K1 · Verifications (note 20, draft revision 2).</b> One row per visit: an agent's check of one member, and a reviewer's decision. It opens on <b>To review</b>, the visits agents have submitted, oldest first, because that's the office's daily work. Filters: cooperative and agent; search by member name or number.</p>
+  <p class="proto-note"><b>Who does what (note 20):</b> View only reads (<code>kyc.view</code>). Operations and up open verifications and assign agents (<code>kyc.assign</code>), and approve, send back or fail (<code>kyc.review</code>), never on a visit they did themselves. Farmer Support Agents don't see this page: their navigation is <b>My visits</b>.</p>
+  <p class="proto-note"><b>Warnings</b> are the soft checks worked out when the agent submits (note 20): a reused photo, a farm point near another member's verified farm, photos far from the farm, a declared size far from what the agent saw, the ID differing from the cooperative's record.</p>
+  <p class="proto-note proto-gap"><b>G62:</b> drawn from note 20 while it is still a draft, at the owner's request (2026-10-24). Fields, statuses and codes may change at sign-off.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div class="section">
+      <div class="section-toolbar stack">
+        <div class="row gap-3 wrap">
+          <div class="field search"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>
+            <input class="field-input" id="q" type="search" placeholder="Member name or number" aria-label="Search verifications"></div></div>
+          <select class="field-input" id="f-coop" aria-label="Cooperative" style="width:auto"><option value="">All cooperatives</option></select>
+          <select class="field-input" id="f-agent" aria-label="Agent" style="width:auto"><option value="">All agents</option><option value="none">Not assigned</option></select>
+        </div>
+        <div class="chip-row scroll" data-choice role="radiogroup" aria-label="Status" id="f-status">
+          <button class="chip" type="button" role="radio" aria-checked="true" data-s="SUBMITTED">To review</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="OPEN">Open</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="APPROVED">Approved</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="FAILED REVOKED">Failed or revoked</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="CANCELLED">Cancelled</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="">All</button>
+        </div>
+      </div>
+      <div class="section-band">
+        <div class="section-figure lg"><span class="k">To review</span><span class="v" id="b-review"></span></div>
+        <div class="section-figure"><span class="k">Open</span><span class="v" id="b-open"></span></div>
+        <div class="section-figure"><span class="k">Not assigned</span><span class="v" id="b-unassigned"></span></div>
+        <div class="section-figure"><span class="k">Approved in October</span><span class="v" id="b-approved"></span></div>
+      </div>
+      <div class="table-wrap only-wide">
+        <table class="table">
+          <thead><tr><th>Member</th><th>Cooperative</th><th>Agent</th><th>Status</th><th id="h-when">Submitted</th><th class="num">Warnings</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="rowcards only-compact" id="cards"></div>
+      <div class="empty hidden" id="none"><span class="mdi mdi-filter-off-outline" aria-hidden="true"></span><span class="text-title-lg" id="none-title">Nothing to review</span>
+        <span class="text-body-md" id="none-text">Visits appear here when an agent submits them.</span><button class="btn btn-tonal" type="button" onclick="clearFilters()">Show all</button></div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:40px"></div><div class="skeleton-card"></div><div class="skeleton-card" style="height:300px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-shield-check-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No verifications yet</span><span class="text-body-md">Open one from here or from a member's page, once their cooperative has confirmed them. An agent then visits.</span>
+    <button class="btn btn-filled" type="button" data-roles="owner full ops" onclick="openVerification()"><span class="mdi mdi-plus" aria-hidden="true"></span>Open a verification</button></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load verifications</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var K = GF.kyc, U = KycUI, f = GF.fmt, esc = U.esc;
+var coopName = function (id) { return GF.get(id).profile.short_name; };
+var opt = function (v, t) { return '<option value="' + v + '">' + t + "</option>"; };
+document.getElementById("f-coop").insertAdjacentHTML("beforeend", GF.cooperatives.filter(function (c) { return c.status !== "ONBOARDING"; }).map(function (c) { return opt(c.id, c.profile.short_name); }).join(""));
+document.getElementById("f-agent").insertAdjacentHTML("beforeend", K.agents.map(function (a) { return opt(a.id, a.name); }).join(""));
+
+var status = "SUBMITTED";
+var whenOf = function (v) {
+  if (v.status === "SUBMITTED") return v.submitted_at;
+  if (v.status === "OPEN") return v.created_at;
+  if (v.status === "CANCELLED") return (K.historyOf(v.id).slice(-1)[0] || {}).changed_at || v.created_at;
+  return v.reviewed_at;
+};
+var WHEN_HEAD = { SUBMITTED: "Submitted", OPEN: "Opened", APPROVED: "Approved", "FAILED REVOKED": "Decided", CANCELLED: "Cancelled", "": "Last change" };
+function agentCell(v) {
+  if (v.agent) return esc(K.staffName(v.agent));
+  return '<span class="tone-muted">Not assigned</span>';
+}
+function rowNote(v) {
+  var back = K.sentBack(v);
+  if (v.status === "OPEN" && back) return "Sent back " + f.date(back.changed_at, "short");
+  if (v.status === "FAILED" || v.status === "REVOKED") return K.L.failure[v.failure_reason];
+  return "";
+}
+function draw() {
+  var term = document.getElementById("q").value.trim().toLowerCase(), coop = document.getElementById("f-coop").value, agent = document.getElementById("f-agent").value;
+  var list = K.visits.filter(function (v) {
+    var m = GF.get(v.member);
+    return (!status || status.split(" ").indexOf(v.status) > -1) && (!coop || m.cooperative === coop) &&
+      (!agent || (agent === "none" ? !v.agent : v.agent === agent)) && (!term || (m.full_name + " " + m.member_no).toLowerCase().indexOf(term) > -1);
+  }).sort(function (a, b) {
+    var x = whenOf(a), y = whenOf(b);
+    return status === "SUBMITTED" ? (x < y ? -1 : 1) : (x < y ? 1 : -1);
+  });
+  var all = K.visits;
+  document.getElementById("b-review").textContent = all.filter(function (v) { return v.status === "SUBMITTED"; }).length;
+  document.getElementById("b-open").textContent = all.filter(function (v) { return v.status === "OPEN"; }).length;
+  document.getElementById("b-unassigned").textContent = all.filter(function (v) { return v.status === "OPEN" && !v.agent; }).length;
+  document.getElementById("b-approved").textContent = all.filter(function (v) { return v.status === "APPROVED" && v.reviewed_at.slice(0, 7) === "2026-10"; }).length;
+  document.getElementById("h-when").textContent = WHEN_HEAD[status];
+  var url = function (v) { return "visit.html?v=" + v.id; };
+  document.getElementById("rows").innerHTML = list.map(function (v) {
+    var m = GF.get(v.member), w = v.notes.warnings.length, note = rowNote(v);
+    return '<tr onclick="location.href=\'' + url(v) + '\'"><td class="primary-cell"><a href="' + url(v) + '" style="color:inherit;text-decoration:none">' + esc(m.full_name) + '</a><span class="cell-sub tabular">' + m.member_no + "</span></td>" +
+      "<td>" + esc(coopName(m.cooperative)) + "</td><td>" + agentCell(v) + "</td><td>" + U.chip(K.L.visitStatus[v.status]) + (note ? '<span class="cell-sub">' + esc(note) + "</span>" : "") + "</td>" +
+      '<td class="tabular">' + U.when(whenOf(v)) + '</td><td class="num">' + (w ? '<span class="tone-error">' + w + "</span>" : "–") + "</td></tr>";
+  }).join("");
+  document.getElementById("cards").innerHTML = list.map(function (v) {
+    var m = GF.get(v.member), w = v.notes.warnings.length, note = rowNote(v);
+    return '<a class="rowcard" href="' + url(v) + '"><span class="grow"><span class="text-body-lg">' + esc(m.full_name) + '</span><span class="text-body-md tone-muted">' +
+      esc(coopName(m.cooperative)) + " · " + (v.agent ? esc(K.staffName(v.agent)) : "Not assigned") + (note ? " · " + esc(note) : "") + "</span></span>" +
+      '<span class="trail">' + U.chip(K.L.visitStatus[v.status]) + '<span class="text-body-sm tone-muted tabular">' + f.date(whenOf(v), "short") + (w ? " · " + w + " warning" + (w > 1 ? "s" : "") : "") + "</span></span></a>";
+  }).join("");
+  var none = document.getElementById("none");
+  none.classList.toggle("hidden", list.length > 0);
+  document.getElementById("none-title").textContent = status === "SUBMITTED" && !term && !coop && !agent ? "Nothing to review" : "No verification matches";
+  document.getElementById("none-text").textContent = status === "SUBMITTED" && !term && !coop && !agent ? "Visits appear here when an agent submits them." : "Try another status, or clear the filters.";
+}
+function clearFilters() {
+  ["q", "f-coop", "f-agent"].forEach(function (id) { document.getElementById(id).value = ""; });
+  status = ""; document.querySelectorAll("#f-status .chip").forEach(function (c) { c.setAttribute("aria-checked", String(c.getAttribute("data-s") === "")); }); draw();
+}
+document.querySelectorAll("#f-status .chip").forEach(function (chip) { chip.addEventListener("click", function () { status = chip.getAttribute("data-s"); draw(); }); });
+["f-coop", "f-agent"].forEach(function (id) { document.getElementById(id).addEventListener("change", draw); });
+document.getElementById("q").addEventListener("input", draw);
+draw();
+
+/* K2 · Open a verification (note 20: kyc.assign). Only ACTIVE members with no
+ * OPEN or SUBMITTED visit can be picked; the cooperative must have confirmed them. */
+function openVerification() {
+  var live = K.visits.filter(function (v) { return v.status === "OPEN" || v.status === "SUBMITTED"; }).map(function (v) { return v.member; });
+  var el = Proto.dialog({
+    title: "Open a verification",
+    body: '<p class="text-body-md tone-muted">An agent visits the member, checks their ID and farms, and goes through what they declared. Someone else here then reviews it.</p>' +
+      '<div class="field combo"><label class="field-label" for="ov-q">Member</label><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>' +
+      '<input class="field-input" id="ov-q" type="search" autocomplete="off" placeholder="Name, member number or ID" role="combobox" aria-controls="ov-list"></div><div class="combo-list" id="ov-list" role="listbox" hidden></div>' +
+      '<span class="field-help" id="ov-help">Active members of any cooperative. A member with a visit already open or waiting for review isn\'t offered.</span></div>' +
+      '<div class="field"><label class="field-label" for="ov-agent">Agent (optional)</label><select class="field-input" id="ov-agent"><option value="">Assign later</option>' +
+      K.agents.map(function (a) { return opt(a.id, a.name + " · " + GF.get(a.area).name); }).join("") + "</select>" +
+      '<span class="field-help">The agent gets a notice and the visit appears in their list.</span></div>',
+    submit: "Open verification",
+    onSubmit: function (d) {
+      var picked = d.getAttribute("data-member"), a = d.querySelector("#ov-agent").value;
+      if (!picked) return Proto.snack("Pick a member first");
+      Proto.snack("Verification opened for " + GF.get(picked).full_name + (a ? ", assigned to " + K.staffName(a) : ""));
+    }
+  });
+  var input = el.querySelector("#ov-q"), listEl = el.querySelector("#ov-list");
+  input.addEventListener("input", function () {
+    var t = input.value.trim().toLowerCase();
+    if (t.length < 2) { listEl.hidden = true; return; }
+    var found = GF.members.filter(function (m) {
+      return (m.full_name.toLowerCase().indexOf(t) > -1 || m.member_no.toLowerCase() === t || m.id_number.indexOf(t) > -1);
+    }).slice(0, 6);
+    listEl.innerHTML = found.length ? found.map(function (m) {
+      var why = m.status !== "ACTIVE" ? "Not active (" + m.status.toLowerCase() + ")" : live.indexOf(m.id) > -1 ? "Has a visit open" : GF.get(m.cooperative).status !== "ACTIVE" ? "Cooperative isn't active" : "";
+      return '<div class="combo-item" role="option" data-id="' + m.id + '"' + (why ? ' aria-disabled="true" style="opacity:.55;cursor:default"' : "") + '><span class="grow"><span class="text-body-lg">' + esc(m.full_name) +
+        '</span><span class="text-body-sm tone-muted tabular">' + m.member_no + " · " + esc(coopName(m.cooperative)) + (why ? " · " + why : "") + "</span></span></div>";
+    }).join("") : '<div class="combo-item"><span class="text-body-md tone-muted">No member matches.</span></div>';
+    listEl.hidden = false;
+  });
+  listEl.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-id]");
+    if (!b || b.getAttribute("aria-disabled")) return;
+    var m = GF.get(b.getAttribute("data-id"));
+    el.setAttribute("data-member", m.id);
+    input.value = m.full_name + " · " + m.member_no;
+    listEl.hidden = true;
+    el.querySelector("#ov-help").textContent = coopName(m.cooperative) + (m.cluster ? ", " + GF.get(m.cluster).name + " cluster" : "") + " · phone " + f.phone(m.phone);
+  });
+}
+if (new URLSearchParams(location.search).get("open")) document.addEventListener("DOMContentLoaded", function () { setTimeout(openVerification, 50); });
+</script>
+</body>
+</html>

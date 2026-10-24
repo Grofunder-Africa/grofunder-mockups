@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="../../assets/tokens.css">
 <link rel="stylesheet" href="../../assets/kit.css">
 <script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
 <script src="../assets/app.js"></script>
 <script src="../assets/nav.js" defer></script>
 <script src="../../assets/proto.js" defer></script>
@@ -47,6 +48,13 @@
       <div class="section-header"><div class="grow"><span class="text-title-lg">Your memberships</span>
         <span class="text-body-md tone-muted" id="m-count"></span></div></div>
       <div class="col gap-4" id="memberships"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">Verification</span></div></div>
+      <div class="list rowcards">
+        <a class="rowcard" href="../kyc/index.html"><span class="mdi mdi-shield-check-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Get verified for loans</span><span class="text-body-md tone-muted" id="kyc-line"></span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
+      </div>
     </section>
 
     <section class="section">
@@ -94,6 +102,15 @@ document.getElementById("staff-facts").innerHTML =
   dd("Gender", GENDER[me.gender] || "–");
 document.getElementById("phone-line").textContent = f.phone(login.phone);
 document.getElementById("terms-line").textContent = "Accepted on " + f.date(login.date_joined);
+/* MK1 entry (phase 11, note 20 draft): where the member's KYC stands, in one line. */
+(function () {
+  var K = GF.kyc, live = K.liveVisit(me.id), last = K.visitsOf(me.id)[0], has = K.current(me.id).length;
+  document.getElementById("kyc-line").textContent = K.standing(me.id).verified ? "You're verified"
+    : live && live.status === "SUBMITTED" ? "Visit done " + f.date(live.notes.visit.met_at, "short") + " · being reviewed"
+    : live ? "Visit booked with " + K.staffName(live.agent)
+    : last && last.status === "FAILED" ? "Your last visit couldn't confirm everything"
+    : has ? "Your details are in · no visit yet" : "Tell GroFunder about your farm and money";
+})();
 
 /* Each linked record: open (ACTIVE) ones show their facts; a suspended one is listed only. */
 document.getElementById("m-count").textContent = A.records.length + " cooperatives, on one login";

@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Verification · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../assets/console.js"></script>
+<script src="kyc-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Verification" data-dest="kyc" data-wide data-back="index.html" id="screen">
+
+  <p class="proto-note"><b>K3 · Verification (note 20, draft revision 2).</b> One visit and the member's KYC items, in tabs by kind of information (owner's review, UI-62): Summary (the decision, what lending needs, the visit), Identification, Farms and crops, Income and loans, Next of kin and home, Visit and history. A tab with a warning carries a warning mark; a warning's "See it" opens its tab. <code>?tab=farms</code> opens a tab directly. Each item says where its value came from (the member, the agent, the ID document, the cooperative's delivery records) and what a check found. An agent's correction replaces the member's item; the member's version stays, marked <b>Differs</b>, so the reviewer sees both.</p>
+  <p class="proto-note"><b>"Checked, to approve"</b>: the agent marked it verified on this visit; it counts only once the visit is approved, and then for as long as its type allows (ID until replaced, portrait 24 months, phone and farms 12). Declared-only items (background, income, loans and payments, next of kin) stay <b>Declared</b>; the agent went through them with the member.</p>
+  <p class="proto-note"><b>Deciding (K4):</b> Approve, Send back (reason, back to the agent's list) or Fail (failure reason and reason). Never by the agent who did the visit: the database refuses it (note 20, maker-checker). Approval waits while the ID document differs from the cooperative's record; the cooperative corrects its record (note 05), and KYC never edits the member. An approved visit can be revoked later, which takes its checks with it.</p>
+  <p class="proto-note"><b>Try:</b> <a href="?v=v-101">v-101 to review, two warnings</a> · <a href="?v=v-105">v-105 blocked by the record</a> · <a href="?v=v-103">v-103 sent back</a> · <a href="?v=v-102">v-102 open, half done</a> · <a href="?v=v-108">v-108 not assigned</a> · <a href="?v=v-104">v-104 approved</a> · <a href="?v=v-107">v-107 failed</a> · <a href="?v=v-109">v-109 cancelled</a></p>
+  <p class="proto-note proto-gap"><b>F60, F61:</b> map points and photos are placeholders. The kit has neither a map point view nor a photo tile that carries its capture time and place.</p>
+  <p class="proto-note proto-gap"><b>G62:</b> drawn from note 20 while it is still a draft, at the owner's request (2026-10-24).</p>
+
+  <div data-state="loaded" class="col gap-4" data-tabset id="page">
+    <div id="head"></div>
+    <div id="banners" class="col gap-4"></div>
+    <div class="subnav" role="tablist" aria-label="Member's details" id="tabs"></div>
+    <div data-panel="summary" class="col gap-4" id="p-summary"></div>
+    <div data-panel="identity" class="col gap-4 hidden" id="p-identity"></div>
+    <div data-panel="farms" class="col gap-4 hidden" id="p-farms"></div>
+    <div data-panel="money" class="col gap-4 hidden" id="p-money"></div>
+    <div data-panel="contacts" class="col gap-4 hidden" id="p-contacts"></div>
+    <div data-panel="history" class="col gap-4 hidden" id="p-history"></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:72px"></div><div class="two-col"><div class="col gap-4"><div class="skeleton-card" style="height:220px"></div><div class="skeleton-card" style="height:320px"></div></div><div class="skeleton-card" style="height:300px"></div></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load this verification</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var K = GF.kyc, U = KycUI, f = GF.fmt, esc = U.esc, icon = U.icon;
+var v = K.get(new URLSearchParams(location.search).get("v")) || K.get("v-101");
+var m = GF.get(v.member), coop = GF.get(m.cooperative), first = m.full_name.split(" ")[0];
+var screen = document.getElementById("screen");
+var REVIEW = "owner full ops", ASSIGN = "owner full ops";
+var differs = K.recordDiffers(m.id);
+var blocked = v.status === "SUBMITTED" && differs.length > 0;
+
+screen.setAttribute("data-title", m.full_name);
+screen.setAttribute("data-sub", "Verification · " + coop.profile.short_name);
+/* The page's main action follows the status (UI-13: the frequent action is visible). */
+if (v.status === "SUBMITTED") screen.setAttribute("data-action", JSON.stringify({ label: "Approve", icon: "check", roles: REVIEW, on: "approve()" }));
+if (v.status === "OPEN") screen.setAttribute("data-action", JSON.stringify({ label: v.agent ? "Reassign" : "Assign an agent", icon: "account-arrow-right-outline", roles: ASSIGN, on: "assign()", variant: v.agent ? "btn-tonal" : "btn-filled" }));
+var menu = [];
+/* From any tab: the other two decisions (Approve is the main action). */
+if (v.status === "SUBMITTED") menu.push({ label: "Send back", icon: "undo-variant", roles: REVIEW, on: "decide('back')" }, { label: "Fail", icon: "close-octagon-outline", roles: REVIEW, on: "decide('fail')" });
+if (v.status === "OPEN" || v.status === "SUBMITTED") menu.push({ label: "Cancel this verification", icon: "close-circle-outline", roles: ASSIGN, on: "cancelVisit()", destructive: true });
+if (v.status === "APPROVED") menu.push({ label: "Revoke the approval", icon: "shield-remove-outline", roles: REVIEW, on: "decide('revoke')", destructive: true });
+if (v.status === "FAILED" || v.status === "CANCELLED" || v.status === "REVOKED") menu.push({ label: "Open a new verification", icon: "plus", roles: ASSIGN, on: "Proto.snack('Verification opened for " + esc(m.full_name) + "')" });
+if (menu.length) screen.setAttribute("data-menu", JSON.stringify(menu));
+
+/* ------------------------------------------------------------ header */
+function header() {
+  var vis = v.notes.visit, back = K.sentBack(v);
+  var line = [m.member_no, coop.profile.short_name, m.cluster ? GF.get(m.cluster).name + " cluster" : "", m.status === "ACTIVE" ? "" : "member " + m.status.toLowerCase()].filter(Boolean).join(" · ");
+  var facts = [
+    ["Agent", v.agent ? esc(K.staffName(v.agent)) : '<span class="tone-muted">Not assigned yet</span>'],
+    ["Opened", U.when(v.created_at) + " by " + esc(K.staffName(v.created_by))],
+    ["Met", vis ? U.when(vis.met_at) + " · " + K.L.place[vis.place].toLowerCase() : '<span class="tone-muted">Not yet</span>'],
+    ["Submitted", v.submitted_at ? U.when(v.submitted_at) + (v.status === "OPEN" && back ? " (sent back " + f.date(back.changed_at, "short") + ")" : "") : '<span class="tone-muted">Not yet</span>']
+  ];
+  if (v.reviewed_at) facts.push([v.status === "APPROVED" ? "Approved" : v.status === "REVOKED" ? "Revoked" : "Decided", U.when(v.reviewed_at) + " by " + esc(K.staffName(v.reviewed_by))]);
+  return '<div class="section"><div class="section-body">' +
+    '<div class="row gap-2 wrap">' + U.chip(K.L.visitStatus[v.status]) + (v.failure_reason ? U.chip(["error", K.L.failure[v.failure_reason]]) : "") + "</div>" +
+    '<span class="text-body-md tone-muted tabular">' + esc(line) + " · phone " + f.phone(m.phone) + "</span>" +
+    '<dl class="facts">' + facts.map(function (x) { return "<dt>" + x[0] + "</dt><dd>" + x[1] + "</dd>"; }).join("") + "</dl></div></div>";
+}
+
+/* ----------------------------------------------------------- banners */
+function banners() {
+  var out = "", back = K.sentBack(v);
+  if (blocked) out += '<div class="banner banner-error">' + icon("card-account-details-outline") + '<div class="grow"><span class="text-title-sm">Approval waits for ' + esc(coop.profile.short_name) + "</span>" +
+    '<span class="text-body-md">The ' + differs.join(" and ") + " on the ID document " + (differs.length > 1 ? "don't" : "doesn't") + " match the cooperative's record. The cooperative corrects its record; KYC never changes it. Once it matches, approve.</span>" +
+    '<div class="banner-actions"><button class="btn btn-text" type="button" onclick="Proto.snack(\'Notice sent to ' + esc(coop.profile.short_name) + '\\\'s administrators\')">Ask the cooperative to correct it</button></div></div></div>';
+  if (v.notes.warnings.length && v.status === "SUBMITTED") out += '<div class="banner banner-warning">' + icon("alert-outline") + '<div class="grow"><span class="text-title-sm">' + v.notes.warnings.length + " warning" + (v.notes.warnings.length > 1 ? "s" : "") + " from the checks on submission</span>" +
+    '<ul class="text-body-md" style="margin:4px 0 0;padding-left:20px">' + v.notes.warnings.map(function (w) { return '<li>' + esc(w.message) + ' <a href="#' + w.item + '">See it</a></li>'; }).join("") + "</ul></div></div>";
+  if (v.status === "OPEN" && back) out += '<div class="banner banner-info">' + icon("undo-variant") + '<div class="grow"><span class="text-title-sm">Sent back to ' + esc(K.staffName(v.agent)) + " on " + f.date(back.changed_at, "short") + " by " + esc(K.staffName(back.changed_by)) + '</span><span class="text-body-md">"' + esc(back.reason) + '"</span></div></div>';
+  if (v.status === "OPEN" && !v.agent) out += '<div class="banner banner-info">' + icon("account-question-outline") + '<div class="grow"><span class="text-body-md">No agent yet. Assign one who covers ' + esc(GF.get(GF.get(coop.area).county || coop.area).name) + ".</span>" +
+    '<div class="banner-actions" data-roles="' + ASSIGN + '"><button class="btn btn-text" type="button" onclick="assign()">Assign an agent</button></div></div></div>';
+  if (v.status === "FAILED" || v.status === "REVOKED") out += '<div class="banner banner-error">' + icon("close-octagon-outline") + '<div class="grow"><span class="text-title-sm">' + K.L.failure[v.failure_reason] + '</span><span class="text-body-md">"' + esc(v.notes.review_note) + '"</span></div></div>';
+  if (v.status === "CANCELLED") { var c = K.historyOf(v.id).slice(-1)[0]; out += '<div class="banner banner-info">' + icon("close-circle-outline") + '<div class="grow"><span class="text-body-md">Cancelled ' + f.date(c.changed_at) + " by " + esc(K.staffName(c.changed_by)) + ': "' + esc(c.reason) + '"</span></div></div>'; }
+  if (v.status === "APPROVED") out += '<div class="banner banner-success">' + icon("shield-check-outline") + '<div class="grow"><span class="text-body-md">Approved ' + f.date(v.reviewed_at) + " by " + esc(K.staffName(v.reviewed_by)) + (v.notes.review_note ? ': "' + esc(v.notes.review_note) + '"' : "") + ". " +
+    (K.standing(m.id).verified ? first + " is verified for lending today." : first + " isn't verified for lending today: see What lending needs.") + "</span></div></div>";
+  return out;
+}
+
+/* ------------------------------------------------------------- items */
+function earlier(it) { return K.items.filter(function (x) { return x.id === it.replaces; })[0]; }
+function itemRow(it, opts) {
+  opts = opts || {};
+  var s = U.summary(it), x = it.details || {}, prev = earlier(it);
+  var place = it.data_type === "FARM" ? U.mapPoint(it.data.lat, it.data.lng, x.accuracy_m || "–", it.source === "AGENT" ? "Taken on the farm" : "Pinned by the member") :
+    it.data_type === "HOME" && x.lat ? U.mapPoint(x.lat, x.lng, x.accuracy_m, "Taken at the home") : "";
+  var flag = -1;
+  v.notes.warnings.forEach(function (w) { if (w.item === it.id && w.code === "PHOTO_DISTANCE") flag = 1; });
+  var canReject = K.counts(it) && it.source !== "COOPERATIVE_RECORD";
+  return '<div class="col gap-2" id="' + it.id + '" style="padding:12px 0;border-top:var(--hairline)">' +
+    '<div class="row between gap-2 row-top"><span class="col gap-1 grow" style="min-width:0"><span class="text-body-lg">' + esc(s.title) + "</span>" +
+    (s.sub ? '<span class="text-body-md tone-muted">' + esc(s.sub) + "</span>" : "") + "</span>" +
+    '<span class="row gap-1">' + U.itemChip(it) + (canReject ? '<button class="icon-btn" type="button" data-roles="' + REVIEW + '" aria-label="More for this item" onclick="itemMenu(this,\'' + it.id + '\')">' + icon("dots-vertical") + "</button>" : "") + "</span></div>" +
+    '<span class="text-body-sm tone-muted">' + esc(U.sourceLine(it)) + (U.validity(it) ? " · " + U.validity(it) : "") + "</span>" +
+    (x.check_note ? '<span class="text-body-md">' + icon("comment-quote-outline", "tone-muted") + " " + esc(x.check_note) + "</span>" : "") +
+    (prev ? '<div class="tone-warning-box col gap-1" style="padding:8px 12px;border-radius:4px"><span class="text-label-md">' + (prev.status === "DIFFERS" ? "Replaces what the member declared, which differs" : "Replaces the member's version, found right") + "</span>" +
+      '<span class="text-body-md' + (prev.status === "DIFFERS" ? " struck" : "") + '">' + esc(U.summary(prev).title) + " · " + esc(U.summary(prev).sub) + "</span>" +
+      '<span class="text-body-sm tone-muted">' + esc(U.sourceLine(prev)) + "</span></div>" : "") +
+    place + U.photos(it, flag) + "</div>";
+}
+function identityCompare(it) {
+  if (!it) return "";
+  var rows = [["ID number", it.data.id_number, m.id_number], ["Name", it.data.full_name, m.full_name], ["Born", it.data.date_of_birth ? f.date(it.data.date_of_birth) : "–", m.date_of_birth ? f.date(m.date_of_birth) : "–"]];
+  return '<div class="table-wrap"><table class="table"><thead><tr><th></th><th>On the ID</th><th>' + esc(coop.profile.short_name) + "'s record</th></tr></thead><tbody>" +
+    rows.map(function (r) { var bad = r[1] !== r[2]; return "<tr><td>" + r[0] + '</td><td class="tabular' + (bad ? " tone-error" : "") + '">' + esc(r[1]) + (bad ? " " + icon("alert-circle-outline") : "") + '</td><td class="tabular">' + esc(r[2]) + "</td></tr>"; }).join("") +
+    "</tbody></table></div>";
+}
+function typeSection(t) {
+  var T = K.TYPES[t], cur = K.current(m.id, t), bg = K.background(m.id);
+  var none = !cur.length && (t === "INCOME" || t === "OBLIGATION") && bg && bg.details[t === "INCOME" ? "has_other_income" : "has_obligations"] === false;
+  var body = cur.length ? cur.map(function (it) { return itemRow(it); }).join("") :
+    '<p class="text-body-md tone-muted" style="margin:0;padding:12px 0;border-top:var(--hairline)">' + (none ? "None, the member says." : T.need === "NONE" ? "Not taken." : "Nothing yet.") + "</p>";
+  if (t === "IDENTITY") body = identityCompare(cur[0]) + body;
+  var row = K.standing(m.id).rows.find(function (r) { return r.type === t; });
+  return '<div class="section"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">' + T.label + '</span><span class="text-body-sm tone-muted">' + U.needText(t) +
+    (T.verify ? " · verified by " + T.verify.charAt(0).toLowerCase() + T.verify.slice(1) : " · can't be verified yet") + "</span></div>" +
+    (T.need === "NONE" ? "" : row.ok ? '<span class="text-body-sm tone-muted">' + icon("check", "tone-primary") + " Met</span>" : '<span class="text-body-sm tone-muted">' + icon("circle-outline") + " Not met yet</span>") + "</div>" + body + "</div></div>";
+}
+
+/* ----------------------------------------------------------- sidebar */
+function needs() {
+  var st = K.standing(m.id);
+  return '<div class="section"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">What lending needs</span><span class="text-body-sm tone-muted">As things stand today; checks on this visit count once it is approved</span></div></div>' +
+    '<div class="rowcards">' + st.rows.filter(function (r) { return K.TYPES[r.type].need !== "NONE"; }).map(function (r) {
+      return '<a class="rowcard" href="#sec-' + r.type + '" style="padding-left:0;padding-right:0">' + icon(r.ok ? "check-circle-outline" : "circle-outline", r.ok ? "tone-primary" : "tone-muted") +
+        '<span class="grow"><span class="text-body-md">' + K.TYPES[r.type].label + '</span><span class="text-body-sm tone-muted">' + U.needText(r.type) + "</span></span></a>";
+    }).join("") + "</div>" +
+    '<span class="text-body-md">' + (st.verified ? icon("shield-check-outline", "tone-primary") + " " + esc(first) + " is verified for lending." : icon("shield-outline", "tone-muted") + " " + esc(first) + " isn't verified for lending yet.") + "</span></div></div>";
+}
+function timeline() {
+  return '<div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">Timeline</span><div class="rowcards">' + K.historyOf(v.id).slice().reverse().map(function (h) {
+    var label = !h.from_status ? "Opened" : h.to_status === "OPEN" ? "Sent back" : K.L.visitStatus[h.to_status][1];
+    return '<div class="rowcard" style="padding-left:0;padding-right:0">' + U.chip(K.L.visitStatus[h.to_status === "OPEN" && h.from_status ? "OPEN" : h.to_status]) +
+      '<span class="grow"><span class="text-body-md">' + label + (h.reason ? ': "' + esc(h.reason) + '"' : "") + '</span><span class="text-body-sm tone-muted">' + U.when(h.changed_at) + " · " + esc(K.staffName(h.changed_by)) + "</span></span></div>";
+  }).join("") + "</div></div></div>";
+}
+function otherVisits() {
+  var others = K.visitsOf(m.id).filter(function (x) { return x.id !== v.id; });
+  if (!others.length) return "";
+  return '<div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">Other visits</span><div class="rowcards">' + others.map(function (x) {
+    return '<a class="rowcard" href="?v=' + x.id + '">' + U.chip(K.L.visitStatus[x.status]) + '<span class="grow text-body-md">' + f.date(x.created_at) + "</span></a>";
+  }).join("") + "</div></div></div>";
+}
+function decision() {
+  if (v.status !== "SUBMITTED") return "";
+  return '<div class="section" data-roles="' + REVIEW + '"><div class="section-body" style="gap:12px"><span class="text-title-md">Your decision</span>' +
+    '<span class="text-body-md tone-muted">' + esc(K.staffName(v.agent)) + " did this visit, so " + esc(K.staffName(v.agent).split(" ")[0]) + " can't decide it.</span>" +
+    '<div class="actions actions-start wrap"><button class="btn btn-filled" type="button" onclick="approve()">' + icon("check") + "Approve</button>" +
+    '<button class="btn btn-outlined" type="button" onclick="decide(\'back\')">Send back</button>' +
+    '<button class="btn btn-outlined tone-error" type="button" onclick="decide(\'fail\')">Fail</button></div></div></div>';
+}
+
+/* Tabs by kind of information (owner's review, 2026-10-24: "farm details on one
+ * tab, identification details on another"). Summary holds the decision. */
+var TABS = [
+  ["summary", "Summary", []],
+  ["identity", "Identification", ["IDENTITY", "PORTRAIT", "PHONE"]],
+  ["farms", "Farms and crops", ["FARM", "CROP"]],
+  ["money", "Income and loans", ["BACKGROUND", "INCOME", "OBLIGATION"]],
+  ["contacts", "Next of kin and home", ["NEXT_OF_KIN", "HOME"]],
+  ["history", "Visit and history", []]
+];
+var tabOf = function (type) { var t = TABS.find(function (x) { return x[2].indexOf(type) > -1; }); return t ? t[0] : "summary"; };
+var warnedTabs = v.status === "SUBMITTED" ? v.notes.warnings.map(function (w) { var it = K.get(w.item); return it ? tabOf(it.data_type) : "summary"; }) : [];
+if (blocked) warnedTabs.push("identity");
+
+document.getElementById("head").innerHTML = header();
+document.getElementById("banners").innerHTML = banners();
+document.getElementById("tabs").innerHTML = TABS.map(function (t, i) {
+  var warn = warnedTabs.indexOf(t[0]) > -1;
+  return '<button class="subnav-item" type="button" role="tab" data-tab="' + t[0] + '" aria-selected="' + (i === 0) + '">' + t[1] +
+    (warn ? " " + icon("alert-outline", "tone-error") : "") + "</button>";
+}).join("");
+function visitCard() {
+  var vis = v.notes.visit;
+  if (!vis) return '<div class="section"><div class="section-body"><span class="text-title-md">The visit</span><p class="text-body-md tone-muted" style="margin:0">' + (v.agent ? esc(K.staffName(v.agent)) + " hasn't met " + esc(first) + " yet." : "No agent assigned yet.") + "</p></div></div>";
+  return '<div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">The visit</span>' +
+    '<dl class="facts"><dt>Met</dt><dd>' + U.when(vis.met_at) + " · " + K.L.place[vis.place].toLowerCase() + "</dd><dt>Where</dt><dd>" + esc(vis.where || "–") + "</dd>" +
+    "<dt>Declared details</dt><dd>" + (v.notes.went_through_declared ? "Gone through with " + esc(first) : "Not yet gone through") + "</dd></dl>" +
+    U.mapPoint(vis.lat, vis.lng, vis.accuracy_m, "Where they met") + "</div></div>";
+}
+function summaryTab() {
+  return decision() + needs() + (v.status === "OPEN" || v.status === "SUBMITTED" ? visitCard() : "");
+}
+document.getElementById("p-summary").innerHTML = summaryTab();
+TABS.forEach(function (t) {
+  if (!t[2].length) return;
+  document.getElementById("p-" + t[0]).innerHTML = t[2].map(function (type) { return '<div id="sec-' + type + '">' + typeSection(type) + "</div>"; }).join("");
+});
+document.getElementById("p-history").innerHTML = visitCard() + timeline() + otherVisits();
+
+/* Open a tab from a link (?tab=farms), a warning's "See it", or a row of
+ * "What lending needs"; then scroll to the item. */
+function goTab(id, anchor) {
+  var b = document.querySelector('#tabs [data-tab="' + id + '"]');
+  if (b) b.click();
+  if (anchor) setTimeout(function () { var el = document.getElementById(anchor); if (el) el.scrollIntoView({ block: "start" }); }, 0);
+}
+document.getElementById("page").addEventListener("click", function (e) {
+  var a = e.target.closest ? e.target.closest('a[href^="#"]') : null;
+  if (!a) return;
+  var id = a.getAttribute("href").slice(1), it = K.get(id);
+  e.preventDefault();
+  goTab(it ? tabOf(it.data_type) : tabOf(id.replace(/^sec-/, "")), id);
+});
+var askedTab = new URLSearchParams(location.search).get("tab");
+if (askedTab) document.addEventListener("DOMContentLoaded", function () { setTimeout(function () { goTab(askedTab); }, 0); });
+
+/* ------------------------------------------------------------ actions */
+function approve() {
+  if (blocked) return Proto.confirm({ title: "Not yet", message: "The " + differs.join(" and ") + " on " + first + "'s ID don't match " + coop.profile.short_name + "'s record. Ask the cooperative to correct its record, then approve.", confirm: "OK", cancel: "Close" });
+  var checked = K.ofVisit(v.id).filter(function (i) { return i.status === "VERIFIED"; });
+  Proto.confirm({ title: "Approve " + first + "'s verification?",
+    message: checked.length + " checks from this visit start to count today: the ID until it's replaced, the photo for 24 months, the phone and farms for 12. " + esc(K.staffName(v.agent)) + " and " + first + " are told by SMS.",
+    body: '<div class="field"><label class="field-label" for="rn">Note (optional)</label><textarea class="field-input" id="rn" placeholder="Kept with the decision"></textarea></div>',
+    confirm: "Approve", onConfirm: function () { Proto.snack(first + "'s verification approved"); } });
+}
+function decide(kind) {
+  var fail = kind === "fail" || kind === "revoke";
+  Proto.dialog({
+    title: { back: "Send back to " + K.staffName(v.agent), fail: "Fail this verification", revoke: "Revoke the approval" }[kind],
+    body: '<p class="text-body-md tone-muted">' + { back: "It returns to the agent's list with your reason. Nothing they checked is lost.", fail: first + "'s checks from this visit won't count. A new verification can be opened later.", revoke: "Every check this visit approved stops counting at once. Loans already made aren't changed." }[kind] + "</p>" +
+      (fail ? '<div class="field"><label class="field-label" for="fr">Why</label><select class="field-input" id="fr">' + Object.keys(K.L.failure).map(function (k) { return '<option value="' + k + '">' + K.L.failure[k] + "</option>"; }).join("") + "</select></div>" : "") +
+      '<div class="field"><label class="field-label" for="why">' + (kind === "back" ? "What to do" : "Reason") + '</label><textarea class="field-input" id="why" placeholder="' + (kind === "back" ? "The agent sees this" : "Shown on the verification") + '"></textarea></div>',
+    submit: { back: "Send back", fail: "Fail", revoke: "Revoke" }[kind],
+    onSubmit: function () { Proto.snack({ back: "Sent back to " + K.staffName(v.agent), fail: "Verification failed", revoke: "Approval revoked" }[kind]); }
+  });
+}
+function assign() {
+  Proto.dialog({ title: v.agent ? "Reassign this visit" : "Assign an agent",
+    body: '<p class="text-body-md tone-muted">' + (v.agent ? "What " + esc(K.staffName(v.agent)) + " has taken so far stays with the visit." : "The agent gets a notice and the visit appears in their list.") + "</p>" +
+      '<div class="field"><label class="field-label" for="ag">Agent</label><select class="field-input" id="ag">' + K.agents.map(function (a) { return '<option value="' + a.id + '"' + (a.id === v.agent ? " selected" : "") + ">" + a.name + " · covers " + GF.get(a.area).name + "</option>"; }).join("") + "</select></div>",
+    submit: v.agent ? "Reassign" : "Assign", onSubmit: function (d) { Proto.snack("Assigned to " + K.staffName(d.querySelector("#ag").value)); } });
+}
+function cancelVisit() {
+  Proto.dialog({ title: "Cancel this verification?", body: '<p class="text-body-md tone-muted">Nothing taken so far counts. The agent is told.</p><div class="field"><label class="field-label" for="why">Reason</label><textarea class="field-input" id="why" placeholder="For example, the member has left the cooperative"></textarea></div>',
+    submit: "Cancel verification", onSubmit: function () { Proto.snack("Verification cancelled"); } });
+}
+function itemMenu(btn, id) {
+  Proto.menu(btn, { heading: "This item", items: [{ label: "Reject this item", icon: "close-octagon-outline", destructive: true, onSelect: "rejectItem('" + id + "')" }] });
+}
+function rejectItem(id) {
+  Proto.dialog({ title: "Reject this item?", body: '<p class="text-body-md tone-muted">For something found false after it was verified, such as a borrowed farm. Its check stops counting; the rest of the verification stands.</p><div class="field"><label class="field-label" for="why">Reason</label><textarea class="field-input" id="why"></textarea></div>',
+    submit: "Reject", onSubmit: function () { Proto.snack("Item rejected"); } });
+}
+</script>
+</body>
+</html>

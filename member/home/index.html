@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="../../assets/tokens.css">
 <link rel="stylesheet" href="../../assets/kit.css">
 <script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
 <script src="../assets/app.js"></script>
 <script src="../assets/nav.js" defer></script>
 <script src="../../assets/proto.js" defer></script>
@@ -21,6 +22,7 @@
 
   <p class="proto-note"><b>M5 · Home (notes 05, 06, 07, 08; UI-18).</b> One cooperative at a time: the one in the app bar. This month's deliveries and their value, what's been paid and what's still owed, the next collection, today's prices (07: members see current prices), then the latest deliveries and payments.</p>
   <p class="proto-note"><b>M6 · Switch</b> (F8) lists the member's own records, one per cooperative, from one login (06). A suspended record is listed but can't be opened: a member sees their ACTIVE records (05). <b>M8 · Collection times</b> opens as a panel: the rounds for the member's cluster (07).</p>
+  <p class="proto-note"><b>KYC prompt (note 20, "How members are led to KYC"; UI-62).</b> "Get verified for loans" shows while the record shown is ACTIVE, nothing has been declared and no visit is open or submitted. It goes once the member declares anything or a visit opens. In the data that's Wanjiku's Mawingu record: switch to it.</p>
   <p class="proto-note"><b>M7 · Link offer.</b> Gatundu Avocado Growers has added a record with Wanjiku's ID and an older phone number. Only she can link it (06: a cooperative never links records), so Home offers it until she does or says not now.</p>
 
   <div data-roles="out" class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span>
@@ -36,6 +38,10 @@
     <div class="banner banner-info hidden" id="link-offer"><span class="mdi mdi-link-variant" aria-hidden="true"></span>
       <div class="grow"><span class="text-title-sm" id="link-title"></span><span class="text-body-md" id="link-text"></span>
         <div class="banner-actions"><button class="btn btn-text" type="button" onclick="notNow()">Not now</button><a class="btn btn-text" id="link-go">Link it</a></div></div></div>
+
+    <div class="banner banner-info hidden" id="kyc-offer"><span class="mdi mdi-shield-check-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm">Get verified for loans</span><span class="text-body-md">Tell GroFunder about your farms, crops and income. An agent then visits to check them, so you can apply for a loan.</span>
+        <div class="banner-actions"><a class="btn btn-text" href="../kyc/index.html">What's involved</a><a class="btn btn-text" href="../kyc/declare.html" id="kyc-start">Start</a></div></div></div>
 
     <div class="card card-outlined">
       <span class="text-label-lg" id="m-label"></span>
@@ -135,6 +141,9 @@ document.getElementById("h-payments").innerHTML = q.payouts({ member: M.id, stat
   return '<a class="rowcard" href="../payments/statement.html?p=' + p.id + '"><span class="grow"><span class="text-body-lg">' + esc(p.details.label) + '</span><span class="text-body-md tone-muted">' +
     f.date(p.paid_at, "short") + " · " + METHOD[p.method] + '</span></span><span class="text-title-md tabular">' + f.money(p.net_cents) + "</span></a>";
 }).join("") || '<p class="text-body-md tone-muted">Nothing paid yet.</p>';
+
+/* Note 20, "How members are led to KYC" (UI-62): prompt while the record is ACTIVE, nothing is declared and no visit is open or submitted. */
+if (GF.kyc && M.status === "ACTIVE" && GF.kyc.current(M.id).length === 0 && !GF.kyc.liveVisit(M.id)) document.getElementById("kyc-offer").classList.remove("hidden");
 
 /* M7: the offer to link a record a cooperative has added with the member's ID. */
 var offer = A.pending[0];

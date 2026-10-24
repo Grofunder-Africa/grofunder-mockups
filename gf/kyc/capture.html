@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Visit · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../assets/console.js"></script>
+<script src="kyc-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen id="screen" data-title="Visit" data-flow data-back="agent.html" data-compact>
+
+  <p class="proto-note"><b>K6 · Visit (note 20, draft revision 2).</b> The agent's checklist for one member, phone-first. Each row opens a panel for that kind of information; each farm is its own row, so a farm's panel (K7) opens straight from here and never from another panel (UI-13). Required rows follow note 20's "Lending needs" column; Home is optional.</p>
+  <p class="proto-note"><b>Verified or declared.</b> Identity, portrait, phone, farms and crops are checked here, and the check counts once the office approves the visit. Background, other income, loans and next of kin can't be verified on a visit: they stay "Declared", but the agent goes through them with the member and corrects what's wrong (the tick in the footer, <code>notes.went_through_declared</code>).</p>
+  <p class="proto-note"><b>Try:</b> <code>?v=v-102</code> Joseph, half done today (no smartphone, so Kevin enters everything); <code>?v=v-103</code> Mary, sent back, ready to submit again; <code>?v=v-101</code> Wanjiku, waiting for review (read only). <code>&amp;show=farm</code> opens the first farm, or a new one.</p>
+  <p class="proto-note"><b>F60, F61:</b> map points and photos are placeholders, because the kit has neither component yet (MapPoint; PhotoTile with the capture time, place and accuracy). Photos come from the camera only (F4 CameraCapture); gallery uploads are refused.</p>
+  <p class="proto-note proto-gap"><b>G61:</b> no signal on many farms. Everything taken must be kept on the phone and sent when there's signal, with ids made on the phone so nothing is sent twice (note 20, concern 1 and Q8). See the offline state.</p>
+  <p class="proto-note proto-gap"><b>G62:</b> drawn from note 20 while it is still a draft (owner's request, 2026-10-24).</p>
+
+  <div class="banner banner-info" data-roles="owner full ops view"><span class="mdi mdi-information-outline" aria-hidden="true"></span>
+    <div class="grow"><span class="text-body-md">This screen is the Farmer Support Agent's. Switch the review bar's role to Farmer Support Agent to use it as Kevin does.</span>
+      <div class="banner-actions"><a class="btn btn-text" id="office-link" href="index.html">Open it as the office sees it</a></div></div></div>
+
+  <div data-state="loaded offline" class="col gap-4">
+    <div data-state="offline" class="banner banner-warning"><span class="mdi mdi-cloud-off-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-body-md">No signal. Everything you take is saved on this phone and sent when there's signal.</span></div></div>
+    <div id="status-banner"></div>
+
+    <div class="card card-outlined col gap-2" id="who"></div>
+
+    <div class="card card-outlined col gap-3" id="met"></div>
+
+    <div class="col gap-2">
+      <div class="row between gap-2"><span class="text-title-sm">Checklist</span><span class="text-body-sm tone-muted tabular" id="progress"></span></div>
+      <div class="rowcards gap" id="list"></div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:120px"></div><div class="skeleton-card" style="height:160px"></div><div class="skeleton-card" style="height:320px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't open this visit</span><span class="text-body-md">Check the connection and try again. Anything you took is still on this phone.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+
+  <div data-footer id="foot"></div>
+</div>
+
+<script>
+(function () {
+  var K = GF.kyc, U = KycUI, f = GF.fmt, T = K.TYPES, L = K.L, esc = U.esc, icon = U.icon;
+  var params = new URLSearchParams(location.search);
+  var v = K.get(params.get("v") || "v-102");
+  if (!v || !v.member) v = K.get("v-102");
+  var m = GF.get(v.member), c = GF.get(m.cooperative), coopName = c.profile.short_name;
+  var first = (m.profile.preferred_name || m.full_name.split(" ")[0]);
+  var readOnly = v.status !== "OPEN";
+  var screen = document.getElementById("screen");
+  screen.setAttribute("data-title", m.full_name);
+  screen.setAttribute("data-sub", "Visit · " + coopName);
+  document.getElementById("office-link").href = "visit.html?v=" + v.id;
+
+  var cur = function (t) { return K.current(m.id, t); };
+  var onVisit = function (it) { return it.verification === v.id; };
+  var bg = K.background(m.id);
+  var ID_LABEL = { NATIONAL_ID: "National ID", PASSPORT: "Passport", ALIEN_ID: "Alien ID" };
+
+  /* ------------------------------------------------ header and banners */
+  var a = m.profile.address || {};
+  document.getElementById("who").innerHTML =
+    '<div class="row between gap-2"><div class="col"><span class="text-title-md">' + esc(m.full_name) + "</span>" +
+    '<span class="text-body-md tone-muted tabular">' + m.member_no + " · " + esc(coopName) + (m.cluster ? " · " + esc(GF.get(m.cluster).name) + " cluster" : "") + "</span></div>" +
+    '<a class="btn btn-tonal btn-sm" href="tel:' + m.phone + '">' + icon("phone-outline") + "Call</a></div>" +
+    '<dl class="facts"><dt>Phone on the record</dt><dd class="tabular">' + f.phone(m.phone) + "</dd>" +
+    "<dt>ID on the record</dt><dd class=\"tabular\">" + ID_LABEL[m.id_type] + " " + m.id_number + "</dd>" +
+    "<dt>Lives in</dt><dd>" + esc([a.village, a.ward, GF.get(m.area).name].filter(Boolean).join(", ")) + "</dd></dl>";
+
+  var back = K.sentBack(v), sb = document.getElementById("status-banner");
+  if (v.status === "SUBMITTED") {
+    sb.innerHTML = '<div class="banner banner-info">' + icon("timer-sand") + '<div class="grow"><span class="text-body-md">Waiting for review since ' + U.when(v.submitted_at) +
+      ". You can't change it unless the office sends it back.</span></div></div>";
+  } else if (back) {
+    sb.innerHTML = '<div class="banner banner-warning">' + icon("undo-variant") + '<div class="grow"><span class="text-title-sm">Sent back by ' + esc(K.staffName(back.changed_by)) + ", " + U.when(back.changed_at) +
+      '</span><span class="text-body-md">"' + esc(back.reason) + '"</span></div></div>';
+  }
+
+  /* ------------------------------------------------------ where you met */
+  var visit = v.notes.visit || { met_at: GF.NOW, place: "MEETING", lat: null, lng: null, accuracy_m: null };
+  var met = document.getElementById("met");
+  function drawMet() {
+    met.innerHTML = '<div class="row between gap-2"><span class="text-title-sm">Where you met</span><span class="text-body-sm tone-muted tabular">' + U.when(visit.met_at) + "</span></div>" +
+      '<div class="chip-row" ' + (readOnly ? "" : "data-choice") + ' role="radiogroup" aria-label="Where you met">' + ["MEETING", "HOME", "FARM", "OTHER"].map(function (p) {
+        return '<button class="chip" type="button" role="radio" aria-checked="' + (visit.place === p) + '"' + (readOnly ? " disabled" : "") + ">" + L.place[p] + "</button>";
+      }).join("") + "</div>" +
+      (visit.lat != null ? U.mapPoint(visit.lat, visit.lng, visit.accuracy_m, visit.where || "Where you met") :
+        '<span class="text-body-md tone-muted">No position yet.</span>') +
+      (readOnly ? "" : '<div class="actions actions-start"><button class="btn btn-outlined btn-sm" type="button" id="use-pos">' + icon("crosshairs-gps") + "Use my position</button></div>");
+    var b = document.getElementById("use-pos");
+    if (b) b.addEventListener("click", function () {
+      visit = Object.assign({}, visit, { lat: -1.12411, lng: 36.84102, accuracy_m: 9, where: "Your position now" });
+      drawMet(); Proto.snack("Position taken, ±9 m");
+    });
+  }
+  drawMet();
+
+  /* --------------------------------------------------------- checklist */
+  function stateOf(t) {
+    var items = cur(t);
+    switch (t) {
+      case "IDENTITY": case "PORTRAIT": case "PHONE":
+        return items.some(onVisit) ? { done: true, text: "Done" } : items.length ? { done: false, text: "Check it again" } : { done: false, text: "To do" };
+      case "FARM":
+        var todo = items.filter(function (i) { return !onVisit(i); }).length;
+        return !items.length ? { done: false, text: "None yet. Add each farm" } : { done: !todo, text: items.length + (items.length === 1 ? " farm" : " farms") + (todo ? " · " + todo + " to check" : " · all checked") };
+      case "CROP":
+        var coop = items.filter(function (i) { return i.source === "COOPERATIVE_RECORD"; }).length;
+        return { done: items.length > 0, text: !items.length ? "To do" : coop === items.length ? "From delivery records" : items.length + " · " + coop + " from delivery records" };
+      case "INCOME": case "OBLIGATION":
+        var none = bg && bg.details[t === "INCOME" ? "has_other_income" : "has_obligations"] === false;
+        return items.length ? { done: true, text: items.length + " declared" } : none ? { done: true, text: "None, " + first + " says" } : { done: false, text: "To do" };
+      case "HOME":
+        return items.length ? { done: true, text: "Done" } : { done: true, optional: true, text: "Optional" };
+      default:
+        return items.length ? { done: true, text: "Declared" } : { done: false, text: "To do" };
+    }
+  }
+  function rowHtml(t, s, onclick, label, sub) {
+    return '<button class="rowcard" type="button" onclick="' + onclick + '" style="text-align:left;background:none;font:inherit;color:inherit;width:100%">' + icon(T[t].icon) +
+      '<span class="grow"><span class="text-body-lg">' + esc(label || T[t].label) + "</span>" +
+      '<span class="text-body-sm tone-muted">' + esc(sub || HELP[t] || "Declared · go through it with " + first) + "</span></span>" +
+      '<span class="trail">' + (s.optional ? '<span class="text-body-sm tone-muted">' + s.text + "</span>" :
+        !s.done ? '<span class="status status-warning">' + esc(s.text) + "</span>" :
+        '<span class="status status-' + (K.DECLARED_ONLY.indexOf(t) > -1 ? "neutral" : "success") + '">' + esc(s.text) + "</span>") + "</span></button>";
+  }
+  var HELP = { IDENTITY: "Both sides, and what it shows", PORTRAIT: "Taken now, compared with the ID", PHONE: "Call it, and read the M-Pesa name",
+    CROP: "What you see growing or kept", HOME: "Not needed for lending" };
+  var missing = [];
+  function drawList() {
+    missing = [];
+    var html = "", doneCount = 0, required = 0;
+    K.ORDER.forEach(function (t) {
+      var s = stateOf(t);
+      if (!s.optional) { required++; if (s.done) doneCount++; else missing.push(T[t].label); }
+      if (t !== "FARM") { html += rowHtml(t, s, "Visit.open('" + t + "')"); return; }
+      var farms = cur("FARM");
+      html += rowHtml(t, s, "Visit.farm()", "Farms", farms.length ? "Stand on each one to take its point" : "Add each farm " + first + " works");
+      farms.forEach(function (it) {
+        var sm = U.summary(it);
+        html += '<button class="rowcard" type="button" onclick="Visit.farm(\'' + it.id + '\')" style="text-align:left;background:none;font:inherit;color:inherit;width:100%;padding-left:56px">' +
+          '<span class="grow"><span class="text-body-md">' + esc(sm.title) + '</span><span class="text-body-sm tone-muted">' + esc(sm.sub) + "</span></span>" +
+          '<span class="trail">' + (onVisit(it) ? '<span class="status status-success">Checked</span>' : '<span class="status status-warning">To check</span>') + "</span></button>";
+      });
+    });
+    document.getElementById("list").innerHTML = html;
+    document.getElementById("progress").textContent = doneCount + " of " + required + " done";
+    drawFoot();
+  }
+
+  /* ----------------------------------------------------------- footer */
+  var went = !!v.notes.went_through_declared;
+  function drawFoot() {
+    var foot = document.querySelector(".screen-footer-inner") || document.getElementById("foot");
+    if (readOnly) { var outer = document.querySelector(".screen-footer") || document.getElementById("foot"); outer.hidden = true; return; }
+    var ready = !missing.length && went;
+    foot.innerHTML = '<div class="col gap-2" style="width:100%">' +
+      '<label class="check" for="went"><input type="checkbox" id="went"' + (went ? " checked" : "") + '><span class="grow"><span class="text-body-md">I went through the declared details with ' + esc(first) + "</span></span></label>" +
+      (missing.length ? '<span class="text-body-sm tone-muted" id="still">Still to do: ' + missing.join(", ") + "</span>" : "") +
+      '<div class="row gap-2 end">' + (ready ? "" : '<button class="btn btn-text" type="button" id="why">What\'s missing?</button>') +
+      '<button class="btn btn-filled" type="button" id="submit"' + (ready ? "" : " disabled") + ">Submit for review</button></div></div>";
+    foot.querySelector("#went").addEventListener("change", function (e) { went = e.target.checked; drawFoot(); });
+    var why = foot.querySelector("#why");
+    if (why) why.addEventListener("click", function () {
+      var list = missing.slice(); if (!went) list.push("the tick for going through the declared details");
+      Proto.sheet({ title: "Before you submit", body: '<p class="text-body-md">The office can only review a complete visit (note 20). Still to do:</p><div class="rowcards">' +
+        list.map(function (x) { return '<div class="rowcard">' + icon("checkbox-blank-outline") + '<span class="grow"><span class="text-body-md">' + esc(x.charAt(0).toUpperCase() + x.slice(1)) + "</span></span></div>"; }).join("") + "</div>" });
+    });
+    foot.querySelector("#submit").addEventListener("click", function () {
+      Proto.confirm({ title: "Submit " + esc(first) + "'s visit?", message: "It goes to the office for review. You can't change it unless they send it back.", confirm: "Submit",
+        onConfirm: function () { Proto.snack("Sent for review"); setTimeout(function () { location.href = "agent.html"; }, 900); } });
+    });
+  }
+
+  /* ------------------------------------------------------ panel pieces */
+  function takeTile(label) {
+    return '<button class="card card-outlined col gap-1" type="button" style="padding:8px;min-width:132px;flex:1 1 132px;max-width:200px;text-align:left" onclick="Visit.shoot(this)">' +
+      '<span class="center col gap-1" style="aspect-ratio:4/3;border:1px dashed var(--outline);border-radius:4px">' + icon("camera-outline") + '<span class="text-label-md">Take photo</span></span>' +
+      '<span class="text-label-md">' + esc(label) + '</span><span class="text-body-sm tone-muted">Camera only</span></button>';
+  }
+  function field(id, label, value, opts) {
+    opts = opts || {};
+    return '<div class="field"><label class="field-label" for="' + id + '">' + label + "</label>" +
+      (opts.textarea ? '<textarea class="field-input" id="' + id + '">' + esc(value || "") + "</textarea>"
+        : '<input class="field-input' + (opts.tabular ? " tabular" : "") + '" id="' + id + '" type="' + (opts.type || "text") + '"' + (opts.mode ? ' inputmode="' + opts.mode + '"' : "") + ' value="' + esc(value == null ? "" : value) + '">') +
+      (opts.help ? '<span class="field-help">' + opts.help + "</span>" : "") + "</div>";
+  }
+  function chips(name, options, value, label) {
+    return '<div class="col gap-1"><span class="field-label">' + label + '</span><div class="chip-row" data-choice role="radiogroup" aria-label="' + esc(label) + '" data-name="' + name + '">' +
+      Object.keys(options).map(function (k) { return '<button class="chip" type="button" role="radio" aria-checked="' + (k === value) + '" data-v="' + k + '">' + options[k] + "</button>"; }).join("") + "</div></div>";
+  }
+  function sw(id, label, on, help) {
+    return '<label class="check" for="' + id + '"><input type="checkbox" role="switch" id="' + id + '"' + (on ? " checked" : "") + '><span class="grow"><span class="text-body-md">' + label + "</span>" +
+      (help ? '<span class="text-body-sm tone-muted">' + help + "</span>" : "") + "</span></label>";
+  }
+  function readRows(items) {
+    if (!items.length) return '<p class="text-body-md tone-muted">Nothing here.</p>';
+    return '<div class="rowcards">' + items.map(function (it) {
+      var s = U.summary(it);
+      return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start"><span class="grow"><span class="text-body-md">' + esc(s.title) + "</span>" +
+        (s.sub ? '<span class="text-body-sm tone-muted">' + esc(s.sub) + "</span>" : "") + '<span class="text-body-sm tone-muted">' + esc(U.sourceLine(it)) + "</span>" +
+        (it.details.check_note ? '<span class="text-body-sm">' + esc(it.details.check_note) + "</span>" : "") + U.photos(it) + "</span>" +
+        '<span class="trail">' + U.itemChip(it) + "</span></div>";
+    }).join("") + "</div>";
+  }
+  var saveFoot = function (label) { return readOnly ? "" : '<button class="btn btn-filled" type="button" data-done="' + esc(label || "Saved") + '">Save</button>'; };
+  function wire(el) {
+    el.querySelectorAll("[data-done]").forEach(function (b) { b.addEventListener("click", function () { Proto.close(); Proto.snack(b.getAttribute("data-done")); }); });
+    return el;
+  }
+
+  /* -------------------------------------------------------- the panels */
+  function identity() {
+    var it = cur("IDENTITY")[0], d = it ? it.data : { id_type: m.id_type, id_number: "", full_name: "", date_of_birth: "" };
+    if (readOnly) return Proto.sheet({ title: T.IDENTITY.label, body: readRows(cur("IDENTITY")) });
+    var el = Proto.sheet({ title: T.IDENTITY.label, body:
+      '<p class="text-body-md tone-muted">Type what the document shows, not what the record says. Photograph both sides.</p>' +
+      '<div class="row gap-2 wrap">' + (it ? U.photos(it).replace(/^<div class="row gap-2 wrap">|<\/div>$/g, "") : takeTile("ID, front") + takeTile("ID, back")) + "</div>" +
+      chips("id_type", ID_LABEL, d.id_type, "Document") +
+      field("idn", "Number on the document", d.id_number, { mode: "numeric", tabular: true }) +
+      field("idname", "Name on the document", d.full_name) +
+      field("iddob", "Birth date on the document", d.date_of_birth, { type: "date" }) +
+      '<div id="cmp"></div>',
+      footer: saveFoot("Identity saved") });
+    function compare() {
+      var n = el.querySelector("#idn").value.replace(/\s/g, ""), nm = el.querySelector("#idname").value.trim(), dob = el.querySelector("#iddob").value, diff = [];
+      if (!n || !nm) { el.querySelector("#cmp").innerHTML = ""; return; }
+      if (n !== m.id_number) diff.push("ID number (record: " + m.id_number + ")");
+      if (nm.toLowerCase() !== m.full_name.toLowerCase()) diff.push("name (record: " + esc(m.full_name) + ")");
+      if (dob && m.date_of_birth && dob !== m.date_of_birth) diff.push("birth date (record: " + f.date(m.date_of_birth) + ")");
+      el.querySelector("#cmp").innerHTML = !diff.length
+        ? '<div class="banner banner-success">' + icon("check-circle-outline") + '<div class="grow"><span class="text-body-md">Matches ' + esc(coopName) + "'s record.</span></div></div>"
+        : '<div class="banner banner-warning">' + icon("alert-outline") + '<div class="grow"><span class="text-title-sm">Differs from ' + esc(coopName) + "'s record</span>" +
+          '<span class="text-body-md">' + diff.join("; ") + ". Save what the document shows. Approval waits until the cooperative corrects its record.</span></div></div>";
+    }
+    ["#idn", "#idname", "#iddob"].forEach(function (s) { el.querySelector(s).addEventListener("input", compare); });
+    compare();
+    return wire(el);
+  }
+  function portrait() {
+    var it = cur("PORTRAIT")[0];
+    if (readOnly) return Proto.sheet({ title: T.PORTRAIT.label, body: readRows(cur("PORTRAIT")) });
+    return wire(Proto.sheet({ title: T.PORTRAIT.label, body:
+      '<p class="text-body-md tone-muted">Face the light, no hat or glasses, plain background if you can.</p>' +
+      '<div class="row gap-2 wrap">' + (it && onVisit(it) ? U.photo(it.photos[0]) : takeTile("Portrait")) + "</div>" +
+      sw("pmatch", "Matches the photo on the ID", it && onVisit(it), "If it doesn't, don't save: fail the check and say why in the note."),
+      footer: saveFoot("Portrait saved") }));
+  }
+  function phone() {
+    var it = cur("PHONE")[0], x = it ? it.details : {};
+    if (readOnly) return Proto.sheet({ title: T.PHONE.label, body: readRows(cur("PHONE")) });
+    return wire(Proto.sheet({ title: T.PHONE.label, body:
+      '<div class="row between gap-2"><div class="col"><span class="text-label-md tone-muted">Phone on the record</span><span class="text-body-lg tabular">' + f.phone(m.phone) + "</span></div>" +
+      '<a class="btn btn-tonal btn-sm" href="tel:' + m.phone + '">' + icon("phone-outline") + "Call it</a></div>" +
+      sw("pwith", "The phone is with " + esc(first), !!it, "Call the number: it should ring in front of you.") +
+      field("mpesa", "Name M-Pesa shows for it", x.mpesa_name, { help: "Start sending money to the number from your phone and read the name. Don't finish the payment." }),
+      footer: saveFoot("Phone saved") }));
+  }
+
+  /* K7: one farm, or a new one. */
+  var MEASURES = [32, 6];
+  function farm(id) {
+    var it = id ? K.get(id) : null;
+    var declared = it ? (it.source === "MEMBER" ? it : it.replaces ? K.get(it.replaces) : null) : null;
+    var d = it ? it.data : { size_acres: null, cultivated_acres: null, tenure: "", is_cultivated: null, lat: null, lng: null }, x = it ? it.details : {};
+    var title = it ? (x.name || "Farm") : "Add a farm";
+    if (readOnly && !it) return Proto.sheet({ wide: true, title: "Farms", body: readRows(cur("FARM")) });
+    if (readOnly) return Proto.sheet({ wide: true, title: esc(title), body: (declared && declared !== it ? '<span class="text-title-sm">What ' + esc(first) + " declared</span>" + readRows([declared]) + '<div class="divider"></div>' : "") +
+      '<span class="text-title-sm">What the agent found</span>' + readRows([it]) + U.mapPoint(d.lat, d.lng, x.accuracy_m, "Taken on the farm") });
+    var mine = it && onVisit(it) && it.source === "AGENT";
+    var point = mine ? { lat: d.lat, lng: d.lng, acc: x.accuracy_m } : null;
+    var seen = it ? GF.kyc.current(m.id, "CROP").filter(function (c) { return c.data.value_chain; }).map(function (c) { return c.data.value_chain; }) : [];
+    var el = Proto.sheet({ wide: true, title: esc(title), body:
+      '<p class="proto-note"><b>K7 · Farm (note 20).</b> "Matches what was declared" marks the member\'s row VERIFIED and replaces it with the agent\'s, carrying the point taken here. "Save what I found" with different figures ends the member\'s row as DIFFERS and the agent\'s row replaces it, so the reviewer sees both. Both count only once the office approves the visit.</p>' +
+      (declared ? '<div class="card col gap-2"><span class="text-title-sm">What ' + esc(first) + ' declared</span>' + (function () { var s = U.summary(declared); return '<span class="text-body-md">' + esc(s.title) + '</span><span class="text-body-sm tone-muted">' + esc(s.sub) + "</span>"; })() +
+        '<span class="text-body-sm tone-muted">' + esc(U.sourceLine(declared)) + "</span></div>" :
+        it ? "" : '<p class="text-body-md tone-muted">For a farm ' + esc(first) + " didn't declare. Ask what they call it and where it is.</p>") +
+      (it ? "" : field("fname", "What " + esc(first) + " calls it", "", { help: "For example: Home farm, the plot by the river" }) + field("fvillage", "Village", "")) +
+      '<div class="col gap-2"><span class="text-title-sm">Point</span><span class="text-body-sm tone-muted">Stand on the farm, in the open, then take the point.</span><div id="pt"></div>' +
+      '<div class="actions actions-start"><button class="btn btn-outlined btn-sm" type="button" id="take">' + icon("crosshairs-gps") + (point ? "Take it again" : "Take the point here") + "</button></div></div>" +
+      '<div class="form-grid">' + field("fsize", "Size you see (acres)", d.size_acres, { mode: "decimal", tabular: true, help: "Pace it out or ask a neighbour; an estimate is fine" }) +
+      field("fcult", "Farmed now (acres)", d.cultivated_acres, { mode: "decimal", tabular: true }) + "</div>" +
+      '<div id="sizewarn"></div>' +
+      chips("tenure", L.tenure, d.tenure, "How the land is held") +
+      chips("evidence", L.evidence, x.tenure_evidence || "", "What you were shown") +
+      sw("fcultnow", "Being farmed now", d.is_cultivated !== false, "Crops in the ground, animals kept, or land prepared this season") +
+      '<div class="col gap-1"><span class="field-label">Growing or kept here</span><div class="chip-row" role="group" aria-label="Growing or kept here">' +
+        GF.valueChains.filter(function (vc) { return vc.status === "ACTIVE"; }).map(function (vc) {
+          return '<button class="chip" type="button" aria-pressed="' + (seen.indexOf(vc.id) > -1) + '" onclick="this.setAttribute(\'aria-pressed\', this.getAttribute(\'aria-pressed\') !== \'true\')">' + esc(vc.name) + "</button>";
+        }).join("") + "</div></div>" +
+      '<div class="col gap-2"><span class="field-label">Photos (at least one: a wide view and a close-up of the crop)</span><div class="row gap-2 wrap">' +
+        (mine ? it.photos.map(function (p) { return U.photo(p, { flag: !!back }); }).join("") : "") + takeTile("Farm") + "</div></div>" +
+      field("fnote", "Note (optional)", mine ? x.check_note : "", { textarea: true }) +
+      (it ? '<div class="actions actions-start"><button class="btn btn-text tone-error" type="button" id="novisit">Couldn\'t visit this farm</button></div>' : ""),
+      footer: (declared ? '<button class="btn btn-tonal" type="button" data-done="Farm confirmed">Matches what was declared</button>' : "") +
+        '<button class="btn btn-filled" type="button" data-done="' + (it ? "Farm saved" : "Farm added") + '">Save what I found</button>' });
+    function drawPoint(warnIfFar) {
+      el.querySelector("#pt").innerHTML = point ? U.mapPoint(point.lat, point.lng, point.acc, "Taken here") +
+        (point.acc > 25 ? '<div class="banner banner-warning">' + icon("signal-off") + '<div class="grow"><span class="text-body-md">Only ±' + point.acc + " m. Wait for a better signal or move into the open, then take it again.</span></div></div>" : "")
+        : '<div class="tone-secondary-box row gap-2" style="padding:12px;border-radius:4px">' + icon("map-marker-question-outline") + '<span class="text-body-md">' +
+          (declared && declared.data.lat != null ? esc(first) + " pinned it in the app, ±" + declared.details.accuracy_m + " m. Take the exact point here." : "No point yet.") + "</span></div>";
+    }
+    drawPoint();
+    el.querySelector("#take").addEventListener("click", function () {
+      var acc = MEASURES.length ? MEASURES.shift() : 6;
+      point = { lat: d.lat != null ? d.lat : -1.12430, lng: d.lng != null ? d.lng : 36.84075, acc: acc };
+      drawPoint(); this.innerHTML = icon("crosshairs-gps") + "Take it again";
+    });
+    function sizeWarn() {
+      var s = parseFloat(el.querySelector("#fsize").value), dec = declared && declared.data.size_acres;
+      el.querySelector("#sizewarn").innerHTML = dec && s && Math.abs(s - dec) / dec > 0.5
+        ? '<div class="banner banner-info">' + icon("information-outline") + '<div class="grow"><span class="text-body-md">' + esc(first) + " declared " + U.acres(dec) + ". The reviewer will see both figures; say in the note how you measured.</span></div></div>" : "";
+    }
+    el.querySelector("#fsize").addEventListener("input", sizeWarn); sizeWarn();
+    var nv = el.querySelector("#novisit");
+    if (nv) nv.addEventListener("click", function () {
+      Proto.dialog({ title: "Couldn't visit this farm", body: '<p class="text-body-md tone-muted">The farm stays as declared, and the reviewer sees why. At least one farm must be checked for approval.</p>' +
+        '<div class="field"><label class="field-label" for="nvwhy">Why</label><textarea class="field-input" id="nvwhy" placeholder="For example: across the river, the bridge is down"></textarea></div>',
+        submit: "Save", onSubmit: function () { Proto.close(); Proto.snack("Saved: not visited"); } });
+    });
+    return wire(el);
+  }
+
+  function crops() {
+    var items = cur("CROP");
+    if (readOnly) return Proto.sheet({ title: T.CROP.label, body: readRows(items) });
+    var el = Proto.sheet({ title: T.CROP.label, body:
+      '<p class="text-body-md tone-muted">Mark what you saw growing or kept. What ' + esc(first) + " delivers to " + esc(coopName) + " is already verified from the delivery records.</p>" +
+      '<div class="rowcards">' + items.map(function (it) {
+        var s = U.summary(it);
+        var locked = it.source === "COOPERATIVE_RECORD";
+        return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start;flex-wrap:wrap"><span class="grow"><span class="text-body-md">' + esc(s.title) + "</span>" +
+          (s.sub ? '<span class="text-body-sm tone-muted">' + esc(s.sub) + "</span>" : "") + "</span>" +
+          (locked ? '<span class="trail"><span class="status status-success">From delivery records · verified</span></span>' :
+            '<div class="chip-row" data-choice role="radiogroup" aria-label="Seen?"><button class="chip" type="button" role="radio" aria-checked="' + (it.status === "VERIFIED") + '">Seen</button>' +
+            '<button class="chip" type="button" role="radio" aria-checked="' + (it.status !== "VERIFIED" && !!it.details.check_note) + '">Not seen</button></div>') + "</div>";
+      }).join("") + "</div>" +
+      '<div class="actions actions-start"><button class="btn btn-outlined btn-sm" type="button" id="addcrop">' + icon("plus") + "Add a crop or animal</button></div>",
+      footer: saveFoot("Crops saved") });
+    el.querySelector("#addcrop").addEventListener("click", function () {
+      Proto.dialog({ title: "Add a crop or animal", body:
+        '<div class="field"><label class="field-label" for="cvc">What</label><select class="field-input" id="cvc">' + GF.valueChains.filter(function (x) { return x.status === "ACTIVE"; }).map(function (x) { return "<option>" + esc(x.name) + "</option>"; }).join("") + "<option>Other</option></select></div>" +
+        field("cacres", "Acres under it (optional)", "", { mode: "decimal" }) + sw("cmain", "Brings in the most income", false),
+        submit: "Add", onSubmit: function () { Proto.snack("Added, as seen by you"); } });
+    });
+    return wire(el);
+  }
+
+  /* Declared-only types: shown as declared, each correctable. */
+  var FORMS = {
+    BACKGROUND: function (x) { x = x || {}; return '<div class="field"><label class="field-label" for="exp">Years farming</label><select class="field-input" id="exp">' +
+      Object.keys(L.experience).map(function (k) { return '<option' + (k === x.farming_experience ? " selected" : "") + ">" + L.experience[k] + "</option>"; }).join("") + "</select></div>" +
+      sw("hoi", "Has income besides farming", !!x.has_other_income) + sw("hob", "Has loans or regular payments", !!x.has_obligations); },
+    INCOME: function (d, x) { d = d || {}; x = x || {}; return '<div class="field"><label class="field-label" for="ik">Kind</label><select class="field-input" id="ik">' + Object.keys(L.incomeKind).map(function (k) { return "<option" + (k === d.kind ? " selected" : "") + ">" + L.incomeKind[k] + "</option>"; }).join("") + "</select></div>" +
+      chips("band", L.band, d.monthly_band, "About how much a month") + field("inote", "What it is (optional)", x.note); },
+    OBLIGATION: function (d, x) { d = d || {}; x = x || {}; return '<div class="field"><label class="field-label" for="ok">Kind</label><select class="field-input" id="ok">' + Object.keys(L.obligationKind).map(function (k) { return "<option" + (k === d.kind ? " selected" : "") + ">" + L.obligationKind[k] + "</option>"; }).join("") + "</select></div>" +
+      '<div class="field"><label class="field-label" for="ol">Lender, for a loan</label><select class="field-input" id="ol"><option></option>' + Object.keys(L.lender).map(function (k) { return "<option" + (k === d.lender_type ? " selected" : "") + ">" + L.lender[k] + "</option>"; }).join("") + "</select></div>" +
+      '<div class="form-grid">' + field("oo", "Still owed (Ksh)", d.owed_cents ? d.owed_cents / 100 : "", { mode: "numeric", tabular: true }) + field("om", "Paid each month (Ksh)", d.monthly_cents ? d.monthly_cents / 100 : "", { mode: "numeric", tabular: true }) + "</div>"; },
+    NEXT_OF_KIN: function (d, x) { x = x || {}; return field("kn", "Name", x.name) + field("kr", "Relationship", x.relationship) + field("kp", "Phone", x.phone ? f.phone(x.phone) : "", { type: "tel", tabular: true }); }
+  };
+  function correct(t, id) {
+    var it = id ? K.get(id) : null;
+    Proto.dialog({ title: (it ? "Correct: " : "Add: ") + T[t].label.toLowerCase(),
+      body: (it ? '<p class="text-body-md tone-muted">Your answer replaces ' + esc(first) + "'s. Theirs is kept, so the reviewer sees both.</p>" : "") +
+        (t === "BACKGROUND" ? FORMS[t](it && it.details) : FORMS[t](it && it.data, it && it.details)),
+      submit: "Save", onSubmit: function () { Proto.snack(it ? "Corrected. " + first + "'s answer is kept" : "Added"); } });
+  }
+  function declared(t) {
+    var items = cur(t), none = (t === "INCOME" || t === "OBLIGATION") && !items.length && bg && bg.details[t === "INCOME" ? "has_other_income" : "has_obligations"] === false;
+    var rows = items.map(function (it) {
+      var s = U.summary(it);
+      return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start"><span class="grow"><span class="text-body-md">' + esc(s.title) + "</span>" +
+        (s.sub ? '<span class="text-body-sm tone-muted">' + esc(s.sub) + "</span>" : "") + '<span class="text-body-sm tone-muted">' + esc(U.sourceLine(it)) + "</span>" +
+        (t === "NEXT_OF_KIN" && !readOnly ? '<div class="row gap-2 wrap"><a class="btn btn-tonal btn-sm" href="tel:' + it.details.phone + '">' + icon("phone-outline") + "Call</a></div>" + sw("answered", "Answered when called", it.status === "VERIFIED") : "") + "</span>" +
+        '<span class="trail">' + U.itemChip(it) + (readOnly ? "" : '<button class="btn btn-text btn-sm" type="button" onclick="Visit.correct(\'' + t + "','" + it.id + '\')">Correct</button>') + "</span></div>";
+    }).join("");
+    var body = '<div class="banner banner-info">' + icon("account-voice") + '<div class="grow"><span class="text-body-md">' +
+      (t === "NEXT_OF_KIN" ? "Call them while you're with " + esc(first) + ". The rest stays as declared." : "This can't be verified on a visit, so it stays \"Declared\". Go through it with " + esc(first) + " and correct what's wrong.") + "</span></div></div>" +
+      (items.length ? '<div class="rowcards">' + rows + "</div>" : '<p class="text-body-md tone-muted">' + (none ? esc(first) + " said there's none." : "Nothing declared yet.") + "</p>") +
+      (readOnly || (!T[t].many && items.length) ? "" : '<div class="actions actions-start"><button class="btn btn-outlined btn-sm" type="button" onclick="Visit.correct(\'' + t + '\')">' + icon("plus") + "Add</button></div>");
+    return wire(Proto.sheet({ title: T[t].label, body: body, footer: t === "NEXT_OF_KIN" ? saveFoot("Next of kin saved") : "" }));
+  }
+  function home() {
+    var it = cur("HOME")[0], x = it ? it.details : {};
+    if (readOnly) return Proto.sheet({ title: T.HOME.label, body: readRows(cur("HOME")) + (it ? U.mapPoint(x.lat, x.lng, x.accuracy_m, "Home") : "") });
+    return wire(Proto.sheet({ title: T.HOME.label, body: '<p class="text-body-md tone-muted">Optional: lending doesn\'t need it. Useful if ' + esc(first) + " can't be reached by phone.</p>" +
+      (it ? U.mapPoint(x.lat, x.lng, x.accuracy_m, "Home") : '<div class="actions actions-start"><button class="btn btn-outlined btn-sm" type="button" onclick="Proto.snack(\'Position taken, ±9 m\')">' + icon("crosshairs-gps") + "Take the point here</button></div>") +
+      field("hv", "Village", x.village || a.village) + field("hl", "How to find it", x.landmark, { help: "A gate, a shop, a church nearby" }) +
+      '<div class="row gap-2 wrap">' + (it ? U.photos(it).replace(/^<div class="row gap-2 wrap">|<\/div>$/g, "") : takeTile("Home")) + "</div>",
+      footer: saveFoot("Home saved") }));
+  }
+
+  function open(t) {
+    if (t === "IDENTITY") return identity();
+    if (t === "PORTRAIT") return portrait();
+    if (t === "PHONE") return phone();
+    if (t === "FARM") return farm();
+    if (t === "CROP") return crops();
+    if (t === "HOME") return home();
+    return declared(t);
+  }
+
+  window.Visit = {
+    open: open, farm: farm, correct: correct,
+    shoot: function (b) { Proto.snack("Opens the camera. Photos from the gallery are refused"); }
+  };
+
+  drawList();
+  document.addEventListener("DOMContentLoaded", function () {
+    drawFoot();
+    var show = params.get("show");
+    if (show === "farm") { var fs = cur("FARM"); farm(fs.length ? fs[0].id : null); }
+    else if (show && K.TYPES[show.toUpperCase()]) open(show.toUpperCase());
+  });
+})();
+</script>
+</body>
+</html>

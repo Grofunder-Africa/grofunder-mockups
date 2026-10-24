@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your farm and money · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Your farm and money" data-flow data-back="index.html" data-compact>
+
+  <p class="proto-note"><b>MK2 · Your farm and money (note 20, draft revision 2; UI-60).</b> The member's own items: BACKGROUND, FARM, CROP, INCOME, OBLIGATION and NEXT_OF_KIN, source MEMBER. Identity, photo, phone and home are the agent's, at the visit. One step at a time on a phone; nothing is sent until <i>Send to GroFunder</i>. Steps for other income and for loans appear only when the member says yes on <i>About you</i>.</p>
+  <p class="proto-note"><b>Replace, don't edit (note 20).</b> Each change writes a new item that replaces the old one, so the old answer is kept. A verified item changed here goes back to <i>You told us</i> until the next visit checks it; editing such a farm says so before saving.</p>
+  <p class="proto-note"><b>Crops from deliveries</b> (CROP, source COOPERATIVE_RECORD) come in verified and locked: they are the cooperative's record, not the member's word. The member adds what else they grow.</p>
+  <p class="proto-note proto-gap"><b>G60:</b> consent isn't designed yet (note 20 Q6). The first step stands in for the consents app; its wording is a placeholder.</p>
+  <p class="proto-note proto-gap"><b>G62:</b> drawn from note 20 while it is still a draft (owner's request, 2026-10-24).</p>
+
+  <div data-roles="out" class="empty">
+    <span class="mdi mdi-account-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">You're signed out</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a>
+  </div>
+
+  <div data-state="loaded" class="col gap-4" data-roles="in">
+    <div class="stepper" id="stepper" aria-label="Steps"></div>
+    <div class="col gap-4" id="step-body"></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4" data-roles="in">
+    <div class="skeleton" style="height:24px"></div>
+    <div class="skeleton" style="width:60%;height:28px"></div>
+    <div class="skeleton-card" style="height:240px"></div>
+  </div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">Not sent yet</span><span class="text-body-md">There's no connection. What you entered is kept on this phone; send it when you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+
+  <div data-footer data-roles="in">
+    <button class="btn btn-text" type="button" id="back" onclick="go(-1)">Back</button>
+    <button class="btn btn-filled" type="button" id="next" onclick="go(1)">Next</button>
+  </div>
+</div>
+<script>
+var A = MemberApp, K = GF.kyc, f = GF.fmt, esc = A.esc, me = A.current, L = K.L;
+var coop = A.coopName(me);
+var items = K.current(me.id);
+var of = function (t) { return items.filter(function (i) { return i.data_type === t; }); };
+var bg = K.background(me.id);
+var cents = function (c) { return c ? String(Math.round(c / 100)) : ""; };
+var toCents = function (v) { var n = parseFloat(String(v).replace(/[^\d.]/g, "")); return isNaN(n) ? 0 : Math.round(n * 100); };
+var acres = function (n) { return n == null || n === "" ? "" : String(Math.round(n * 100) / 100); };
+
+/* Value chains the member delivered in the last 12 months: locked, from the cooperative's records. */
+var since = "2025-10-30";
+var delivered = {};
+GF.q.deliveries({ member: me.id, from: since, recorded: true }).forEach(function (d) { delivered[GF.get(GF.get(d.product).product).value_chain] = true; });
+of("CROP").forEach(function (c) { if (c.source === "COOPERATIVE_RECORD" && c.data.value_chain) delivered[c.data.value_chain] = true; });
+var mainCrop = of("CROP").filter(function (c) { return c.data.is_main; })[0];
+
+var S = {
+  consent: false,
+  exp: bg ? bg.details.farming_experience : "",
+  hasIncome: bg ? bg.details.has_other_income : null,
+  hasOb: bg ? bg.details.has_obligations : null,
+  farms: of("FARM").map(function (it) {
+    return { name: it.details.name || "", village: it.details.village || "", landmark: it.details.landmark || "", size: it.data.size_acres, farmed: it.data.cultivated_acres,
+      tenure: it.data.tenure, pinned: it.data.lat != null, checked: it.status === "VERIFIED" };
+  }),
+  crops: {}, other: "",
+  main: mainCrop ? (mainCrop.data.value_chain || "other") : "",
+  income: of("INCOME").map(function (it) { return { kind: it.data.kind, band: it.data.monthly_band, note: it.details.note || "" }; }),
+  obs: of("OBLIGATION").map(function (it) { return { kind: it.data.kind, lender: it.data.lender_type, owed: it.data.owed_cents, monthly: it.data.monthly_cents, note: it.details.note || "" }; }),
+  kin: of("NEXT_OF_KIN")[0] ? Object.assign({}, of("NEXT_OF_KIN")[0].details) : { name: "", relationship: "", phone: "" }
+};
+Object.keys(delivered).forEach(function (v) { S.crops[v] = true; });
+of("CROP").forEach(function (c) { if (c.data.value_chain) S.crops[c.data.value_chain] = true; else { S.crops.other = true; S.other = c.details.other_name || ""; } });
+
+var STEPS = [["consent", "Agree"], ["background", "About you"], ["farms", "Farms"], ["crops", "What you grow"], ["income", "Other income"], ["loans", "Loans and payments"], ["kin", "Next of kin"], ["check", "Check"]];
+var at = 0;
+function steps() { return STEPS.filter(function (s) { return (s[0] !== "income" || S.hasIncome) && (s[0] !== "loans" || S.hasOb); }); }
+
+var yesNo = function (name, val) {
+  return '<div class="chip-row" data-choice role="radiogroup" aria-label="' + name + '">' +
+    '<button class="chip" type="button" role="radio" data-yn="' + name + '" data-v="yes" aria-checked="' + (val === true) + '">Yes</button>' +
+    '<button class="chip" type="button" role="radio" data-yn="' + name + '" data-v="no" aria-checked="' + (val === false) + '">No</button></div>';
+};
+var head = function (t, sub) { return '<div class="col gap-1"><h1 class="text-headline-sm">' + t + "</h1>" + (sub ? '<p class="text-body-md tone-muted">' + sub + "</p>" : "") + "</div>"; };
+var opts = function (map, val, blank) { return (blank ? '<option value="">' + blank + "</option>" : "") + Object.keys(map).map(function (k) { return '<option value="' + k + '"' + (k === val ? " selected" : "") + ">" + map[k] + "</option>"; }).join(""); };
+var money = function (id, label, c, help) {
+  return '<div class="field"><label class="field-label" for="' + id + '">' + label + '</label><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input tabular" id="' + id + '" inputmode="numeric" value="' + cents(c) + '"></div>' + (help ? '<span class="field-help">' + help + "</span>" : "") + "</div>";
+};
+
+var draw = {
+  consent: function () {
+    return head("Before you start", "GroFunder asks about your farm and money so it can offer you a loan you can repay.") +
+      '<div class="card card-outlined col gap-2"><p class="text-body-md">What you tell us is used to assess loans for you and is checked by a GroFunder Farmer Support Agent at a visit. ' + esc(coop) + " only sees whether you're verified, not what you tell us.</p>" +
+      '<label class="check"><input type="checkbox" id="consent"' + (S.consent ? " checked" : "") + '><span class="grow"><span class="text-body-lg">I agree to GroFunder using these details to assess loans</span></span></label>' +
+      '<span class="field-error hidden" id="consent-e">Tick the box to go on.</span></div>';
+  },
+  background: function () {
+    return head("About you", "Your name, ID and phone come from " + esc(coop) + "'s record, so we don't ask again.") +
+      '<div class="field"><label class="field-label" for="exp">How long have you been farming?</label><select class="field-input" id="exp">' + opts(L.experience, S.exp, "Choose") + "</select></div>" +
+      '<div class="col gap-2"><span class="text-title-sm">Do you earn from anything besides farming?</span><span class="text-body-md tone-muted">A shop, a job, casual work, boda boda…</span>' + yesNo("income", S.hasIncome) + "</div>" +
+      '<div class="col gap-2"><span class="text-title-sm">Are you repaying a loan, or paying rent or school fees every month?</span><span class="text-body-md tone-muted">Having a loan doesn\'t stop you borrowing.</span>' + yesNo("ob", S.hasOb) + "</div>";
+  },
+  farms: function () {
+    return head("Your farms", "Every piece of land you farm, owned or not. Your agent visits at least one.") +
+      '<div class="list rowcards">' + (S.farms.length ? S.farms.map(function (fm, i) {
+        return '<button class="rowcard" type="button" onclick="farm(' + i + ')"><span class="mdi mdi-map-marker-radius-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">' + esc(fm.name || "Farm") + (fm.village ? ", " + esc(fm.village) : "") + "</span>" +
+          '<span class="text-body-md tone-muted">' + (fm.size ? acres(fm.size) + " acres · " : "") + (fm.tenure ? L.tenure[fm.tenure] : "") + "</span>" +
+          (fm.checked ? '<span><span class="status status-info">Checked at your visit</span></span>' : "") + '</span><span class="mdi mdi-pencil-outline tone-muted" aria-hidden="true"></span></button>';
+      }).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">No farms yet.</span></div>') + "</div>" +
+      '<button class="btn btn-tonal btn-block" type="button" onclick="farm(-1)"><span class="mdi mdi-plus" aria-hidden="true"></span>Add a farm</button>';
+  },
+  crops: function () {
+    var vcs = GF.valueChains.filter(function (v) { return v.status === "ACTIVE"; });
+    var chip = function (id, name, locked) {
+      return '<button class="chip" type="button" aria-pressed="' + !!S.crops[id] + '" data-crop="' + id + '"' + (locked ? ' disabled title="From your deliveries"' : "") + ">" +
+        (locked ? '<span class="mdi mdi-lock-outline" aria-hidden="true"></span>' : "") + name + "</button>";
+    };
+    var lockedNames = Object.keys(delivered).map(function (v) { return GF.get(v).name; });
+    var chosen = vcs.filter(function (v) { return S.crops[v.id]; }).map(function (v) { return [v.id, v.name]; });
+    if (S.crops.other) chosen.push(["other", S.other || "Other"]);
+    return head("What do you grow or keep for income?", "Choose everything that applies.") +
+      (lockedNames.length ? '<div class="banner banner-success"><span class="mdi mdi-check-decagram-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">' + esc(lockedNames.join(" and ")) + ": from your deliveries to " + esc(coop) + ". Already verified.</span></div></div>" : "") +
+      '<div class="chip-row" id="crops">' + vcs.map(function (v) { return chip(v.id, v.name, delivered[v.id]); }).join("") + chip("other", "Something else", false) + "</div>" +
+      '<div class="field' + (S.crops.other ? "" : " hidden") + '" id="other-f"><label class="field-label" for="other">What else?</label><input class="field-input" id="other" value="' + esc(S.other) + '" placeholder="For example poultry, or bees"></div>' +
+      '<div class="field"><label class="field-label" for="main">Which brings you the most income?</label><select class="field-input" id="main"><option value="">Choose</option>' +
+      chosen.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === S.main ? " selected" : "") + ">" + esc(c[1]) + "</option>"; }).join("") + "</select></div>";
+  },
+  income: function () {
+    return head("Your other income", "About how much, each month. An estimate is fine.") +
+      S.income.map(function (r, i) {
+        return '<div class="card card-outlined col gap-3"><div class="row between"><span class="text-title-sm">Income ' + (i + 1) + "</span>" +
+          (S.income.length > 1 ? '<button class="btn btn-text btn-sm" type="button" onclick="drop(\'income\',' + i + ')">Remove</button>' : "") + "</div>" +
+          '<div class="field"><label class="field-label" for="ik' + i + '">What kind</label><select class="field-input" id="ik' + i + '">' + opts(L.incomeKind, r.kind, "Choose") + "</select></div>" +
+          '<div class="col gap-2"><span class="text-label-lg">About how much a month</span><div class="chip-row" data-choice role="radiogroup" aria-label="About how much a month" id="ib' + i + '">' +
+          Object.keys(L.band).map(function (b) { return '<button class="chip" type="button" role="radio" data-v="' + b + '" aria-checked="' + (b === r.band) + '">' + L.band[b] + "</button>"; }).join("") + "</div></div></div>";
+      }).join("") +
+      '<button class="btn btn-tonal btn-block" type="button" onclick="more(\'income\')"><span class="mdi mdi-plus" aria-hidden="true"></span>Add another income</button>';
+  },
+  loans: function () {
+    return head("Loans and regular payments", "Your best estimate. You don't need every detail.") +
+      S.obs.map(function (r, i) {
+        var loan = r.kind === "LOAN";
+        return '<div class="card card-outlined col gap-3"><div class="row between"><span class="text-title-sm">Payment ' + (i + 1) + "</span>" +
+          (S.obs.length > 1 ? '<button class="btn btn-text btn-sm" type="button" onclick="drop(\'obs\',' + i + ')">Remove</button>' : "") + "</div>" +
+          '<div class="field"><label class="field-label" for="ok' + i + '">What is it</label><select class="field-input" id="ok' + i + '" onchange="collect();redraw()">' + opts(L.obligationKind, r.kind, "Choose") + "</select></div>" +
+          (loan ? '<div class="field"><label class="field-label" for="ol' + i + '">Who lent it</label><select class="field-input" id="ol' + i + '">' + opts(L.lender, r.lender, "Choose") + "</select></div>" +
+            money("oo" + i, "How much do you still owe?", r.owed) : "") +
+          money("om" + i, loan ? "How much do you pay each month?" : "How much each month?", r.monthly) + "</div>";
+      }).join("") +
+      '<button class="btn btn-tonal btn-block" type="button" onclick="more(\'obs\')"><span class="mdi mdi-plus" aria-hidden="true"></span>Add another</button>';
+  },
+  kin: function () {
+    return head("Who should we call if we can't reach you?", "Someone you trust. Your agent may call them during the visit.") +
+      '<div class="field"><label class="field-label" for="kn">Name</label><input class="field-input" id="kn" value="' + esc(S.kin.name) + '" autocomplete="off"></div>' +
+      '<div class="field"><label class="field-label" for="kr">Relationship</label><input class="field-input" id="kr" value="' + esc(S.kin.relationship) + '" placeholder="For example husband, sister"></div>' +
+      '<div class="field"><label class="field-label" for="kp">Phone</label><input class="field-input tabular" id="kp" type="tel" inputmode="tel" value="' + (S.kin.phone ? f.phone(S.kin.phone) : "") + '" placeholder="07xx xxx xxx">' +
+      '<span class="field-error hidden" id="kin-e">Enter a name and a phone number.</span></div>';
+  },
+  check: function () {
+    var sec = function (title, step, lines) {
+      return '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-md">' + title + '</span></div><button class="btn btn-text btn-sm" type="button" onclick="jump(\'' + step + '\')">Edit</button></div>' +
+        '<div class="section-body col gap-1">' + lines.map(function (l) { return '<span class="text-body-md">' + l + "</span>"; }).join("") + "</div></section>";
+    };
+    var vcs = Object.keys(S.crops).filter(function (k) { return S.crops[k]; }).map(function (k) { return k === "other" ? esc(S.other || "Something else") : GF.get(k).name; });
+    return head("Check before you send", "Your agent goes through this with you at the visit.") +
+      sec("About you", "background", [(L.experience[S.exp] || "Experience not given") + " farming", S.hasIncome ? "Has other income" : "No other income", S.hasOb ? "Has loans or regular payments" : "No loans or regular payments"]) +
+      sec("Farms", "farms", S.farms.length ? S.farms.map(function (fm) { return esc(fm.name || "Farm") + (fm.village ? ", " + esc(fm.village) : "") + (fm.size ? " · " + acres(fm.size) + " acres" : "") + (fm.tenure ? " · " + L.tenure[fm.tenure].toLowerCase() : ""); }) : ['<span class="tone-error">No farms yet</span>']) +
+      sec("What you grow", "crops", [vcs.join(", ") || "Nothing chosen", S.main ? "Most income: " + (S.main === "other" ? esc(S.other || "Something else") : GF.get(S.main).name) : "Most income: not chosen"]) +
+      (S.hasIncome ? sec("Other income", "income", S.income.map(function (r) { return (L.incomeKind[r.kind] || "Not chosen") + ", " + (L.band[r.band] || "amount not given") + " a month"; })) : "") +
+      (S.hasOb ? sec("Loans and regular payments", "loans", S.obs.map(function (r) {
+        return (r.kind === "LOAN" ? "Loan · " + (L.lender[r.lender] || "lender not given") + ", " + f.money(r.owed || 0, { whole: true }) + " owed" : L.obligationKind[r.kind] || "Not chosen") + ", " + f.money(r.monthly || 0, { whole: true }) + " a month";
+      })) : "") +
+      sec("Next of kin", "kin", [esc(S.kin.name) + (S.kin.relationship ? " (" + esc(S.kin.relationship.toLowerCase()) + ")" : "") + ", " + (S.kin.phone ? f.phone(S.kin.phone) : "no phone")]);
+  }
+};
+
+/* Read the step's fields back into S before leaving it. */
+function collect() {
+  var id = steps()[at][0], v = function (x) { var el = document.getElementById(x); return el ? el.value : ""; };
+  if (id === "consent") S.consent = document.getElementById("consent").checked;
+  if (id === "background") S.exp = v("exp");
+  if (id === "crops") { S.other = v("other"); S.main = v("main"); }
+  if (id === "income") S.income.forEach(function (r, i) {
+    r.kind = v("ik" + i); var b = document.querySelector("#ib" + i + ' [aria-checked="true"]'); r.band = b ? b.getAttribute("data-v") : r.band;
+  });
+  if (id === "loans") S.obs.forEach(function (r, i) {
+    r.kind = v("ok" + i) || r.kind;
+    if (document.getElementById("ol" + i)) r.lender = v("ol" + i);
+    if (document.getElementById("oo" + i)) r.owed = toCents(v("oo" + i));
+    r.monthly = toCents(v("om" + i));
+  });
+  if (id === "kin") { S.kin.name = v("kn").trim(); S.kin.relationship = v("kr").trim(); var p = v("kp").replace(/\D/g, ""); S.kin.phone = p ? "+254" + p.replace(/^0|^254/, "") : ""; }
+}
+function redraw() {
+  var list = steps(), id = list[at][0];
+  document.getElementById("stepper").innerHTML = list.map(function (st, i) {
+    return (i ? '<span class="sep"></span>' : "") + '<span class="step' + (i < at ? " done" : "") + '"' + (i === at ? ' aria-current="step"' : "") + '><span class="n">' + (i < at ? "✓" : i + 1) + '</span><span class="lbl">' + st[1] + "</span></span>";
+  }).join("");
+  document.getElementById("step-body").innerHTML = draw[id]();
+  var back = document.getElementById("back"), next = document.getElementById("next");
+  if (back) back.hidden = at === 0;
+  if (next) next.textContent = id === "check" ? "Send to GroFunder" : "Next";
+}
+function go(d) {
+  collect();
+  var id = steps()[at][0];
+  if (d > 0 && id === "consent" && !S.consent) { document.getElementById("consent-e").classList.remove("hidden"); return; }
+  if (d > 0 && id === "kin" && (!S.kin.name || !S.kin.phone)) { document.getElementById("kin-e").classList.remove("hidden"); return; }
+  if (d > 0 && id === "check") {
+    Proto.snack("Sent. Your agent will go through it with you at your visit.");
+    setTimeout(function () { location.href = "index.html"; }, 1500);
+    return;
+  }
+  if (d > 0 && id === "background") {
+    if (S.hasIncome && !S.income.length) S.income.push({ kind: "", band: "", note: "" });
+    if (S.hasOb && !S.obs.length) S.obs.push({ kind: "", lender: "", owed: 0, monthly: 0, note: "" });
+  }
+  at = Math.max(0, Math.min(steps().length - 1, at + d));
+  redraw(); window.scrollTo(0, 0);
+}
+function jump(id) { collect(); at = steps().findIndex(function (s) { return s[0] === id; }); redraw(); window.scrollTo(0, 0); }
+function more(list) { collect(); S[list].push(list === "income" ? { kind: "", band: "", note: "" } : { kind: "", lender: "", owed: 0, monthly: 0, note: "" }); redraw(); }
+function drop(list, i) { collect(); S[list].splice(i, 1); redraw(); }
+
+/* Yes/no and crop chips write straight into S. */
+document.addEventListener("click", function (e) {
+  var yn = e.target.closest ? e.target.closest("[data-yn]") : null;
+  if (yn) { var yes = yn.getAttribute("data-v") === "yes"; if (yn.getAttribute("data-yn") === "income") S.hasIncome = yes; else S.hasOb = yes; return; }
+  var c = e.target.closest ? e.target.closest("[data-crop]") : null;
+  if (c && !c.disabled) {
+    collect();
+    var id = c.getAttribute("data-crop"); S.crops[id] = !S.crops[id];
+    if (!S.crops[id] && S.main === id) S.main = "";
+    redraw();
+  }
+});
+
+/* Add or change a farm: a dialog of six fields (UI-13). */
+function farm(i) {
+  var fm = i > -1 ? S.farms[i] : { name: "", village: "", landmark: "", size: null, farmed: null, tenure: "", pinned: false, checked: false };
+  var pinned = fm.pinned;
+  var el = Proto.dialog({
+    title: i > -1 ? "Change " + esc(fm.name || "this farm") : "Add a farm",
+    body: (fm.checked ? '<div class="banner banner-warning"><span class="mdi mdi-information-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">This farm was checked at your visit. If you change it, it goes back to "You told us" until your agent checks it again.</span></div></div>' : "") +
+      '<div class="field"><label class="field-label" for="fn">What do you call it?</label><input class="field-input" id="fn" value="' + esc(fm.name) + '" placeholder="For example Home farm"></div>' +
+      '<div class="field"><label class="field-label" for="fv">Village</label><input class="field-input" id="fv" value="' + esc(fm.village) + '"></div>' +
+      '<div class="field"><label class="field-label" for="fl">How to find it <span class="optional">(optional)</span></label><input class="field-input" id="fl" value="' + esc(fm.landmark) + '" placeholder="For example next to the cattle dip"></div>' +
+      '<div class="row gap-3"><div class="field grow"><label class="field-label" for="fs">Size in acres</label><input class="field-input tabular" id="fs" inputmode="decimal" value="' + acres(fm.size) + '"></div>' +
+      '<div class="field grow"><label class="field-label" for="ff">Farmed now</label><input class="field-input tabular" id="ff" inputmode="decimal" value="' + acres(fm.farmed) + '"></div></div>' +
+      '<div class="col gap-2"><span class="text-label-lg">How do you hold it?</span><div class="chip-row" data-choice role="radiogroup" aria-label="How do you hold it" id="ft">' +
+      Object.keys(L.tenure).map(function (t) { return '<button class="chip" type="button" role="radio" data-v="' + t + '" aria-checked="' + (t === fm.tenure) + '">' + { OWNED: "I own it", FAMILY: "Family land", LEASED: "I lease it", COMMUNAL: "Communal" }[t] + "</button>"; }).join("") + "</div></div>" +
+      '<div class="col gap-1"><button class="btn btn-outlined" type="button" id="pin"><span class="mdi mdi-crosshairs-gps" aria-hidden="true"></span>' + (pinned ? "Pin it again here" : "Pin it on the map") + "</button>" +
+      '<span class="field-help" id="pin-h">' + (pinned ? "Pinned, about 35 m either way. " : "Optional, if you're standing on it now. ") + "Your agent takes the exact point at the visit.</span></div>",
+    submit: i > -1 ? "Save" : "Add",
+    onSubmit: function (d) {
+      var t = d.querySelector('#ft [aria-checked="true"]');
+      var row = { name: d.querySelector("#fn").value.trim(), village: d.querySelector("#fv").value.trim(), landmark: d.querySelector("#fl").value.trim(),
+        size: parseFloat(d.querySelector("#fs").value) || null, farmed: parseFloat(d.querySelector("#ff").value) || null, tenure: t ? t.getAttribute("data-v") : "", pinned: pinned, checked: false };
+      if (row.size && row.farmed && row.farmed > row.size) return Proto.snack("Farmed now can't be more than the farm's size");
+      if (i > -1) S.farms[i] = row; else S.farms.push(row);
+      redraw();
+      Proto.snack(i > -1 ? "Farm changed" : "Farm added");
+    }
+  });
+  el.querySelector("#pin").addEventListener("click", function () {
+    pinned = true;
+    el.querySelector("#pin-h").textContent = "Pinned, about 35 m either way. Your agent takes the exact point at the visit.";
+  });
+}
+
+redraw();
+</script>
+</body>
+</html>

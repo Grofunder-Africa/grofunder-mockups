@@ -52,7 +52,7 @@
    * signed in / out for the member app. */
   var ROLES = {
     coop: [["admin", "Administrator"], ["manager", "Manager"], ["accountant", "Accountant"], ["clerk", "Clerk"], ["viewer", "Viewer"]],
-    gf: [["owner", "GroFunder owner"], ["full", "Full"], ["ops", "Operations"], ["view", "View only"]],
+    gf: [["owner", "GroFunder owner"], ["full", "Full"], ["ops", "Operations"], ["view", "View only"], ["agent", "Farmer Support Agent"]],
     member: [["in", "Signed in"], ["out", "Signed out"]]
   }[APP];
   var ROLE_KEYS = ROLES.map(function (r) { return r[0]; });

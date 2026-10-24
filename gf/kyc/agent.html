@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My visits · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../assets/console.js"></script>
+<script src="kyc-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="My visits" data-dest="visits" data-compact>
+
+  <p class="proto-note"><b>K5 · My visits (note 20, draft revision 2).</b> A Farmer Support Agent holds only <code>kyc.capture</code>, which reaches the visits whose <code>agent</code> is them, and nothing else: no cooperatives, no register, no search. Kevin Odhiambo sees his three; Mercy Chebet's are not here.</p>
+  <p class="proto-note"><b>Order:</b> sent back first (the office is waiting on him), then visits to make, then those waiting for review, which open read only. A row opens the visit (K6).</p>
+  <p class="proto-note proto-gap"><b>G62:</b> drawn from note 20 while it is still a draft (owner's request, 2026-10-24).</p>
+  <p class="proto-note proto-gap"><b>G61:</b> agents work where the signal is poor. The list and each visit must be kept on the phone and sent when there's signal (note 20, concern 1 and Q8). See the offline state.</p>
+
+  <div class="banner banner-info" data-roles="owner full ops view"><span class="mdi mdi-information-outline" aria-hidden="true"></span>
+    <div class="grow"><span class="text-body-md">This screen is the Farmer Support Agent's. Switch the review bar's role to Farmer Support Agent to see it as Kevin does.</span>
+      <div class="banner-actions"><a class="btn btn-text" href="index.html">Open Verifications</a></div></div></div>
+
+  <div data-state="loaded offline" class="col gap-4">
+    <div data-state="offline" class="offline-banner">You're offline. Showing what's saved on this phone.</div>
+    <div class="row between wrap gap-2">
+      <span class="text-title-md" id="hello"></span>
+      <span class="text-body-sm tone-muted" id="count"></span>
+    </div>
+    <div class="col gap-4" id="groups"></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:24px;width:60%"></div><div class="skeleton-card"></div><div class="skeleton-card"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-clipboard-check-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No visits assigned to you</span><span class="text-body-md">GroFunder's office assigns them. They appear here, and you get a notice.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load your visits</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+(function () {
+  var K = GF.kyc, U = KycUI, f = GF.fmt, esc = U.esc, ME = "u-kevin";
+  var mine = K.visits.filter(function (v) { return v.agent === ME && v.status !== "CANCELLED" && v.status !== "APPROVED" && v.status !== "FAILED"; });
+  var back = mine.filter(function (v) { return v.status === "OPEN" && K.sentBack(v); });
+  var todo = mine.filter(function (v) { return v.status === "OPEN" && !K.sentBack(v); });
+  var waiting = mine.filter(function (v) { return v.status === "SUBMITTED"; });
+
+  function place(m) {
+    var a = m.profile.address || {}, cl = m.cluster ? GF.get(m.cluster).name + " cluster" : "";
+    return [a.village, cl].filter(Boolean).join(" · ");
+  }
+  function row(v, extra) {
+    var m = GF.get(v.member), c = GF.get(m.cooperative), farms = K.current(m.id, "FARM").length;
+    return '<div class="rowcard">' +
+      '<a class="grow" href="capture.html?v=' + v.id + '" style="color:inherit;text-decoration:none">' +
+        '<span class="text-body-lg">' + esc(m.full_name) + "</span>" +
+        '<span class="text-body-md tone-muted tabular">' + esc(c.profile.short_name) + " · " + m.member_no + "</span>" +
+        '<span class="text-body-sm tone-muted">' + esc(place(m) || GF.get(m.area).name) + " · " + (farms ? farms + (farms === 1 ? " farm" : " farms") + " declared" : "no farms declared yet") + "</span>" +
+        (extra ? '<span class="text-body-sm">' + extra + "</span>" : "") +
+      "</a>" +
+      '<a class="icon-btn" href="tel:' + m.phone + '" aria-label="Call ' + esc(m.full_name) + " on " + f.phone(m.phone) + '">' + U.icon("phone-outline") + "</a></div>";
+  }
+  function group(title, help, list, extra) {
+    if (!list.length) return "";
+    return '<div class="col gap-2"><div class="col"><span class="text-title-sm">' + title + " (" + list.length + ")</span>" +
+      (help ? '<span class="text-body-sm tone-muted">' + help + "</span>" : "") + "</div>" +
+      '<div class="rowcards gap">' + list.map(function (v) { return row(v, extra(v)); }).join("") + "</div></div>";
+  }
+
+  document.getElementById("hello").textContent = "Kevin Odhiambo";
+  document.getElementById("count").textContent = (back.length + todo.length) + " to finish · " + waiting.length + " with the office";
+  document.getElementById("groups").innerHTML =
+    group("Sent back", "The office needs something more before it can approve.", back, function (v) {
+      var h = K.sentBack(v);
+      return '<span class="status status-warning">Sent back</span> ' + esc(K.staffName(h.changed_by)) + ", " + U.when(h.changed_at) + ': "' + esc(h.reason) + '"';
+    }) +
+    group("To visit", "", todo, function (v) {
+      var started = v.notes.visit && v.notes.visit.met_at.slice(0, 10) === GF.TODAY;
+      return started ? '<span class="status status-info">Started today ' + v.notes.visit.met_at.slice(11, 16) + "</span>" : "Assigned " + f.date(v.created_at, "short");
+    }) +
+    group("Waiting for review", "Sent to the office. You can open them, but not change them.", waiting, function (v) {
+      return '<span class="status status-neutral">Submitted ' + U.when(v.submitted_at) + "</span>";
+    });
+})();
+</script>
+</body>
+</html>

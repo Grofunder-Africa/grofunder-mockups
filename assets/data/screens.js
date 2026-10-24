@@ -19,6 +19,8 @@
   var COOP_ALL = ["cooperatives.view", "cooperatives.edit_profile", "cooperatives.manage_clusters", "members.view", "members.manage", "members.configure",
     "produce.view", "produce.record", "produce.configure", "payouts.view", "payouts.record", "payouts.configure"];
   var GF_VIEW = ["cooperatives.view", "members.view", "produce.view", "payouts.view"];
+  /* KYC codes (note 20, draft revision 2): view, open and assign, review. */
+  var KYC_OFFICE = ["kyc.view", "kyc.assign", "kyc.review"];
   var ROLES = {
     coop: {
       admin: { label: "Administrator", codes: COOP_ALL, owner: true },
@@ -28,10 +30,12 @@
       viewer: { label: "Viewer", codes: ["cooperatives.view", "members.view", "produce.view", "payouts.view"] }
     },
     gf: {
-      owner: { label: "Owner", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile", "cooperatives.set_status", "catalog.manage", "places.manage", "member_access.disable"]), owner: true },
-      full: { label: "Full", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile", "cooperatives.set_status", "catalog.manage", "places.manage", "member_access.disable"]) },
-      ops: { label: "Operations", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile"]) },
-      view: { label: "View only", codes: GF_VIEW }
+      owner: { label: "Owner", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile", "cooperatives.set_status", "catalog.manage", "places.manage", "member_access.disable"], KYC_OFFICE), owner: true },
+      full: { label: "Full", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile", "cooperatives.set_status", "catalog.manage", "places.manage", "member_access.disable"], KYC_OFFICE) },
+      ops: { label: "Operations", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile"], KYC_OFFICE) },
+      view: { label: "View only", codes: GF_VIEW.concat(["kyc.view"]) },
+      /* Farmer Support Agent (note 20, draft): only their own visits. */
+      agent: { label: "Farmer Support Agent", codes: ["kyc.capture"] }
     },
     member: { "in": { label: "Signed in", codes: [] }, out: { label: "Signed out", codes: [] } }
   };
@@ -76,6 +80,17 @@
         ] },
         { label: "Team", dest: "team", screens: [
           { id: "G15", title: "GroFunder team", kind: "list", purpose: "GroFunder staff, their roles and pending invitations; invite, change role, remove (the kit's team page)", notes: ["09"], codes: ["owner"], phase: 4, href: G + "team/index.html", kit: true }
+        ] },
+        { label: "Verifications (KYC, phase 11, note 20 draft)", dest: "kyc", screens: [
+          { id: "K1", title: "Verifications", kind: "list", purpose: "Every visit by status (to review first), cooperative and agent; open a verification and assign an agent", notes: ["20"], codes: ["kyc.view"], phase: 11, href: G + "kyc/index.html" },
+          { id: "K2", title: "Open a verification", kind: "dialog", purpose: "An ACTIVE member with no live visit, and optionally an agent", notes: ["20"], codes: ["kyc.assign"], phase: 11, href: G + "kyc/index.html?open=1" },
+          { id: "K3", title: "Verification", kind: "detail", purpose: "Tabbed by kind of information (UI-62): summary and decision, identification, farms and crops, income and loans, next of kin and home, visit and history; each item with where it came from and what the check found; approve, send back, fail, revoke; assign or cancel", notes: ["20", "05"], codes: ["kyc.view"], phase: 11, href: G + "kyc/visit.html?v=v-101" },
+          { id: "K4", title: "Approve, send back or fail", kind: "dialog", purpose: "Never by the agent who did the visit; a reason to send back, a reason and a failure reason to fail or revoke", notes: ["20"], codes: ["kyc.review"], phase: 11, href: G + "kyc/visit.html?v=v-101" }
+        ] },
+        { label: "My visits (Farmer Support Agent)", dest: "visits", screens: [
+          { id: "K5", title: "My visits", kind: "list", purpose: "The agent's open visits, those sent back with the reason, and those waiting for review", notes: ["20"], codes: ["kyc.capture"], phase: 11, href: G + "kyc/agent.html" },
+          { id: "K6", title: "Visit", kind: "flow", purpose: "Phone-first: the checklist of items, each captured or confirmed in a panel (ID, portrait, phone, farms with their points and photos, declared items); submit", notes: ["20"], codes: ["kyc.capture"], phase: 11, href: G + "kyc/capture.html?v=v-102" },
+          { id: "K7", title: "Farm (panel)", kind: "sheet", purpose: "Stand on the farm: take its point, size, tenure and what's growing, photos; confirm or correct what the member declared", notes: ["20"], codes: ["kyc.capture"], phase: 11, href: G + "kyc/capture.html?v=v-102&show=farm" }
         ] }
       ] },
 
@@ -151,6 +166,10 @@
           { id: "M15", title: "Change PIN", kind: "flow", purpose: "Current PIN, new PIN twice; other phones are signed out", notes: ["06"], codes: [], phase: 9, href: "member/account/pin.html" },
           { id: "M16", title: "Change phone", kind: "flow", purpose: "The new number gets a code; the old number gets an SMS; records follow", notes: ["06"], codes: [], phase: 9, href: "member/account/phone.html" },
           { id: "M17", title: "Terms and privacy", kind: "detail", purpose: "What the member accepted at sign-up", notes: ["06"], codes: [], phase: 9, href: "member/account/terms.html" }
+        ] },
+        { label: "Verification for loans (KYC, phase 11, note 20 draft)", dest: "account", screens: [
+          { id: "MK1", title: "Get verified for loans", kind: "detail", purpose: "From Account: what GroFunder holds on you, item by item, what's verified, what's still needed, and your visit", notes: ["20"], codes: [], phase: 11, href: "member/kyc/index.html" },
+          { id: "MK2", title: "Your farm and money", kind: "flow", purpose: "Declare background, farms, crops, other income, loans and regular payments, next of kin; review; crops already delivered come in verified", notes: ["20"], codes: [], phase: 11, href: "member/kyc/declare.html" }
         ] }
       ] }
   ];
@@ -166,6 +185,6 @@
   }
 
   /* Flows whose screens are drawn for real; other links are phase 2 pattern samples. */
-  var DRAWN = [4, 5, 6, 7, 8, 9];
+  var DRAWN = [4, 5, 6, 7, 8, 9, 11];
   root.GF_SCREENS = { ROLES: ROLES, SURFACES: SURFACES, rolesFor: rolesFor, DRAWN: DRAWN };
 })(typeof window !== "undefined" ? window : globalThis);
