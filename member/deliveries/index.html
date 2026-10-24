@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deliveries · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Deliveries" data-dest="deliveries" data-compact>
+
+  <p class="proto-note"><b>M9 · From note 07 (UI-18).</b> The member's own deliveries in the cooperative shown, newest month first, each month with its total per product in that product's unit. Voided ones stay in the list, struck through and marked, and count in no total (07: members see RECORDED and VOIDED, the voided marked). Nothing here can be changed: a wrong entry is the clerk's to void.</p>
+  <p class="proto-note"><b>Units.</b> A product recorded in another unit reads as the member entered it, with the stored figure beside it: "2 bags (180 kg)" (07, D7). Products are totalled separately, never added together. The product filter appears only when there is more than one product.</p>
+  <p class="proto-note"><b>M10 is a panel</b> (UI-13): a row opens it without leaving the list; <code>?d=&lt;id&gt;</code> opens one on arrival, <code>?d=first</code> the newest. Try <a href="index.html?d=d-10601">a voided one</a>.</p>
+
+  <div data-roles="out" class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span>
+    <div class="grow"><span class="text-body-md">Signed out, the member app shows only the sign-in screens.</span>
+      <div class="banner-actions"><a class="btn btn-text" href="../auth/sign-in.html">Open sign-in</a></div></div></div>
+
+  <div data-state="loaded" class="col gap-4" data-roles="in">
+    <div class="chip-row hidden" data-choice role="radiogroup" aria-label="Product" id="filter"></div>
+    <div class="col gap-6" id="months"></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4" data-roles="in">
+    <div class="skeleton" style="width:40%;height:20px"></div>
+    <div class="col"><div class="skeleton-row"><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:45%"></div><div class="skeleton skeleton-line" style="width:65%"></div></div></div>
+      <div class="skeleton-row"><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:45%"></div><div class="skeleton skeleton-line" style="width:65%"></div></div></div>
+      <div class="skeleton-row"><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:45%"></div><div class="skeleton skeleton-line" style="width:65%"></div></div></div></div>
+  </div>
+  <div data-state="empty" class="empty" data-roles="in">
+    <span class="mdi mdi-basket-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Nothing delivered yet</span>
+    <span class="text-body-md" id="empty-t">Your deliveries appear here once the clerk records them at the collection centre.</span>
+    <a class="btn btn-tonal" href="../home/index.html?show=rounds">Collection times</a>
+  </div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Your deliveries show again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var q = GF.q, f = GF.fmt, A = MemberApp, esc = A.esc, me = A.current;
+A.title();
+var all = q.deliveries({ member: me.id }).slice().sort(function (a, b) { return a.delivered_on < b.delivered_on ? 1 : a.delivered_on > b.delivered_on ? -1 : (a.round || "") < (b.round || "") ? 1 : -1; });
+var products = [];
+all.forEach(function (d) { if (products.indexOf(d.product) === -1) products.push(d.product); });
+var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+var STATE = { UNPAID: ["neutral", "Not paid yet"], PART_PAID: ["warning", "Part paid"], PAID: ["success", "Paid"], VOIDED: ["neutral", "Voided"] };
+var chip = function (s) { return '<span class="status status-' + STATE[s][0] + '">' + STATE[s][1] + "</span>"; };
+var nameOf = function (cpId) { return GF.get(GF.get(cpId).product).name; };
+var unitOf = function (cpId) { return GF.get(GF.get(cpId).product).unit; };
+
+/* A total in the product's own unit; in the recording unit too when there is one: "31 bags (2,790 kg)". */
+function total(list, cpId) {
+  var cp = GF.get(cpId), amount = q.quantity(list), base = f.qty(amount, unitOf(cpId), { digits: unitOf(cpId) === "LITRE" ? 1 : 0 });
+  if (!cp.recording_unit) return base;
+  return f.qty(amount / cp.unit_factor, cp.recording_unit, { digits: 0, long: true }) + " (" + base + ")";
+}
+
+function draw(only) {
+  var list = only ? all.filter(function (d) { return d.product === only; }) : all;
+  var byMonth = [];
+  list.forEach(function (d) {
+    var k = d.delivered_on.slice(0, 7), g = byMonth[byMonth.length - 1];
+    if (!g || g.k !== k) byMonth.push(g = { k: k, ds: [] });
+    g.ds.push(d);
+  });
+  document.getElementById("months").innerHTML = byMonth.map(function (g) {
+    var kept = g.ds.filter(function (d) { return d.status === "RECORDED"; });
+    var ps = (only ? [only] : products).filter(function (p) { return kept.some(function (d) { return d.product === p; }); });
+    var totals = ps.map(function (p) { return total(kept.filter(function (d) { return d.product === p; }), p) + (products.length > 1 && !only ? " " + nameOf(p).toLowerCase() : ""); });
+    var voided = g.ds.length - kept.length;
+    return '<section class="col gap-2" data-month="' + g.k + '"><div class="section-header"><div class="grow"><span class="text-title-md">' + MONTHS[+g.k.slice(5) - 1] + " " + g.k.slice(0, 4) + "</span>" +
+      '<span class="text-body-md tone-muted tabular" data-total>' + (totals.join(" · ") || "Nothing counted") + " · " + kept.length + " deliveries" + (voided ? ", " + voided + " voided" : "") + "</span></div></div>" +
+      '<div class="list rowcards">' + g.ds.map(row).join("") + "</div></section>";
+  }).join("");
+}
+function row(d) {
+  var v = d.status === "VOIDED", s = q.standing(d);
+  var where = [(GF.get(d.round) || {}).name, (GF.get(d.cluster) || {}).name].filter(Boolean).join(" · ");
+  return '<a class="rowcard" href="#" data-d="' + d.id + '"' + (v ? ' data-voided' : "") + '><span class="grow"><span class="text-body-lg tabular">' + f.date(d.delivered_on, "short") + (products.length > 1 ? " · " + esc(nameOf(d.product)) : "") + "</span>" +
+    '<span class="text-body-md tone-muted">' + esc(v ? d.details.void_reason || "Voided" : where) + "</span></span>" +
+    '<span class="trail"><span class="text-title-md tabular' + (v ? " struck tone-muted" : "") + '">' + f.delivery(d) + "</span>" + (v || s.state !== "UNPAID" ? chip(s.state) : "") + "</span></a>";
+}
+
+/* M10: one delivery, read only (07), and what has been paid against it (08). */
+function panel(id) {
+  var d = GF.get(id); if (!d || d.member !== me.id) return;
+  var v = d.status === "VOIDED", s = q.standing(d), cp = GF.get(d.product), e = d.details.entered;
+  var stored = f.qty(d.quantity_milli / 1000, unitOf(d.product), { digits: unitOf(d.product) === "LITRE" ? 1 : 0 });
+  var pays = GF.deliveryPayments.filter(function (x) { return x.delivery === d.id; });
+  var price = s.price_cents ? f.money(s.price_cents) + " a " + (unitOf(d.product) === "LITRE" ? "litre" : GF.UNITS[unitOf(d.product)][0]) : "No price set yet";
+  var body = (v ? '<div class="banner banner-info"><span class="mdi mdi-close-circle-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Voided</span>' +
+      '<span class="text-body-md">' + esc(d.details.void_reason || "The cooperative voided this entry.") + " It isn't counted or paid. If you think it's wrong, ask your clerk.</span></div></div>" : "") +
+    '<dl class="facts">' +
+      "<dt>Date</dt><dd class=\"tabular\">" + f.date(d.delivered_on) + "</dd>" +
+      "<dt>Product</dt><dd>" + esc(f.productName(d.product, d.grade)) + (cp.details.local_name ? ' <span class="tone-muted">(' + esc(cp.details.local_name) + ")</span>" : "") + "</dd>" +
+      "<dt>Quantity</dt><dd class=\"tabular" + (v ? " struck" : "") + "\">" + (e ? e.quantity + " " + (e.quantity === 1 ? GF.UNITS[e.unit][0] : GF.UNITS[e.unit][1]) + '<span class="cell-sub">Kept as ' + stored + ", at " + e.factor + " " + GF.UNITS[unitOf(d.product)][0] + " a " + GF.UNITS[e.unit][0] + "</span>" : stored) + "</dd>" +
+      (d.round ? "<dt>Round</dt><dd>" + esc(GF.get(d.round).name) + "</dd>" : "") +
+      (d.cluster ? "<dt>Centre</dt><dd>" + esc(GF.get(d.cluster).name) + "</dd>" : "") +
+      "<dt>Receipt</dt><dd class=\"tabular\">" + esc(d.receipt_no || "–") + "</dd>" +
+    "</dl>" +
+    (v ? "" : '<div class="col gap-2"><span class="text-title-sm">Payment</span>' +
+      '<div class="totals"><div><span>Value at ' + price + "</span><span>" + f.money(s.value_cents) + "</span></div>" +
+      "<div><span>Paid so far</span><span>" + f.money(s.paid_cents) + '</span></div><div class="net"><span>Still owed</span><span>' + f.money(s.balance_cents) + "</span></div></div>" +
+      (pays.length ? '<div class="list rowcards">' + pays.map(function (x) { var p = GF.get(x.payout);
+        return '<a class="rowcard" href="../payments/statement.html?p=' + p.id + '"><span class="grow"><span class="text-body-lg">' + esc(p.details.label) + '</span><span class="text-body-md tone-muted tabular">Paid ' + f.date(p.paid_at, "short") + "</span></span>" +
+          '<span class="trail"><span class="text-title-md tabular">' + f.money(x.amount_cents) + "</span></span></a>"; }).join("") + "</div>"
+        : '<p class="text-body-md tone-muted">Not paid yet. It is offered on your next payout' + (s.price_cents ? "" : ", once the cooperative sets a price") + ".</p>") + "</div>");
+  Proto.sheet({ title: f.date(d.delivered_on, "short") + " · " + esc(nameOf(d.product)), body: '<div class="col gap-4" id="d-panel" data-id="' + d.id + '">' + body + "</div>" });
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  if (!all.length) { Proto.go("empty"); return; }
+  if (products.length > 1) {
+    var fl = document.getElementById("filter");
+    fl.classList.remove("hidden");
+    fl.innerHTML = '<button class="chip" type="button" role="radio" aria-checked="true" data-p="">All</button>' + products.map(function (p) {
+      return '<button class="chip" type="button" role="radio" aria-checked="false" data-p="' + p + '">' + esc(nameOf(p)) + "</button>";
+    }).join("");
+    fl.addEventListener("click", function (e) { var c = e.target.closest("[data-p]"); if (c) setTimeout(function () { draw(c.getAttribute("data-p")); }, 0); });
+  }
+  draw("");
+  document.getElementById("months").addEventListener("click", function (e) {
+    var r = e.target.closest("[data-d]"); if (!r) return; e.preventDefault(); panel(r.getAttribute("data-d"));
+  });
+  var want = new URLSearchParams(location.search).get("d");
+  if (want) panel(want === "first" ? all[0].id : want);
+});
+</script>
+</body>
+</html>

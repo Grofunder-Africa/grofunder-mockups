@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Components specimen · GroFunder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../assets/tokens.css">
+<link rel="stylesheet" href="../assets/kit.css">
+<script src="../assets/proto.js" defer></script>
+<style>
+  /* Specimen layout only. */
+  .page { max-width: 1040px; margin: 0 auto; padding: 0 16px 64px; display: flex; flex-direction: column; gap: 32px; }
+  .top { position: sticky; top: 0; z-index: 30; background: var(--surface); border-bottom: var(--hairline); }
+  .top-inner { max-width: 1040px; margin: 0 auto; padding: 12px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .spec { display: flex; flex-direction: column; gap: 16px; scroll-margin-top: 80px; }
+  .spec > header { display: flex; flex-direction: column; gap: 4px; }
+  .demo { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; align-items: start; }
+  .label { font-size: 11px; line-height: 16px; letter-spacing: 0.5px; font-weight: 500; color: var(--on-surface-variant); text-transform: uppercase; }
+  /* Show focus without focusing, so the state can be compared at a glance. */
+  .field-input.is-focus { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+  .toc { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .toc a { font-size: 13px; text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="top"><div class="top-inner">
+  <img src="../assets/brand/grofunder-leaf.png" alt="" style="height:28px">
+  <span class="text-title-md grow">Components · every state</span>
+  <a class="btn btn-text btn-sm" href="../index.html">Prototype contents</a>
+  <button class="btn btn-tonal btn-sm" type="button" onclick="theme()"><span class="mdi mdi-circle-half-full" aria-hidden="true"></span><span id="theme-l">Theme: system</span></button>
+</div></div>
+
+<main class="page">
+  <header class="col gap-2" style="padding-top:24px">
+    <span class="text-label-md tone-muted">Phase 2 · specimen</span>
+    <h1 class="text-headline-md">Components</h1>
+    <p class="text-body-lg tone-muted">Every kit component GroFunder uses, in every state, drawn with <code>kit.css</code>. It is the reference the built app is compared against, so it carries no prototype chrome. Proposed new components are on <a href="new-components.html">their own page</a>.</p>
+    <nav class="toc" aria-label="On this page">
+      <a href="#buttons">Buttons</a><a href="#fields">Text fields</a><a href="#selection">Selection</a><a href="#chips">Chips</a><a href="#status">Status</a>
+      <a href="#cards">Cards</a><a href="#lists">Lists</a><a href="#section">Section and DataTable</a><a href="#stats">StatCard</a><a href="#feedback">Feedback</a>
+      <a href="#states">States</a><a href="#more">Tabs, Meter, Disclosure, Stepper</a><a href="#overlays">Overlays</a>
+    </nav>
+  </header>
+
+  <!-- ============================================================ Buttons -->
+  <section class="spec" id="buttons">
+    <header><h2 class="text-title-lg">Buttons</h2><p class="text-body-md tone-muted">One filled button per region. Destructive actions confirm first. Sizes: sm 32, md 40 (default), lg 56 for a phone's main action.</p></header>
+    <div class="card card-outlined">
+      <span class="label">Variants · enabled</span>
+      <div class="demo">
+        <button class="btn btn-filled" type="button">Record delivery</button>
+        <button class="btn btn-tonal" type="button">Add member</button>
+        <button class="btn btn-outlined" type="button">Import CSV</button>
+        <button class="btn btn-elevated" type="button">Share</button>
+        <button class="btn btn-text" type="button">Cancel</button>
+        <button class="btn btn-destructive" type="button">Void delivery</button>
+        <button class="btn btn-text tone-error" type="button">Remove</button>
+      </div>
+      <span class="label">Disabled</span>
+      <div class="demo">
+        <button class="btn btn-filled" type="button" disabled>Record delivery</button>
+        <button class="btn btn-tonal" type="button" disabled>Add member</button>
+        <button class="btn btn-outlined" type="button" disabled>Import CSV</button>
+        <button class="btn btn-text" type="button" disabled>Cancel</button>
+      </div>
+      <span class="label">Sizes, icon, loading · GroFunder screens use md (40); lg (56) is the kit's and isn't used</span>
+      <div class="demo">
+        <button class="btn btn-filled btn-sm" type="button">Small</button>
+        <button class="btn btn-filled" type="button"><span class="mdi mdi-plus" aria-hidden="true"></span>With icon</button>
+        <button class="btn btn-filled btn-lg" type="button">Large</button>
+        <button class="btn btn-filled" type="button" aria-disabled="true"><span class="spinner" aria-hidden="true"></span>Saving…</button>
+      </div>
+      <span class="label">Icon buttons (always labelled)</span>
+      <div class="demo">
+        <button class="icon-btn" type="button" aria-label="Search"><span class="mdi mdi-magnify" aria-hidden="true"></span></button>
+        <button class="icon-btn" type="button" aria-label="More actions"><span class="mdi mdi-dots-vertical" aria-hidden="true"></span></button>
+        <button class="icon-btn icon-btn-tonal" type="button" aria-label="Edit"><span class="mdi mdi-pencil-outline" aria-hidden="true"></span></button>
+        <button class="icon-btn icon-btn-filled" type="button" aria-label="Add"><span class="mdi mdi-plus" aria-hidden="true"></span></button>
+        <button class="icon-btn nav-badge" data-badge="3" type="button" aria-label="Notifications, 3 unread"><span class="mdi mdi-bell-outline" aria-hidden="true"></span></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================= Fields -->
+  <section class="spec" id="fields">
+    <header><h2 class="text-title-lg">Text fields</h2><p class="text-body-md tone-muted">Label above, a 56dp box with the edge line, help or error below. "(optional)" marks a field that may be empty; a required field has no mark. Focus is primary and one pixel thicker; an error keeps its colour while focused.</p></header>
+    <div class="card card-outlined">
+      <div class="form-grid">
+        <div class="field"><label class="field-label" for="f1">Empty</label><input class="field-input" id="f1" placeholder="Full name as on ID"></div>
+        <div class="field"><label class="field-label" for="f2">Filled</label><input class="field-input" id="f2" value="Wanjiku Kamau"></div>
+        <div class="field"><label class="field-label" for="f3">Focused</label><input class="field-input is-focus" id="f3" value="Wanjiku Ka"></div>
+        <div class="field"><label class="field-label" for="f4">With help</label><input class="field-input tabular" id="f4" value="M-0143" inputmode="text">
+          <span class="field-help">Next free number after M-0142.</span></div>
+        <div class="field"><label class="field-label" for="f5">Error</label><input class="field-input tabular" id="f5" value="0712 34" aria-invalid="true" aria-describedby="f5e">
+          <span class="field-error" id="f5e">Enter a full phone number, like 0712 345 678.</span></div>
+        <div class="field"><label class="field-label" for="f6">Disabled</label><input class="field-input" id="f6" value="Kijani Valley Dairy" disabled>
+          <span class="field-help">Only GroFunder changes the registered name.</span></div>
+        <div class="field"><label class="field-label" for="f7">Email <span class="optional">(optional)</span></label><input class="field-input" id="f7" type="email" placeholder="name@example.com"></div>
+        <div class="field"><label class="field-label" for="f8">Password</label>
+          <div class="field-box"><input class="field-input" id="f8" type="password" value="secretsecret" style="padding-right:52px">
+            <button class="icon-btn" type="button" aria-label="Show what you typed"><span class="mdi mdi-eye-outline" aria-hidden="true"></span></button></div></div>
+        <div class="field"><label class="field-label" for="f9">Select</label><select class="field-input" id="f9"><option>Gathiru</option><option>Kiamwangi</option></select></div>
+        <div class="field"><label class="field-label" for="f10">Date</label>
+          <div class="field-box has-trail"><input class="field-input tabular" id="f10" value="30 Oct 2026"><span class="trail"><span class="mdi mdi-calendar-blank-outline" aria-hidden="true"></span></span></div></div>
+        <div class="field"><label class="field-label" for="f11">With a leading icon</label>
+          <div class="field-box"><span class="lead"><span class="mdi mdi-phone-outline" aria-hidden="true"></span></span><input class="field-input tabular" id="f11" value="0712 345 678"></div></div>
+        <div class="field"><label class="field-label" for="f12">With a unit</label>
+          <div class="field-box has-trail"><input class="field-input tabular" id="f12" value="18.5" inputmode="decimal"><span class="trail affix">litres</span></div></div>
+        <div class="field field-wide"><label class="field-label" for="f13">Multi-line <span class="optional">(optional)</span></label><textarea class="field-input" id="f13">Delivers to Gathiru most mornings.</textarea></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><span class="text-title-md">In a section toolbar: 40dp, labelled by the control</span></div>
+      <div class="section-toolbar">
+        <div class="field search"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span><input class="field-input" type="search" placeholder="Search members" aria-label="Search members"></div></div>
+        <select class="field-input" aria-label="Cluster" style="width:auto"><option>All clusters</option></select>
+        <button class="chip" type="button" aria-pressed="true">Active</button>
+        <button class="chip" type="button" aria-pressed="false">Suspended</button>
+      </div>
+      <div class="section-body"><p class="text-body-md tone-muted">Search filters as you type (SearchField is debounced); there is no Search button.</p></div>
+    </div>
+  </section>
+
+  <!-- ========================================================= Selection -->
+  <section class="spec" id="selection">
+    <header><h2 class="text-title-lg">Checkbox, radio, switch, cards, quantity</h2><p class="text-body-md tone-muted">Each control sits in a 48dp row; the whole row is the touch target.</p></header>
+    <div class="card card-outlined">
+      <div class="form-grid cols-3">
+        <div class="col"><span class="field-label">CheckboxField</span>
+          <label class="check"><input type="checkbox" checked> Send the statement by SMS</label>
+          <label class="check"><input type="checkbox"> Include voided deliveries</label>
+          <label class="check"><input type="checkbox" disabled> Email (no address on file)</label></div>
+        <div class="col" role="radiogroup" aria-label="How to fill amounts"><span class="field-label">RadioGroupField</span>
+          <label class="check"><input type="radio" name="r1" checked> Pay each delivery in full</label>
+          <label class="check"><input type="radio" name="r1"> A percentage of each</label>
+          <label class="check"><input type="radio" name="r1" disabled> An amount, oldest first</label></div>
+        <div class="col"><span class="field-label">SwitchField</span>
+          <label class="check"><input type="checkbox" role="switch" checked> Uses collection rounds</label>
+          <label class="check"><input type="checkbox" role="switch"> Grades milk at intake</label>
+          <label class="check"><input type="checkbox" role="switch" disabled> Second factor (required for members)</label></div>
+      </div>
+      <div class="divider"></div>
+      <span class="field-label">RadioCardField</span>
+      <div class="radio-cards" role="radiogroup" aria-label="Payment method">
+        <button class="radio-card" type="button" role="radio" aria-checked="true"><span class="mdi mdi-cellphone" aria-hidden="true" style="font-size:24px"></span><span class="text-title-sm">M-Pesa</span><span class="text-body-sm tone-muted">To 0712 345 678</span></button>
+        <button class="radio-card" type="button" role="radio" aria-checked="false"><span class="mdi mdi-bank-outline" aria-hidden="true" style="font-size:24px"></span><span class="text-title-sm">Bank</span><span class="text-body-sm tone-muted">Equity ••• 4421</span></button>
+        <button class="radio-card" type="button" role="radio" aria-checked="false"><span class="mdi mdi-cash" aria-hidden="true" style="font-size:24px"></span><span class="text-title-sm">Cash</span><span class="text-body-sm tone-muted">Paid at the office</span></button>
+      </div>
+      <span class="field-label">QuantityField (whole numbers)</span>
+      <div class="quantity"><button class="icon-btn" type="button" aria-label="One less"><span class="mdi mdi-minus" aria-hidden="true"></span></button>
+        <input value="2" aria-label="Bags" inputmode="numeric"><button class="icon-btn" type="button" aria-label="One more"><span class="mdi mdi-plus" aria-hidden="true"></span></button></div>
+    </div>
+    <div class="card card-outlined">
+      <span class="field-label">Combobox (member search, open)</span>
+      <div class="field combo" style="max-width:420px">
+        <div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span><input class="field-input is-focus" value="wanj" aria-label="Member" autocomplete="off"></div>
+        <div class="combo-list" role="listbox" style="position:static;margin-top:4px">
+          <div class="combo-item" role="option" aria-selected="true"><span class="avatar avatar-sm">WK</span><span class="col"><span class="text-body-lg">Wanjiku Kamau</span><span class="text-body-sm tone-muted tabular">M-0142 · Gathiru · ID 23456789</span></span></div>
+          <div class="combo-item" role="option"><span class="avatar avatar-sm">WN</span><span class="col"><span class="text-body-lg">Wanjiru Njoroge</span><span class="text-body-sm tone-muted tabular">M-0310 · Kiamwangi · ID 30111222</span></span></div>
+          <div class="combo-item" role="option"><span class="avatar avatar-sm">JW</span><span class="col"><span class="text-body-lg">Jane Wanjiku</span><span class="text-body-sm tone-muted tabular">M-0412 · Ndumberi · Suspended</span></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== Chips -->
+  <section class="spec" id="chips">
+    <header><h2 class="text-title-lg">Chips</h2><p class="text-body-md tone-muted">Selected is the inverse pair, never a check mark (a check changes the chip's width). ChoiceChips pick one; filter chips toggle.</p></header>
+    <div class="card card-outlined">
+      <span class="label">ChoiceChips (one)</span>
+      <div class="chip-row" data-choice role="radiogroup" aria-label="Grade"><button class="chip" type="button" role="radio" aria-checked="true">Grade A</button><button class="chip" type="button" role="radio" aria-checked="false">Grade B</button><button class="chip" type="button" role="radio" aria-checked="false">Not graded</button></div>
+      <span class="label">Filter chips (any)</span>
+      <div class="chip-row"><button class="chip" type="button" aria-pressed="true">Active</button><button class="chip" type="button" aria-pressed="false">Suspended</button><button class="chip" type="button" aria-pressed="false">Exited</button><button class="chip" type="button" disabled>Archived</button></div>
+      <span class="label">InputChip (removable, with icon)</span>
+      <div class="chip-row"><span class="chip chip-icon"><span class="mdi mdi-map-marker-outline" aria-hidden="true"></span>Gathiru<button class="icon-btn" type="button" aria-label="Remove Gathiru" style="width:24px;height:24px;margin-right:-8px"><span class="mdi mdi-close" aria-hidden="true" style="font-size:18px"></span></button></span></div>
+    </div>
+  </section>
+
+  <!-- ============================================================= Status -->
+  <section class="spec" id="status">
+    <header><h2 class="text-title-lg">StatusChip</h2><p class="text-body-md tone-muted">A tone and a label, always. Domain statuses map to tones in each feature's <code>display.ts</code> (design system §1.1).</p></header>
+    <div class="card card-outlined">
+      <div class="demo"><span class="status status-neutral">Neutral</span><span class="status status-info">Info</span><span class="status status-success">Success</span><span class="status status-warning">Warning</span><span class="status status-error">Error</span><span class="status status-primary">Primary</span></div>
+      <p class="text-body-sm tone-muted"><code>primary</code> is in the kit but GroFunder doesn't use it for statuses: the logo green reads as a highlight, not a state.</p>
+    </div>
+  </section>
+
+  <!-- ============================================================== Cards -->
+  <section class="spec" id="cards">
+    <header><h2 class="text-title-lg">Card</h2><p class="text-body-md tone-muted">Filled (default) sits on tone, outlined on a line, elevated on a shadow. Outlined is the workhorse on wide screens.</p></header>
+    <div class="grid-2">
+      <div class="card"><div class="card-header"><div class="card-header-text"><span class="card-title">Filled</span><span class="card-description">surface-container-highest</span></div></div><p class="text-body-md">For a block that groups related facts on a phone.</p></div>
+      <div class="card card-outlined"><div class="card-header"><div class="card-header-text"><span class="card-title">Outlined</span><span class="card-description">surface + edge</span></div><button class="btn btn-text btn-sm" type="button">Edit</button></div><p class="text-body-md">Settings cards, detail blocks, anything with a Save.</p><div class="actions"><button class="btn btn-filled" type="button" disabled data-save>Save</button></div></div>
+      <div class="card card-elevated"><div class="card-header"><div class="card-header-text"><span class="card-title">Elevated</span><span class="card-description">surface-container-low + level 1</span></div></div><p class="text-body-md">Sparingly: something that sits above a busy page.</p></div>
+    </div>
+  </section>
+
+  <!-- ============================================================== Lists -->
+  <section class="spec" id="lists">
+    <header><h2 class="text-title-lg">ListItem and rows</h2><p class="text-body-md tone-muted">One, two or three lines; leading icon or avatar; trailing value, status or chevron. A row that opens something is a link.</p></header>
+    <div class="grid-2">
+      <div class="list rowcards">
+        <a class="rowcard" href="#"><span class="mdi mdi-account-circle-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Your account</span></span><span class="mdi mdi-chevron-right" aria-hidden="true"></span></a>
+        <a class="rowcard" href="#"><span class="avatar">WK</span><span class="grow"><span class="text-body-lg">Wanjiku Kamau</span><span class="text-body-md tone-muted tabular">M-0142 · Gathiru</span></span><span class="status status-success">Active</span></a>
+        <div class="rowcard"><span class="avatar"><span class="mdi mdi-water-outline" aria-hidden="true"></span></span><span class="grow"><span class="text-label-sm tone-muted">Morning round</span><span class="text-body-lg">Raw milk · Grade A</span><span class="text-body-md tone-muted tabular">30 Oct · R-4471 · Grace W.</span></span><span class="trail text-title-md tabular">18.5 L</span></div>
+      </div>
+      <div class="col gap-2">
+        <span class="label">Facts (label and value)</span>
+        <div class="card card-outlined"><dl class="facts"><dt>ID</dt><dd class="tabular">National ID 23456789</dd><dt>Phone</dt><dd class="tabular">0712 345 678</dd><dt>Joined</dt><dd class="tabular">3 Mar 2019</dd></dl></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== Section/Table -->
+  <section class="spec" id="section">
+    <header><h2 class="text-title-lg">Section and DataTable</h2><p class="text-body-md tone-muted">A bounded region: header, band (summary in the inverse pair), toolbar, body. A DataTable inside drops its own line. Tables from 840; rows as cards below. Figures right-aligned and tabular; a footer row for totals.</p></header>
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">Deliveries to pay</span><span class="text-body-md tone-muted">Wanjiku Kamau, up to 23 Oct</span></div><button class="btn btn-outlined btn-sm" type="button">Recalculate</button></div>
+      <div class="section-band"><div class="section-figure lg"><span class="k">Value</span><span class="v">Ksh 21,899.25</span></div><div class="section-figure"><span class="k">Deliveries</span><span class="v">24</span></div><span class="note">At the prices in force on each day.</span></div>
+      <div class="table-wrap only-wide">
+        <table class="table">
+          <thead><tr><th>Delivered</th><th class="num">Quantity</th><th class="num">Price</th><th class="num">Value</th><th class="num">Paid before</th><th class="num">Balance</th></tr></thead>
+          <tbody>
+            <tr><td class="primary-cell">Raw milk · 1–14 Oct</td><td class="num">250.5 L</td><td class="num">Ksh 52.50</td><td class="num">Ksh 13,151.25</td><td class="num">Ksh 0.00</td><td class="num">Ksh 13,151.25</td></tr>
+            <tr><td class="primary-cell">Raw milk · 15–23 Oct</td><td class="num">162.0 L</td><td class="num">Ksh 54.00</td><td class="num">Ksh 8,748.00</td><td class="num">Ksh 0.00</td><td class="num">Ksh 8,748.00</td></tr>
+          </tbody>
+          <tfoot><tr><td>Total</td><td class="num">412.5 L</td><td></td><td class="num">Ksh 21,899.25</td><td class="num">Ksh 0.00</td><td class="num">Ksh 21,899.25</td></tr></tfoot>
+        </table>
+      </div>
+      <div class="rowcards only-compact">
+        <div class="rowcard"><span class="grow"><span class="text-body-lg">Raw milk · 1–14 Oct</span><span class="text-body-md tone-muted tabular">250.5 L at Ksh 52.50</span></span><span class="trail text-title-md tabular">Ksh 13,151.25</span></div>
+        <div class="rowcard"><span class="grow"><span class="text-body-lg">Raw milk · 15–23 Oct</span><span class="text-body-md tone-muted tabular">162.0 L at Ksh 54.00</span></span><span class="trail text-title-md tabular">Ksh 8,748.00</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== Stats -->
+  <section class="spec" id="stats">
+    <header><h2 class="text-title-lg">StatCard and StatsGrid</h2><p class="text-body-md tone-muted">A figure with an icon in a tone. Never tertiary (D3). A StatCard that leads somewhere is a link.</p></header>
+    <div class="stats-grid">
+      <a class="stat-card" href="#"><span class="stat-icon tone-primary-box"><span class="mdi mdi-water-outline" aria-hidden="true"></span></span><span class="stat-text"><span class="stat-label">Collected today</span><span class="stat-value">1,284.5 L</span><span class="stat-trend good"><span class="mdi mdi-arrow-up" aria-hidden="true"></span>6% on last Friday</span></span></a>
+      <div class="stat-card"><span class="stat-icon tone-secondary-box"><span class="mdi mdi-account-group-outline" aria-hidden="true"></span></span><span class="stat-text"><span class="stat-label">Active members</span><span class="stat-value">412</span><span class="stat-caption">3 joined this month</span></span></div>
+      <div class="stat-card"><span class="stat-icon tone-info-box"><span class="mdi mdi-file-document-edit-outline" aria-hidden="true"></span></span><span class="stat-text"><span class="stat-label">Draft payouts</span><span class="stat-value">7</span></span></div>
+      <div class="stat-card"><span class="stat-icon tone-success-box"><span class="mdi mdi-cash-check" aria-hidden="true"></span></span><span class="stat-text"><span class="stat-label">Paid in October</span><span class="stat-value">Ksh 1,904,220</span></span></div>
+      <div class="stat-card"><span class="stat-icon tone-warning-box"><span class="mdi mdi-cash-clock" aria-hidden="true"></span></span><span class="stat-text"><span class="stat-label">Still to pay</span><span class="stat-value">Ksh 182,406</span></span></div>
+      <div class="stat-card"><span class="stat-icon tone-error-box"><span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span></span><span class="stat-text"><span class="stat-label">Import errors</span><span class="stat-value">3 rows</span></span></div>
+    </div>
+  </section>
+
+  <!-- =========================================================== Feedback -->
+  <section class="spec" id="feedback">
+    <header><h2 class="text-title-lg">Banner and FormError</h2><p class="text-body-md tone-muted">A banner says something about the whole screen or form; a field's problem goes under the field. Success after an action is a snackbar, not a banner.</p></header>
+    <div class="col gap-3">
+      <div class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Recording continues while on hold</span><span class="text-body-md">Adding members is paused until GroFunder lifts the hold.</span></div></div>
+      <div class="banner banner-success"><span class="mdi mdi-check-circle-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">Your PIN was changed. Other phones were signed out.</span></div></div>
+      <div class="banner banner-warning"><span class="mdi mdi-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">Wanjiku already has a delivery in this round today.</span><div class="banner-actions"><button class="btn btn-text btn-sm" type="button">View it</button></div></div></div>
+      <div class="banner banner-error"><span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">3 rows need fixing before the import</span><span class="text-body-md">Rows 4, 17 and 22 have no ID number.</span></div><button class="icon-btn" type="button" aria-label="Dismiss" style="color:inherit"><span class="mdi mdi-close" aria-hidden="true"></span></button></div>
+    </div>
+  </section>
+
+  <!-- ============================================================= States -->
+  <section class="spec" id="states">
+    <header><h2 class="text-title-lg">The four states</h2><p class="text-body-md tone-muted">Every screen draws loading, empty, error and loaded. Loading is a skeleton of the loaded layout, never a blocking spinner.</p></header>
+    <div class="grid-2">
+      <div class="card card-outlined"><span class="label">LoadingState (skeleton)</span>
+        <div class="col"><div class="skeleton-row"><span class="skeleton-avatar"></span><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:55%"></div><div class="skeleton skeleton-line" style="width:35%"></div></div></div>
+        <div class="skeleton-row"><span class="skeleton-avatar"></span><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:45%"></div><div class="skeleton skeleton-line" style="width:30%"></div></div></div></div></div>
+      <div class="card card-outlined"><span class="label">EmptyState</span>
+        <div class="empty" style="padding:24px 8px"><span class="mdi mdi-account-group-outline" aria-hidden="true"></span><span class="text-title-lg">No members yet</span><span class="text-body-md">Add members one at a time, or import them from a spreadsheet.</span><div class="actions" style="justify-content:center"><button class="btn btn-outlined" type="button">Import</button><button class="btn btn-filled" type="button">Add member</button></div></div></div>
+      <div class="card card-outlined"><span class="label">ErrorState</span>
+        <div class="error-state" style="padding:24px 8px"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span><span class="text-title-lg">Couldn't load members</span><span class="text-body-md">Check the connection and try again.</span><button class="btn btn-tonal" type="button">Try again</button></div></div>
+      <div class="card card-outlined"><span class="label">OfflineBanner and FetchProgressBar</span>
+        <div class="offline-banner">You're offline. Showing what was saved on this phone.</div>
+        <div class="progressbar"></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================== More -->
+  <section class="spec" id="more">
+    <header><h2 class="text-title-lg">Tabs, Meter, Disclosure, Stepper</h2></header>
+    <div class="card card-outlined">
+      <span class="label">Tabs · primary (sections of a screen)</span>
+      <div class="tabs" role="tablist" data-tabset><button class="tab" type="button" role="tab" data-tab="a" aria-selected="true">Deliveries</button><button class="tab" type="button" role="tab" data-tab="b" aria-selected="false">Prices</button><button class="tab" type="button" role="tab" data-tab="c" aria-selected="false">Collection rounds</button></div>
+      <span class="label">Tabs · secondary (inside one record)</span>
+      <div class="tabs secondary" role="tablist" data-tabset><button class="tab" type="button" role="tab" data-tab="a" aria-selected="true">Details</button><button class="tab" type="button" role="tab" data-tab="b" aria-selected="false">Deliveries</button><button class="tab" type="button" role="tab" data-tab="c" aria-selected="false">History</button></div>
+      <div class="grid-2">
+        <div class="col gap-2"><span class="label">Meter</span>
+          <div class="meter"><div class="meter-track"><div class="meter-fill" style="width:92%"></div></div><div class="meter-label"><span>Members registered</span><span>412 of 450</span></div></div>
+          <div class="meter"><div class="meter-track"><div class="meter-fill" style="width:60%"></div></div><div class="meter-label"><span>Nominee shares</span><span>60 of 100%</span></div></div></div>
+        <div class="col gap-2"><span class="label">Stepper</span>
+          <div class="stepper"><span class="step done"><span class="n">1</span><span class="lbl">Details</span></span><span class="sep"></span><span class="step" aria-current="step"><span class="n">2</span><span class="lbl">Products</span></span><span class="sep"></span><span class="step"><span class="n">3</span><span class="lbl">First staff</span></span></div></div>
+      </div>
+      <span class="label">Disclosure</span>
+      <div class="disclosure">
+        <div class="disclosure-item"><button class="disclosure-trigger" type="button" aria-expanded="true">What does "on hold" mean?</button><div class="disclosure-panel"><p class="text-body-md">Staff can still sign in and see everything, and deliveries and payouts carry on, but nothing new starts: no new members.</p></div></div>
+        <div class="disclosure-item"><button class="disclosure-trigger" type="button" aria-expanded="false">Why can't I change a paid delivery?</button><div class="disclosure-panel" hidden><p class="text-body-md">Once money has gone against a delivery, its quantity and price are fixed so statements never change after the fact.</p></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================== Overlays -->
+  <section class="spec" id="overlays">
+    <header><h2 class="text-title-lg">Overlays</h2><p class="text-body-md tone-muted">Sheet: bottom sheet on a phone, side sheet from 600. FormDialog: full screen on a phone. ConfirmDialog before anything destructive or final. ActionMenu for a flat list of actions. Snackbar for every result.</p></header>
+    <div class="card card-outlined demo">
+      <button class="btn btn-tonal" type="button" onclick="Proto.sheet({title:'Filter members',body:'<div class=&quot;field&quot;><label class=&quot;field-label&quot; for=&quot;s1&quot;>Cluster</label><select class=&quot;field-input&quot; id=&quot;s1&quot;><option>All clusters</option><option>Gathiru</option></select></div><div class=&quot;col&quot;><label class=&quot;check&quot;><input type=&quot;checkbox&quot; checked> Active</label><label class=&quot;check&quot;><input type=&quot;checkbox&quot;> Suspended</label></div>',footer:'<button class=&quot;btn btn-text&quot; type=&quot;button&quot; onclick=&quot;Proto.close()&quot;>Clear</button><button class=&quot;btn btn-filled&quot; type=&quot;button&quot; onclick=&quot;Proto.close()&quot;>Show 412</button>'})">Open a sheet</button>
+      <button class="btn btn-tonal" type="button" onclick="Proto.dialog({title:'Add a cluster',body:'<div class=&quot;field&quot;><label class=&quot;field-label&quot; for=&quot;d1&quot;>Name</label><input class=&quot;field-input&quot; id=&quot;d1&quot; value=&quot;Ndumberi&quot;></div><div class=&quot;field&quot;><label class=&quot;field-label&quot; for=&quot;d2&quot;>Sub-county <span class=&quot;optional&quot;>(optional)</span></label><select class=&quot;field-input&quot; id=&quot;d2&quot;><option>Kiambu Town</option></select></div>',submit:'Add cluster',onSubmit:function(){Proto.snack('Ndumberi added')}})">Open a form dialog</button>
+      <button class="btn btn-tonal" type="button" onclick="Proto.confirm({title:'Void this delivery?',message:'18.5 L from Wanjiku Kamau on 30 Oct. It stays on record, marked voided, and leaves every total.',confirm:'Void',destructive:true,body:'<div class=&quot;field&quot;><label class=&quot;field-label&quot; for=&quot;c1&quot;>Reason</label><input class=&quot;field-input&quot; id=&quot;c1&quot; value=&quot;Entered twice&quot;></div>',onConfirm:function(){Proto.snack('Delivery voided','Undo')}})">Open a confirm dialog</button>
+      <button class="btn btn-tonal" type="button" id="menu-btn" onclick="Proto.menu(this,{heading:'Wanjiku Kamau',items:[{label:'Edit details',icon:'pencil-outline'},{label:'Assign a position',icon:'account-star-outline'},{label:'Suspend',icon:'pause-circle-outline',sep:true},{label:'Record an exit',icon:'logout-variant',destructive:true}]})">Open a menu</button>
+      <button class="btn btn-tonal" type="button" onclick="Proto.snack('Recorded 18.5 L for Wanjiku Kamau','View')">Show a snackbar</button>
+    </div>
+  </section>
+</main>
+<script>
+var MODES = ["system", "light", "dark"];
+function theme() {
+  var r = document.documentElement, cur = r.getAttribute("data-theme") || "system";
+  var next = MODES[(MODES.indexOf(cur) + 1) % 3];
+  if (next === "system") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", next);
+  document.getElementById("theme-l").textContent = "Theme: " + next;
+}
+</script>
+</body>
+</html>

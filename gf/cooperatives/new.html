@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Add a cooperative · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/console.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Add a cooperative" data-flow data-back="index.html" data-compact>
+
+  <p class="proto-note"><b>G4 · From note 01 (<code>onboard</code>).</b> Name, registration number, place, profile and the first administrator's email, in one step on the server: the cooperative (ONBOARDING), its kit account, the first status change, then the invitation. The steps here are only the form split for a phone; nothing is saved until the end. The steps are this page's states.</p>
+  <p class="proto-note"><b>Not asked here:</b> products, clusters, members and the rest of the team. The cooperative's administrator sets those up after accepting (phase 5), or GroFunder adds products from the cooperative's page.</p>
+  <p class="proto-note proto-gap"><b>Sub-county (note 04, concern 2).</b> Sub-counties aren't loaded yet, so today the picker would hold only "Not sure" and the cooperative points at its county. Drawn with sample sub-counties, as it will work once the list is loaded.</p>
+  <p class="proto-note"><b>"Open the cooperative"</b> at the end opens Mumbi, the onboarding cooperative in the shared data, standing in for the one just added.</p>
+  <p class="proto-note"><b>Clash.</b> The name (any case) and the registration number are unique (01). The server answers on the field; the "clash" state shows it, with a link to the cooperative it clashes with.</p>
+
+  <div class="stepper" id="stepper" aria-label="Steps"></div>
+
+  <!-- Step 1 -->
+  <form class="col gap-4" data-state="loaded clash" onsubmit="Proto.go('place');return false">
+    <h2 class="text-title-lg">The cooperative</h2>
+    <div class="form-grid">
+      <div class="field field-wide" data-state="loaded"><label class="field-label" for="n">Registered name</label><input class="field-input" id="n" value="Kagumo Tea Growers Co-operative Society Ltd">
+        <span class="field-help">As on the registration certificate.</span></div>
+      <div class="field field-wide" data-state="clash"><label class="field-label" for="n2">Registered name</label><input class="field-input" id="n2" value="Kijani Valley Dairy Farmers Co-operative Society Ltd" aria-invalid="true" aria-describedby="n2e">
+        <span class="field-error" id="n2e">This cooperative is already on GroFunder. <a href="detail.html?c=co-kijani">Open Kijani Valley Dairy</a></span></div>
+      <div class="field"><label class="field-label" for="r">Registration number <span class="optional">(optional)</span></label><input class="field-input tabular" id="r" value="CS/40517">
+        <span class="field-help">From the Commissioner for Cooperatives.</span></div>
+      <div class="field"><label class="field-label" for="ro">Registered on <span class="optional">(optional)</span></label>
+        <div class="field-box has-trail"><input class="field-input tabular" id="ro" value="4 Mar 2008"><span class="trail"><span class="mdi mdi-calendar-blank-outline" aria-hidden="true"></span></span></div></div>
+      <div class="field"><label class="field-label" for="s">Short name</label><input class="field-input" id="s" value="Kagumo Tea Growers">
+        <span class="field-help">What members call it, in the app and in SMS.</span></div>
+      <div class="field"><label class="field-label" for="dm">Members it says it has <span class="optional">(optional)</span></label><input class="field-input tabular" id="dm" inputmode="numeric" value="740"></div>
+      <div class="field field-wide"><label class="field-label" for="d">What it does <span class="optional">(optional)</span></label><textarea class="field-input" id="d">Collects green leaf from smallholders around Kagumo for the KTDA factory.</textarea></div>
+    </div>
+    <div class="actions"><a class="btn btn-text" href="index.html">Cancel</a><button class="btn btn-filled" type="submit">Next</button></div>
+  </form>
+
+  <!-- Step 2 -->
+  <form class="col gap-4" data-state="place" onsubmit="Proto.go('admin');return false">
+    <h2 class="text-title-lg">Where it is, and who to call</h2>
+    <div class="form-grid">
+      <div class="field"><label class="field-label" for="co">County</label><select class="field-input" id="co"></select></div>
+      <div class="field"><label class="field-label" for="sc">Sub-county <span class="optional">(optional)</span></label><select class="field-input" id="sc"></select>
+        <span class="field-help">As precise as you know. A county alone is enough.</span></div>
+      <div class="field"><label class="field-label" for="w">Ward <span class="optional">(optional)</span></label><input class="field-input" id="w" value="Kagumo"></div>
+      <div class="field"><label class="field-label" for="v">Village or landmark <span class="optional">(optional)</span></label><input class="field-input" id="v" value="Next to the Kagumo buying centre"></div>
+      <div class="field field-wide"><label class="field-label" for="pa">Postal address <span class="optional">(optional)</span></label><input class="field-input" id="pa" value="P.O. Box 212-10100 Nyeri"></div>
+      <div class="divider"></div>
+      <div class="field"><label class="field-label" for="cn">Contact person</label><input class="field-input" id="cn" value="Mary Wangui"><span class="field-help">Who GroFunder calls. They needn't have a login.</span></div>
+      <div class="field"><label class="field-label" for="cr">Their role</label><input class="field-input" id="cr" value="Secretary"></div>
+      <div class="field"><label class="field-label" for="cp">Phone</label><input class="field-input tabular" id="cp" inputmode="tel" value="0733 210 448"></div>
+      <div class="field"><label class="field-label" for="ce">Email <span class="optional">(optional)</span></label><input class="field-input" id="ce" type="email"></div>
+      <div class="field"><label class="field-label" for="l">Language for members who haven't chosen one</label><select class="field-input" id="l"><option>Swahili</option><option>English</option></select></div>
+    </div>
+    <div class="actions"><button class="btn btn-text" type="button" onclick="Proto.go('loaded')">Back</button><button class="btn btn-filled" type="submit">Next</button></div>
+  </form>
+
+  <!-- Step 3 -->
+  <form class="col gap-4" data-state="admin" onsubmit="Proto.go('review');return false">
+    <h2 class="text-title-lg">Its first administrator</h2>
+    <p class="text-body-md tone-muted">They get an email invitation, set their own password, and become an owner of the cooperative's account with the Administrator role: they set up products, clusters and members, and invite the rest of their team.</p>
+    <div class="field"><label class="field-label" for="ae">Email</label><input class="field-input" id="ae" type="email" value="mary.wangui@kagumotea.example"></div>
+    <div class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">No email reaches them? After adding the cooperative you can resend the invitation and copy its link for WhatsApp or SMS.</span></div></div>
+    <div class="actions"><button class="btn btn-text" type="button" onclick="Proto.go('place')">Back</button><button class="btn btn-filled" type="submit">Next</button></div>
+  </form>
+
+  <!-- Step 4 -->
+  <div class="col gap-4" data-state="review">
+    <h2 class="text-title-lg">Check and add</h2>
+    <div class="card card-outlined"><div class="card-header"><div class="card-header-text"><span class="card-title">The cooperative</span></div><button class="btn btn-text btn-sm" type="button" onclick="Proto.go('loaded')">Change</button></div>
+      <dl class="facts"><dt>Registered name</dt><dd>Kagumo Tea Growers Co-operative Society Ltd</dd><dt>Registration number</dt><dd class="tabular">CS/40517</dd><dt>Short name</dt><dd>Kagumo Tea Growers</dd><dt>Members it says it has</dt><dd class="tabular">740</dd></dl></div>
+    <div class="card card-outlined"><div class="card-header"><div class="card-header-text"><span class="card-title">Place and contact</span></div><button class="btn btn-text btn-sm" type="button" onclick="Proto.go('place')">Change</button></div>
+      <dl class="facts"><dt>Place</dt><dd>Kagumo ward, Tetu, Nyeri</dd><dt>Contact</dt><dd>Mary Wangui (Secretary), <span class="tabular">0733 210 448</span></dd><dt>Members' language</dt><dd>Swahili</dd></dl></div>
+    <div class="card card-outlined"><div class="card-header"><div class="card-header-text"><span class="card-title">First administrator</span></div><button class="btn btn-text btn-sm" type="button" onclick="Proto.go('admin')">Change</button></div>
+      <dl class="facts"><dt>Invitation to</dt><dd>mary.wangui@kagumotea.example</dd></dl></div>
+    <div class="actions"><button class="btn btn-text" type="button" onclick="Proto.go('admin')">Back</button><button class="btn btn-filled" type="button" onclick="Proto.go('done')">Add cooperative</button></div>
+  </div>
+
+  <!-- Done -->
+  <div class="col gap-4" data-state="done">
+    <div class="banner banner-success"><span class="mdi mdi-check-circle-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Kagumo Tea Growers is on GroFunder, onboarding</span>
+      <span class="text-body-md">The invitation went to mary.wangui@kagumotea.example. Activate the cooperative once she has accepted.</span></div></div>
+    <div class="field"><label class="field-label" for="lnk">If the email doesn't reach her, send her this link</label>
+      <div class="field-box"><input class="field-input" id="lnk" readonly value="https://app.grofunder.example/invite/Qm81xPz4Ka" style="padding-right:52px">
+        <button class="icon-btn" type="button" aria-label="Copy the link" onclick="Proto.snack('Link copied')"><span class="mdi mdi-content-copy" aria-hidden="true"></span></button></div>
+      <span class="field-help">Shown once. Resending from the cooperative's page gives a new one.</span></div>
+    <div class="actions actions-start"><a class="btn btn-filled" href="detail.html?c=co-mumbi">Open the cooperative</a><a class="btn btn-text" href="new.html">Add another</a></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var counties = GF.areas.filter(function (a) { return a.level === "COUNTY" && a.status === "ACTIVE"; });
+  var co = document.getElementById("co"), sc = document.getElementById("sc");
+  co.innerHTML = counties.map(function (a) { return '<option value="' + a.id + '"' + (a.name === "Nyeri" ? " selected" : "") + ">" + a.name + "</option>"; }).join("");
+  function subs() {
+    sc.innerHTML = '<option value="">Not sure</option>' + GF.areas.filter(function (a) { return a.parent === co.value && a.status === "ACTIVE"; })
+      .map(function (a) { return '<option value="' + a.id + '"' + (a.name === "Tetu" ? " selected" : "") + ">" + a.name + "</option>"; }).join("");
+  }
+  co.addEventListener("change", subs); subs();
+  var STEPS = [["loaded", "The cooperative"], ["place", "Place and contact"], ["admin", "First administrator"], ["review", "Check"]];
+  var ORDER = { loaded: 0, clash: 0, place: 1, admin: 2, review: 3, done: 4 };
+  function draw(s) {
+    var at = ORDER[s];
+    document.getElementById("stepper").innerHTML = s === "done" ? "" : STEPS.map(function (st, i) {
+      return (i ? '<span class="sep"></span>' : "") + '<span class="step' + (i < at ? " done" : "") + '"' + (i === at ? ' aria-current="step"' : "") + '><span class="n">' + (i < at ? "✓" : i + 1) + '</span><span class="lbl">' + st[1] + "</span></span>";
+    }).join("");
+  }
+  document.addEventListener("proto:state", function (e) { draw(e.detail); });
+  draw("loaded");
+})();
+</script>
+</body>
+</html>

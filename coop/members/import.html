@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Import members · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/members.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Import members" data-flow data-back="index.html" id="screen">
+
+  <p class="proto-note"><b>C15 · From note 05's draft services (UI-35).</b> A CSV of members, imported all or nothing (<code>import_members</code>). Every row is checked first. If any row fails, nothing is saved and every problem is listed as row, column and message, so the file is fixed in one go. The check is the service's <code>dry_run</code>. Up to 5,000 rows, UTF-8 with or without a BOM.</p>
+  <p class="proto-note"><b>Errors (05):</b> a row without an ID number; an ID or member number already in the register; one that appears twice in the file; an unknown cluster or area; an area name used in more than one place and written without its parent. An existing ID is an error in v1, so an import only ever adds (05, to decide 3).</p>
+  <p class="proto-note"><b>Status gating (01):</b> refused while the cooperative is on hold or ended. While onboarding it's the usual way to load the register. Only Administrators and Managers import (<code>members.manage</code>). Each new member's first status change has the source "Imported".</p>
+  <p class="proto-note"><b>The file in this mockup</b> is made up of new people, named from the shared data. Its problem rows point at real members, clusters and areas, so the messages match what the register holds.</p>
+
+  <div class="stepper" id="stepper" aria-label="Steps" data-roles="admin manager" data-coop="onboarding active"></div>
+
+  <!-- Staff who can't import -->
+  <div class="empty" data-roles="accountant clerk viewer" data-state="loaded problems ready imported empty">
+    <span class="mdi mdi-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Your role can't import members</span>
+    <span class="text-body-md">Administrators and managers add and import members. You can read the whole register.</span>
+    <a class="btn btn-tonal" href="index.html">See members</a>
+  </div>
+  <!-- On hold or ended -->
+  <div class="empty" data-roles="admin manager" data-coop="on_hold ended" data-state="loaded problems ready imported empty">
+    <span class="mdi mdi-account-cancel-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm" id="stop-t">Importing members is paused</span>
+    <span class="text-body-md" id="stop-b"></span>
+    <a class="btn btn-tonal" href="index.html">See members</a>
+  </div>
+
+  <!-- Step 1: choose the file -->
+  <div class="col gap-4" data-state="loaded" data-roles="admin manager" data-coop="onboarding active">
+    <div class="card card-outlined">
+      <div class="card-header"><div class="card-header-text"><span class="card-title">Choose the spreadsheet</span>
+        <span class="card-description">A CSV file, one member per row, with the column names below in the first row. Excel files need "Save as CSV" first.</span></div></div>
+      <div class="col gap-3">
+        <label class="btn btn-outlined" style="align-self:flex-start"><span class="mdi mdi-file-upload-outline" aria-hidden="true"></span>Choose a file<input type="file" accept=".csv,text/csv" hidden onchange="Proto.go('problems')"></label>
+        <button class="btn btn-text" type="button" style="align-self:flex-start" onclick="Proto.snack('Downloading members-template.csv')"><span class="mdi mdi-download" aria-hidden="true"></span>Download the template</button>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-md">The columns</span><span class="text-body-md tone-muted">Two are required. Leave the others empty, or leave them out.</span></div></div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Column</th><th>Example</th><th>Rule</th></tr></thead><tbody id="cols"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- Step 2a: checked, with problems -->
+  <div class="col gap-4" data-state="problems" data-roles="admin manager" data-coop="onboarding active">
+    <div class="banner banner-error" role="alert"><span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm" id="p-title"></span><span class="text-body-md">Nothing has been imported. Fix these rows in the file and choose it again.</span></div></div>
+    <div class="section">
+      <div class="section-band" id="p-band"></div>
+      <div class="table-wrap only-wide"><table class="table"><thead><tr><th class="num">Row</th><th>Column</th><th>Name in the file</th><th>Problem</th></tr></thead><tbody id="p-rows"></tbody></table></div>
+      <div class="rowcards only-compact" id="p-cards"></div>
+    </div>
+    <div class="row gap-2 wrap">
+      <label class="btn btn-filled"><span class="mdi mdi-file-upload-outline" aria-hidden="true"></span>Choose the fixed file<input type="file" accept=".csv,text/csv" hidden onchange="Proto.go('ready')"></label>
+      <button class="btn btn-text" type="button" onclick="Proto.snack('Downloading the rows with their problems')">Download these problems</button>
+    </div>
+  </div>
+
+  <!-- Step 2b: checked, ready -->
+  <div class="col gap-4" data-state="ready" data-roles="admin manager" data-coop="onboarding active">
+    <div class="banner banner-success"><span class="mdi mdi-check-circle-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm" id="r-title"></span><span class="text-body-md">Check the count against your register book, then import. They're added as active members.</span></div></div>
+    <div class="section">
+      <div class="section-band" id="r-band"></div>
+      <div class="table-wrap only-wide"><table class="table"><thead><tr><th class="num">Row</th><th>Name</th><th>ID</th><th>Member number</th><th>Gender</th><th>Cluster</th><th>Joined</th></tr></thead><tbody id="r-rows"></tbody></table></div>
+      <div class="rowcards only-compact" id="r-cards"></div>
+    </div>
+    <div class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-body-md" id="r-note"></span></div></div>
+  </div>
+
+  <!-- Step 3: imported -->
+  <div class="empty" data-state="imported" data-roles="admin manager" data-coop="onboarding active">
+    <span class="mdi mdi-check-circle-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm" id="i-title"></span>
+    <span class="text-body-md">They're on the register as active members. Each can find their record in the member app with their ID and phone.</span>
+    <div class="row gap-2 wrap center"><a class="btn btn-filled" href="index.html">See members</a><button class="btn btn-text" type="button" onclick="Proto.go('loaded')">Import another file</button></div>
+  </div>
+
+  <!-- EMPTY: the file has no rows -->
+  <div class="empty" data-state="empty" data-roles="admin manager" data-coop="onboarding active">
+    <span class="mdi mdi-file-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">The file has no members in it</span>
+    <span class="text-body-md">Only the column names were found. Add one row per member under them, or start from the template.</span>
+    <div class="row gap-2 wrap center"><button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Choose another file</button></div>
+  </div>
+
+  <!-- LOADING -->
+  <div class="col gap-4" data-state="loading">
+    <div class="row gap-3"><span class="spinner" aria-hidden="true"></span><span class="text-body-lg">Checking every row…</span></div>
+    <div class="skeleton-card" style="height:72px"></div><div class="skeleton-card" style="height:240px"></div>
+  </div>
+
+  <!-- ERROR -->
+  <div class="error-state" data-state="error">
+    <span class="mdi mdi-file-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't read the file</span>
+    <span class="text-body-md">It isn't a CSV, or it has more than 5,000 rows. Save it as CSV (UTF-8), split a larger register into several files, and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Choose another file</button>
+  </div>
+
+  <div data-footer data-roles="admin manager" data-coop="onboarding active">
+    <button class="btn btn-filled" type="button" id="go" onclick="Proto.go('imported')">Import</button>
+  </div>
+</div>
+
+<script>
+document.getElementById("screen").setAttribute("data-sub", Members.coop().profile.short_name);
+document.addEventListener("DOMContentLoaded", function () {
+  var q = GF.q, f = GF.fmt, get = GF.get, M = Members, esc = M.esc;
+  var $ = function (id) { return document.getElementById(id); };
+  var C = M.coop(), CID = C.id, REG = q.members(CID);
+  Portal.mountBanner();
+  $("stop-t").textContent = M.coopStatus() === "ended" ? "This cooperative has ended" : "Importing members is paused";
+  $("stop-b").textContent = M.coopStatus() === "ended" ? "Its register stays readable, but nobody new can be added." :
+    "GroFunder put " + C.profile.short_name + " on hold. New members can be imported once the hold is lifted.";
+
+  var CL = GF.clusters.filter(function (c) { return c.cooperative === CID && c.status === "ACTIVE"; });
+  var next = M.suggestNo(CID) || "M-0001";
+
+  /* Note 05's columns, in its order. */
+  $("cols").innerHTML = [
+    ["full_name", "Grace Njeri Mwangi", "<b>Required.</b> As on the ID"],
+    ["id_number", "23456789", "<b>Required.</b> National ID: 5–12 digits; spaces and a trailing .0 are ignored"],
+    ["id_type", "NATIONAL_ID", "NATIONAL_ID (the default), PASSPORT or ALIEN_ID"],
+    ["member_no", next, "Not already in the register or the file"],
+    ["phone", "0712 345 678", "A Kenyan mobile; stored as +254…"],
+    ["gender", "F", "F, M, or empty for not given"],
+    ["date_of_birth", "14/06/1981", "YYYY-MM-DD or DD/MM/YYYY"],
+    ["joined_on", "03/03/2019", "Empty means today"],
+    ["cluster", CL[0] ? CL[0].name : "(none yet)", CL.length ? "A cluster's name: " + CL.map(function (c) { return c.name; }).join(", ") : "Leave empty: " + C.profile.short_name + " has no clusters yet"],
+    ["area", "Ndumberi", "A county, sub-county or ward. A name used twice is written with its parent: Kiambu, Kiambu"],
+    ["preferred_name", "Shiru", ""],
+    ["email", "", ""],
+    ["language", "sw", "sw or en; empty means the cooperative's default"],
+    ["village", "Gathiru", ""],
+    ["street", "Near the dip", ""],
+    ["notes", "", "For staff"]
+  ].map(function (c) { return '<tr><td class="tabular"><code>' + c[0] + "</code></td><td>" + esc(c[1]) + "</td><td>" + c[2] + "</td></tr>"; }).join("");
+
+  /* The file: 64 new people, named from the shared data's names (first names and surnames recombined). */
+  var firsts = REG.map(function (m) { return m.full_name.split(" ")[0]; }), lasts = REG.map(function (m) { return m.full_name.split(" ").slice(-1)[0]; });
+  if (!firsts.length) { firsts = ["Grace", "John", "Mary", "Peter", "Ann", "Joseph", "Lucy", "Samuel"]; lasts = ["Mwangi", "Wanjiru", "Otieno", "Kamau", "Njoroge", "Wambui"]; }
+  var N = 64, base = /^(.*?)(\d+)$/.exec(next) || ["", "M-", "1"];
+  var rows = [];
+  for (var i = 0; i < N; i++) {
+    var no = base[1] + String(+base[2] + i).padStart(base[2].length, "0");
+    rows.push({ row: i + 2, full_name: firsts[(i * 7) % firsts.length] + " " + lasts[(i * 13 + 5) % lasts.length], id_number: String(30100000 + i * 7919), member_no: no, phone: i % 7 === 3 ? "" : "07" + String(20000000 + i * 104729).slice(0, 8),
+      gender: i % 3 === 0 ? "M" : i % 7 === 0 ? "" : "F", cluster: CL.length ? CL[i % CL.length].name : "", joined_on: "2026-0" + (1 + (i % 9)) + "-" + String(1 + (i % 27)).padStart(2, "0") });
+  }
+
+  /* Problems from real data (05's error list). */
+  var w = REG.find(function (m) { return m.id === GF.who.wanjiku; }) || REG[0];
+  var dupNo = rows[10].member_no;
+  var P = [];
+  if (w) P.push([6, "id_number", rows[4].full_name, "ID " + w.id_number + " is already " + w.full_name + "'s (" + w.member_no + "). An import only adds new members; edit " + w.full_name.split(" ")[0] + " on their page instead."]);
+  P.push([12, "member_no", rows[10].full_name, dupNo + " is also on row 31. Each member needs their own number."]);
+  P.push([31, "member_no", rows[29].full_name, dupNo + " is also on row 12."]);
+  P.push([17, "cluster", rows[15].full_name, CL.length ? "No cluster named \"Gatitu\". " + C.profile.short_name + "'s clusters are " + CL.map(function (c) { return c.name; }).join(", ") + "." :
+    "No cluster named \"Gatitu\": " + C.profile.short_name + " has no clusters yet. Leave the column empty, or set up clusters first."]);
+  P.push([23, "area", rows[21].full_name, "\"Kiambu\" is both a county and a sub-county. Write \"Kiambu, Kiambu\" for the sub-county, or a ward such as \"Ndumberi\"."]);
+  P.push([41, "id_number", rows[39].full_name, "No ID number. Every member needs one; add it, or take the row out."]);
+  var taken = REG.find(function (m) { return m.member_no && m.id !== (w && w.id); });
+  if (taken) P.push([48, "member_no", rows[46].full_name, taken.member_no + " is already " + taken.full_name + "'s number."]);
+  P.sort(function (a, b) { return a[0] - b[0]; });
+
+  var band = function (n) {
+    return '<div class="section-figure lg"><span class="k">Members in the file</span><span class="v">' + N + '</span></div>' +
+      '<div class="section-figure"><span class="k">' + (n ? "Rows with problems" : "With a phone") + '</span><span class="v">' + (n ? new Set(P.map(function (p) { return p[0]; })).size : rows.filter(function (r) { return r.phone; }).length) + "</span></div>" +
+      '<div class="section-figure"><span class="k">Register now</span><span class="v">' + REG.length + "</span></div>";
+  };
+  $("p-title").textContent = new Set(P.map(function (p) { return p[0]; })).size + " of " + N + " rows need fixing";
+  $("p-band").innerHTML = band(P.length);
+  $("p-rows").innerHTML = P.map(function (p) { return '<tr><td class="num">' + p[0] + '</td><td><code>' + p[1] + "</code></td><td>" + esc(p[2]) + "</td><td>" + esc(p[3]) + "</td></tr>"; }).join("");
+  $("p-cards").innerHTML = P.map(function (p) { return '<div class="rowcard"><span class="grow"><span class="text-body-lg">Row ' + p[0] + " · " + esc(p[2]) + '</span><span class="text-body-md tone-muted"><code>' + p[1] + "</code>: " + esc(p[3]) + "</span></span></div>"; }).join("");
+
+  $("r-title").textContent = N + " members are ready";
+  $("r-band").innerHTML = band(0);
+  var G = { F: "Female", M: "Male", "": "Not given" };
+  var show = rows.slice(0, 12);
+  $("r-rows").innerHTML = show.map(function (r) {
+    return '<tr><td class="num">' + r.row + '</td><td class="primary-cell">' + esc(r.full_name) + '</td><td class="tabular">' + r.id_number + '</td><td class="tabular">' + r.member_no + "</td><td>" + G[r.gender] + "</td><td>" + (r.cluster || "–") + '</td><td class="tabular">' + f.date(r.joined_on) + "</td></tr>";
+  }).join("") + '<tr><td colspan="7" class="tone-muted">and ' + (N - 12) + " more rows</td></tr>";
+  $("r-cards").innerHTML = show.map(function (r) {
+    return '<div class="rowcard"><span class="grow"><span class="text-body-lg">' + esc(r.full_name) + '</span><span class="text-body-md tone-muted tabular">Row ' + r.row + " · " + r.member_no + " · ID " + r.id_number + (r.cluster ? " · " + r.cluster : "") + "</span></span></div>";
+  }).join("");
+  $("r-note").textContent = "Member numbers " + rows[0].member_no + " to " + rows[N - 1].member_no + ". " + rows.filter(function (r) { return !r.phone; }).length + " rows have no phone; those members can't sign up in the app until staff add one.";
+  $("i-title").textContent = N + " members imported";
+
+  /* Stepper and footer follow the state. */
+  var STEPS = [["loaded", "Choose the file"], ["check", "Check"], ["imported", "Import"]];
+  function step(s) {
+    var at = s === "loaded" || s === "error" || s === "empty" ? 0 : s === "imported" ? 2 : 1;
+    $("stepper").innerHTML = STEPS.map(function (st, i) {
+      return (i ? '<span class="sep"></span>' : "") + '<span class="step' + (i < at ? " done" : "") + '"' + (i === at ? ' aria-current="step"' : "") + '><span class="n">' + (i < at ? "✓" : i + 1) + '</span><span class="lbl">' + st[1] + "</span></span>";
+    }).join("");
+    var foot = document.querySelector(".screen-footer");
+    if (foot) foot.classList.toggle("hidden", s !== "ready");
+    $("go").textContent = "Import " + N + " members";
+  }
+  document.addEventListener("proto:state", function (e) { step(e.detail); });
+  step(new URLSearchParams(location.search).get("state") || "loaded");
+});
+</script>
+</body>
+</html>

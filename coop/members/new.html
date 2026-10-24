@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Add a member · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/members.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Add a member" data-flow data-back="index.html" data-compact id="screen">
+
+  <p class="proto-note"><b>C10 · From note 05 and its draft services (UI-35).</b> Staff add members one at a time; there is no self-application. An ID type and number are required. The ID is checked against the register as it is typed, because one record per person per cooperative is the rule: <code>(cooperative, id_type, id_number)</code> is unique. An ID already in the register names that member and links to them, as the service's <code>existing_member</code> answer allows.</p>
+  <p class="proto-note"><b>Normalised as typed (05).</b> A national ID loses spaces and a trailing ".0" from a spreadsheet, and must be 5–12 digits. A passport or alien ID loses spaces and is upper-cased, 5–20 letters and digits. A phone in a local spelling is stored as +254…</p>
+  <p class="proto-note"><b>A shared phone is fine.</b> Family members often share one (05, concern 1), so a phone already on the register is a note naming who has it, never an error.</p>
+  <p class="proto-note"><b>Member number:</b> suggested as the next after the highest in use (<code>suggest_member_no</code>), and still checked: a clash is an error on the field. With no numbered member yet, it's blank and the help says so (the <i>empty</i> state).</p>
+  <p class="proto-note"><b>Nominees</b> are optional, up to five. Each needs a name and a share, and the shares add up to 100; the running total says how far off they are.</p>
+  <p class="proto-note"><b>Status gating (01, 05):</b> adding is refused while the cooperative is on hold or ended (<code>accepts_new_work</code>), so the form gives way to the reason. While onboarding it's allowed: loading members is part of setting up. Only Administrators and Managers add members (<code>members.manage</code>).</p>
+  <p class="proto-note"><b>After Add</b> the form clears for the next member, keeping the cluster, home area and date joined, because members are usually added a cluster at a time. The snackbar opens the new record. In this mockup, Open goes to an existing member as a stand-in.</p>
+
+  <!-- Staff who can't add (Accountant, Clerk, Viewer) -->
+  <div class="empty" data-roles="accountant clerk viewer" data-state="loaded invalid empty">
+    <span class="mdi mdi-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Your role can't add members</span>
+    <span class="text-body-md">Administrators and managers add them. You can read the whole register.</span>
+    <a class="btn btn-tonal" href="index.html">See members</a>
+  </div>
+
+  <!-- On hold or ended: adding is refused -->
+  <div class="empty" data-roles="admin manager" data-coop="on_hold ended" data-state="loaded invalid empty">
+    <span class="mdi mdi-account-cancel-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm" id="stop-t">Adding members is paused</span>
+    <span class="text-body-md" id="stop-b"></span>
+    <a class="btn btn-tonal" href="index.html">See members</a>
+  </div>
+
+  <form class="col gap-4" id="form" onsubmit="return false" novalidate data-roles="admin manager" data-coop="onboarding active" data-state="loaded invalid empty">
+
+    <h2 class="text-title-lg">Identity</h2>
+    <div class="field">
+      <span class="field-label" id="idt-l">ID document</span>
+      <div class="chip-row" data-choice role="radiogroup" aria-labelledby="idt-l" id="idt">
+        <button class="chip" type="button" role="radio" aria-checked="true" data-t="NATIONAL_ID">National ID</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-t="PASSPORT">Passport</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-t="ALIEN_ID">Alien ID</button>
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label" for="idn" id="idn-l">National ID number</label>
+      <input class="field-input tabular" id="idn" inputmode="numeric" autocomplete="off" aria-describedby="idn-h idn-e">
+      <span class="field-help" id="idn-h">5 to 12 digits. Spaces are ignored.</span>
+      <span class="field-error hidden" id="idn-e"></span>
+    </div>
+    <div class="field">
+      <label class="field-label" for="nm">Full name</label>
+      <input class="field-input" id="nm" autocomplete="off" aria-describedby="nm-h nm-e">
+      <span class="field-help" id="nm-h">As on the ID.</span>
+      <span class="field-error hidden" id="nm-e"></span>
+    </div>
+    <div class="field">
+      <span class="field-label" id="gd-l">Gender</span>
+      <div class="chip-row" data-choice role="radiogroup" aria-labelledby="gd-l" id="gd">
+        <button class="chip" type="button" role="radio" aria-checked="false" data-g="FEMALE">Female</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-g="MALE">Male</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-g="UNDISCLOSED">Not given</button>
+      </div>
+      <span class="field-error hidden" id="gd-e">Choose one. "Not given" is fine.</span>
+    </div>
+    <div class="form-grid">
+      <div class="field">
+        <label class="field-label" for="dob">Date of birth <span class="optional">(optional)</span></label>
+        <input class="field-input tabular" id="dob" type="date" max="">
+        <span class="field-help" id="dob-h">For age reports. Leave it out if unknown.</span>
+      </div>
+      <div class="field">
+        <label class="field-label" for="ph">Phone <span class="optional">(optional)</span></label>
+        <input class="field-input tabular" id="ph" inputmode="tel" autocomplete="off" placeholder="0712 345 678" aria-describedby="ph-h ph-e">
+        <span class="field-help" id="ph-h">Where SMS goes, and how the member finds their record in the app.</span>
+        <span class="field-error hidden" id="ph-e"></span>
+      </div>
+    </div>
+
+    <h2 class="text-title-lg">Membership</h2>
+    <div class="form-grid">
+      <div class="field">
+        <label class="field-label" for="no">Member number</label>
+        <input class="field-input tabular" id="no" autocomplete="off" aria-describedby="no-h no-e">
+        <span class="field-help" id="no-h"></span>
+        <span class="field-error hidden" id="no-e"></span>
+      </div>
+      <div class="field">
+        <label class="field-label" for="jo">Date joined</label>
+        <input class="field-input tabular" id="jo" type="date">
+        <span class="field-help">The date in the cooperative's books. It may be long before GroFunder.</span>
+      </div>
+      <div class="field" id="cl-f">
+        <label class="field-label" for="cl" id="cl-l">Cluster</label>
+        <select class="field-input" id="cl" aria-describedby="cl-h cl-e"></select>
+        <span class="field-help" id="cl-h"></span>
+        <span class="field-error hidden" id="cl-e">Choose the member's cluster.</span>
+      </div>
+    </div>
+
+    <h2 class="text-title-lg">Home</h2>
+    <div class="form-grid">
+      <div class="field"><label class="field-label" for="co">County <span class="optional">(optional)</span></label><select class="field-input" id="co"></select></div>
+      <div class="field"><label class="field-label" for="sc">Sub-county <span class="optional">(optional)</span></label><select class="field-input" id="sc"></select></div>
+      <div class="field"><label class="field-label" for="wd">Ward <span class="optional">(optional)</span></label><select class="field-input" id="wd"></select>
+        <span class="field-help" id="wd-h"></span></div>
+      <div class="field"><label class="field-label" for="vi">Village <span class="optional">(optional)</span></label><input class="field-input" id="vi"></div>
+    </div>
+
+    <div class="col gap-2">
+      <div class="row between gap-2 wrap">
+        <h2 class="text-title-lg">Nominees</h2>
+        <button class="btn btn-tonal btn-sm" type="button" id="nom-add"><span class="mdi mdi-plus" aria-hidden="true"></span>Add nominee</button>
+      </div>
+      <span class="text-body-md tone-muted">Who receives the member's interest if they die. Most by-laws ask for at least one. Up to five, with shares adding up to 100%.</span>
+      <div class="col gap-3" id="noms"></div>
+      <div class="banner hidden" id="nom-total" role="status"><span class="mdi" aria-hidden="true" id="nom-i"></span><div class="grow"><span class="text-body-md tabular" id="nom-t"></span></div></div>
+    </div>
+
+    <div class="disclosure">
+      <div class="disclosure-item">
+        <button class="disclosure-trigger" type="button" aria-expanded="false">Preferred name, email, language and notes</button>
+        <div class="disclosure-panel" hidden>
+          <div class="form-grid">
+            <div class="field"><label class="field-label" for="pn">Preferred name <span class="optional">(optional)</span></label><input class="field-input" id="pn" placeholder="What they like to be called">
+              <span class="field-help">The member can change this, their phone, email and language in the app once they sign up.</span></div>
+            <div class="field"><label class="field-label" for="em">Email <span class="optional">(optional)</span></label><input class="field-input" id="em" type="email" inputmode="email"></div>
+            <div class="field"><label class="field-label" for="lg">Language</label><select class="field-input" id="lg"><option value="sw">Swahili</option><option value="en">English</option></select>
+              <span class="field-help" id="lg-h"></span></div>
+            <div class="field field-wide"><label class="field-label" for="nt">Notes for staff <span class="optional">(optional)</span></label><textarea class="field-input" id="nt"></textarea></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="banner banner-error hidden" role="alert" id="summary">
+      <span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm" id="summary-t"></span><span class="text-body-md" id="summary-b"></span></div>
+    </div>
+  </form>
+
+  <!-- LOADING -->
+  <div data-state="loading" class="col gap-4">
+    <div class="skeleton" style="height:24px;width:40%"></div>
+    <div class="skeleton" style="height:48px"></div><div class="skeleton" style="height:48px"></div><div class="skeleton" style="height:48px"></div><div class="skeleton" style="height:48px"></div>
+  </div>
+
+  <!-- ERROR -->
+  <div data-state="error" class="error-state">
+    <span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't open the form</span>
+    <span class="text-body-md">The cooperative's clusters and next member number didn't load. Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loading');setTimeout(function(){Proto.go('loaded')},800)">Try again</button>
+  </div>
+
+  <div data-footer data-roles="admin manager" data-coop="onboarding active">
+    <button class="btn btn-filled" type="button" id="add">Add member</button>
+  </div>
+</div>
+
+<script>
+document.getElementById("screen").setAttribute("data-sub", Members.coop().profile.short_name);
+document.addEventListener("DOMContentLoaded", function () {
+  var q = GF.q, f = GF.fmt, get = GF.get, M = Members, esc = M.esc;
+  var $ = function (id) { return document.getElementById(id); };
+  var C = M.coop(), CID = C.id;
+  Portal.mountBanner();
+  var REG = q.members(CID);
+  var empty = false; // the "empty" review state: nobody on the register yet
+
+  /* On hold or ended: the reason replaces the form. */
+  $("stop-t").textContent = M.coopStatus() === "ended" ? "This cooperative has ended" : "Adding members is paused";
+  $("stop-b").textContent = M.coopStatus() === "ended" ? "Its register stays readable, but nobody new can be added." :
+    "GroFunder put " + C.profile.short_name + " on hold. Members already on the register carry on as usual; new ones can be added once the hold is lifted.";
+
+  /* ID type and number, normalised as the service does (05). */
+  var idType = "NATIONAL_ID";
+  var RULE = { NATIONAL_ID: ["National ID number", "5 to 12 digits. Spaces are ignored.", "numeric"], PASSPORT: ["Passport number", "5 to 20 letters and digits.", "text"], ALIEN_ID: ["Alien ID number", "5 to 20 letters and digits.", "text"] };
+  function normId(v) {
+    v = v.replace(/\s+/g, "");
+    return idType === "NATIONAL_ID" ? v.replace(/\.0$/, "") : v.toUpperCase();
+  }
+  function idProblem() {
+    var v = normId($("idn").value);
+    if (!v) return { text: "Enter the " + RULE[idType][0].toLowerCase() + ". Every member needs one." };
+    if (idType === "NATIONAL_ID" ? !/^\d{5,12}$/.test(v) : !/^[A-Z0-9]{5,20}$/.test(v)) return { text: idType === "NATIONAL_ID" ? "A national ID is 5 to 12 digits." : "Use 5 to 20 letters and digits." };
+    var hit = empty ? null : REG.find(function (m) { return m.id_type === idType && m.id_number === v; });
+    if (hit) return { text: hit.full_name + " (" + hit.member_no + ") already has this ID in the register. ", link: M.url(hit.id), hit: hit };
+    return null;
+  }
+  $("idt").addEventListener("click", function (e) {
+    var b = e.target.closest("[data-t]"); if (!b) return;
+    idType = b.getAttribute("data-t");
+    $("idn-l").textContent = RULE[idType][0]; $("idn-h").textContent = RULE[idType][1]; $("idn").setAttribute("inputmode", RULE[idType][2]);
+    check();
+  });
+
+  /* Phone: a local spelling is stored as +254…; a shared phone is only a note. */
+  function phoneProblem() {
+    var v = $("ph").value.trim(); if (!v) return null;
+    return M.phoneOf(v) ? null : "Use a Kenyan mobile number, like 0712 345 678.";
+  }
+  function phoneNote() {
+    var p = M.phoneOf($("ph").value.trim()); if (!p || empty) return "";
+    var same = REG.filter(function (m) { return m.phone === p; });
+    return same.length ? "Also the phone of " + same.slice(0, 2).map(function (m) { return m.full_name + " (" + m.member_no + ")"; }).join(" and ") + ". Family members often share one; that's fine." : "";
+  }
+
+  /* Member number: suggested, then checked. */
+  var suggested = M.suggestNo(CID);
+  function noProblem() {
+    var v = $("no").value.trim(); if (!v || empty) return null;
+    var hit = REG.find(function (m) { return m.member_no.toUpperCase() === v.toUpperCase(); });
+    return hit ? v.toUpperCase() + " is " + hit.full_name + "'s number. The next free one is " + suggested + "." : null;
+  }
+
+  /* Clusters: active ones only. A cooperative without clusters leaves it out (05). */
+  var CL = GF.clusters.filter(function (c) { return c.cooperative === CID && c.status === "ACTIVE"; });
+  if (CL.length) {
+    $("cl").innerHTML = '<option value="">Choose…</option>' + CL.map(function (c) { return '<option value="' + c.id + '">' + esc(c.name) + "</option>"; }).join("");
+    $("cl-h").innerHTML = "Only active clusters. Clusters are set up in <a href=\"../settings/clusters.html\">Settings</a>.";
+  } else {
+    $("cl-l").innerHTML = 'Cluster <span class="optional">(optional)</span>';
+    $("cl").innerHTML = '<option value="">No clusters yet</option>'; $("cl").disabled = true;
+    $("cl-h").innerHTML = C.profile.short_name + " has no clusters. Members can be added without one, or <a href=\"../settings/clusters.html\">set up clusters</a> first.";
+  }
+
+  /* Home area: county, then sub-county, then ward (04, wards added in UI-14). */
+  var byName = function (a, b) { return a.name < b.name ? -1 : 1; };
+  var counties = GF.areas.filter(function (a) { return a.level === "COUNTY" && a.status === "ACTIVE"; }).sort(byName);
+  var under = function (id, level) { return GF.areas.filter(function (a) { return a.parent === id && a.level === level && a.status === "ACTIVE"; }).sort(byName); };
+  var opts = function (list, none) { return '<option value="">' + none + "</option>" + list.map(function (a) { return '<option value="' + a.id + '">' + esc(a.name) + "</option>"; }).join(""); };
+  $("co").innerHTML = opts(counties, "Choose…");
+  function fillSub() { var s = under($("co").value, "SUB_COUNTY"); $("sc").innerHTML = opts(s, s.length ? "Choose…" : $("co").value ? "None loaded yet" : "Choose the county first"); $("sc").disabled = !s.length; fillWard(); }
+  function fillWard() {
+    var w = under($("sc").value, "WARD");
+    $("wd").innerHTML = opts(w, w.length ? "Choose…" : $("sc").value ? "None added yet" : "Choose the sub-county first"); $("wd").disabled = !w.length;
+    $("wd-h").textContent = $("sc").value && !w.length ? "GroFunder adds wards. Put the ward in the village field meanwhile." : "";
+  }
+  $("co").addEventListener("change", fillSub); $("sc").addEventListener("change", fillWard);
+  /* Start where the cooperative is. */
+  var home = get(C.area);
+  $("co").value = home.level === "COUNTY" ? home.id : home.county || ""; fillSub();
+  if (home.level === "SUB_COUNTY") { $("sc").value = home.id; fillWard(); }
+
+  $("lg").value = C.profile.default_language || "sw";
+  $("lg-h").textContent = "The cooperative's default is " + ($("lg").value === "sw" ? "Swahili" : "English") + ".";
+
+  /* Nominees: up to five, name and share required, shares add up to 100. */
+  var noms = [];
+  function drawNoms() {
+    $("noms").innerHTML = noms.map(function (n, i) {
+      return '<div class="card card-outlined" data-n="' + i + '"><div class="card-header"><div class="card-header-text"><span class="card-title">Nominee ' + (i + 1) + "</span></div>" +
+        '<button class="btn btn-text btn-sm" type="button" data-rm="' + i + '">Remove</button></div>' +
+        '<div class="form-grid">' +
+          '<div class="field"><label class="field-label" for="nn' + i + '">Name</label><input class="field-input" id="nn' + i + '" data-k="name" value="' + esc(n.name) + '"><span class="field-error hidden" id="nn' + i + '-e">Enter the nominee\'s name.</span></div>' +
+          '<div class="field"><label class="field-label" for="ns' + i + '">Share</label><div class="field-box has-trail"><input class="field-input tabular" id="ns' + i + '" data-k="share_pct" inputmode="numeric" value="' + (n.share_pct === "" ? "" : n.share_pct) + '"><span class="trail affix">%</span></div>' +
+            '<span class="field-error hidden" id="ns' + i + '-e">Enter a share from 1 to 100.</span></div>' +
+          '<div class="field"><label class="field-label" for="nr' + i + '">Relationship <span class="optional">(optional)</span></label><input class="field-input" id="nr' + i + '" data-k="relationship" value="' + esc(n.relationship) + '" placeholder="Wife, son, sister…"></div>' +
+          '<div class="field"><label class="field-label" for="np' + i + '">Phone <span class="optional">(optional)</span></label><input class="field-input tabular" id="np' + i + '" data-k="phone" inputmode="tel" value="' + esc(n.phone) + '"></div>' +
+          '<div class="field"><label class="field-label" for="ni' + i + '">ID number <span class="optional">(optional)</span></label><input class="field-input tabular" id="ni' + i + '" data-k="id_number" value="' + esc(n.id_number) + '"></div>' +
+        "</div></div>";
+    }).join("");
+    $("nom-add").disabled = noms.length >= 5;
+    $("nom-add").innerHTML = noms.length >= 5 ? "Five is the most" : '<span class="mdi mdi-plus" aria-hidden="true"></span>Add nominee';
+    total();
+  }
+  function total() {
+    var box = $("nom-total");
+    box.classList.toggle("hidden", !noms.length);
+    if (!noms.length) return true;
+    var sum = noms.reduce(function (s, n) { return s + (parseInt(n.share_pct, 10) || 0); }, 0), ok = sum === 100;
+    box.className = "banner " + (ok ? "banner-success" : "banner-warning");
+    $("nom-i").className = "mdi " + (ok ? "mdi-check-circle-outline" : "mdi-alert-outline");
+    $("nom-t").textContent = "Shares: " + noms.map(function (n) { return (parseInt(n.share_pct, 10) || 0) + "%"; }).join(" + ") + " = " + sum + "%" +
+      (ok ? "" : sum < 100 ? ". " + (100 - sum) + "% still to give." : ". " + (sum - 100) + "% too much.");
+    return ok;
+  }
+  $("nom-add").addEventListener("click", function () {
+    if (noms.length >= 5) return;
+    noms.push({ name: "", relationship: "", phone: "", id_number: "", share_pct: noms.length ? "" : 100 });
+    drawNoms(); var last = $("nn" + (noms.length - 1)); if (last) last.focus();
+  });
+  $("noms").addEventListener("input", function (e) { var c = e.target.closest("[data-n]"), k = e.target.getAttribute("data-k"); if (!c || !k) return; noms[+c.getAttribute("data-n")][k] = e.target.value; total(); });
+  $("noms").addEventListener("click", function (e) { var b = e.target.closest("[data-rm]"); if (!b) return; noms.splice(+b.getAttribute("data-rm"), 1); drawNoms(); });
+
+  /* Rules, shown live once Add has been pressed (the ID and member number at once). */
+  var shown = false;
+  var setErr = function (id, text, field) {
+    var el = $(id); el.classList.toggle("hidden", !text); el.innerHTML = text || "";
+    if (field) $(field).setAttribute("aria-invalid", String(!!text));
+  };
+  function check(strict) {
+    if (strict) shown = true;
+    var probs = [];
+    var idp = idProblem();
+    var idVisible = idp && (shown || idp.hit || ($("idn").value.trim() && idp.text.indexOf("Enter") !== 0));
+    setErr("idn-e", idVisible ? esc(idp.text) + (idp.link ? '<a href="' + idp.link + '">Open their record</a>' : "") : "", "idn");
+    if (idp) probs.push("the ID");
+    var nm = $("nm").value.trim();
+    setErr("nm-e", shown && !nm ? "Enter the name as on the ID." : "", "nm"); if (!nm) probs.push("the name");
+    var g = $("gd").querySelector('[aria-checked="true"]');
+    $("gd-e").classList.toggle("hidden", !(shown && !g)); if (!g) probs.push("gender");
+    var pp = phoneProblem(); setErr("ph-e", pp && (shown || $("ph").value.trim().length > 9) ? pp : "", "ph"); if (pp) probs.push("the phone");
+    $("ph-h").textContent = phoneNote() || "Where SMS goes, and how the member finds their record in the app.";
+    var np = noProblem(); setErr("no-e", np || (shown && !$("no").value.trim() ? "Enter a member number." : ""), "no"); if (np || !$("no").value.trim()) probs.push("the member number");
+    var clp = CL.length && !$("cl").value; setErr("cl-e", shown && clp ? "Choose the member's cluster." : "", "cl"); if (clp) probs.push("the cluster");
+    var nomBad = false;
+    noms.forEach(function (n, i) {
+      var nb = !String(n.name).trim(), sb = !(parseInt(n.share_pct, 10) >= 1 && parseInt(n.share_pct, 10) <= 100);
+      if ($("nn" + i + "-e")) { $("nn" + i + "-e").classList.toggle("hidden", !(shown && nb)); $("ns" + i + "-e").classList.toggle("hidden", !(shown && sb)); }
+      nomBad = nomBad || nb || sb;
+    });
+    if (nomBad || !total()) probs.push("the nominees");
+    $("summary").classList.toggle("hidden", !(shown && probs.length));
+    $("summary-t").textContent = probs.length === 1 ? "Check one thing" : "Check " + probs.length + " things";
+    $("summary-b").textContent = probs.join(", ").replace(/^./, function (c) { return c.toUpperCase(); }) + ".";
+    return probs.length === 0;
+  }
+  ["idn", "nm", "ph", "no", "cl", "dob", "jo"].forEach(function (id) { $(id).addEventListener("input", function () { check(); }); $(id).addEventListener("change", function () { check(); }); });
+  $("gd").addEventListener("click", function () { setTimeout(check, 0); });
+
+  /* Add: the form clears for the next member and keeps the cluster, area and date joined. */
+  var STAND_IN = GF.who.wanjiku;
+  $("add").addEventListener("click", function () {
+    if (!check(true)) { var bad = document.querySelector('#form [aria-invalid="true"]'); if (bad) bad.focus(); return; }
+    var name = $("nm").value.trim(), no = $("no").value.trim().toUpperCase();
+    Proto.snack(name + " added as " + no, "Open", function () { location.href = M.url(STAND_IN); });
+    var n = /^(.*?)(\d+)$/.exec(no); suggested = n ? n[1] + String(+n[2] + 1).padStart(n[2].length, "0") : "";
+    shown = false; noms = []; drawNoms();
+    ["idn", "nm", "ph", "dob", "pn", "em", "nt", "vi"].forEach(function (id) { $(id).value = ""; });
+    $("gd").querySelectorAll(".chip").forEach(function (c) { c.setAttribute("aria-checked", "false"); });
+    $("no").value = suggested; $("no-h").textContent = "Suggested: the next after " + no + ".";
+    check(); $("idn").focus(); window.scrollTo(0, 0);
+  });
+
+  /* Review states: loaded is a fresh form; invalid trips the ID, number and shares rules; empty is a register with nobody numbered yet. */
+  function setUp(s) {
+    empty = s === "empty"; shown = false;
+    $("no").value = empty ? "" : M.suggestNo(CID);
+    $("no-h").textContent = empty ? "Nobody has a number yet. Type the first one, such as M-0001; later ones are suggested from it." :
+      M.suggestNo(CID) ? "Suggested: the next after the highest in use. You can type another." : "Nobody has a number yet. Type the first one.";
+    $("jo").value = GF.TODAY; $("jo").max = GF.TODAY; $("dob").max = GF.TODAY;
+    ["idn", "nm", "ph", "dob"].forEach(function (id) { $(id).value = ""; });
+    noms = [];
+    if (s === "invalid") {
+      var w = get(GF.who.wanjiku), clash = REG.find(function (m) { return m.id !== w.id && m.status === "ACTIVE"; });
+      $("idn").value = w.cooperative === CID ? w.id_number.slice(0, 4) + " " + w.id_number.slice(4) : (REG[0] || {}).id_number || "";
+      $("nm").value = "Wanjiku Kamau"; $("ph").value = w.phone ? "0" + w.phone.slice(4) : "";
+      if (clash) $("no").value = clash.member_no;
+      noms = [{ name: "James Kamau", relationship: "Husband", phone: "", id_number: "", share_pct: 60 }, { name: "", relationship: "Daughter", phone: "", id_number: "", share_pct: 30 }];
+    }
+    drawNoms();
+    check(s === "invalid");
+  }
+  document.addEventListener("proto:state", function (e) { if (["loaded", "invalid", "empty"].indexOf(e.detail) > -1) setUp(e.detail); });
+  var st = new URLSearchParams(location.search).get("state");
+  setUp(["invalid", "empty"].indexOf(st) > -1 ? st : "loaded");
+});
+</script>
+</body>
+</html>

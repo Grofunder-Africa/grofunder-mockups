@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Import deliveries · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/produce.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Import deliveries" data-flow data-back="index.html" id="screen">
+
+  <p class="proto-note"><b>C7 · From note 07 (UI-30).</b> A spreadsheet of deliveries, imported all or nothing. Every row gets the same rules and unit conversion as recording one by hand. If any row breaks a hard rule, nothing is imported, and the check lists every row's problem so the file can be fixed in one go. Soft checks (a day the round doesn't run, a second delivery in a round) are listed but don't stop the import. Imported rows get the source "Imported".</p>
+  <p class="proto-note"><b>The file in this mockup</b> is Kijani's deliveries of 29 October from the shared data, with five rows broken on purpose. Use the states to see the check with problems, a clean check, and the import done.</p>
+  <p class="proto-note proto-gap"><b>G30 · The file's columns aren't defined</b> in note 07 or the build plan. This page proposes: member number, date, product, grade, quantity (in the recording unit where there is one), round, centre and receipt, with a template to download. It needs the backend's agreement.</p>
+
+  <div class="stepper" id="stepper" aria-label="Steps"></div>
+
+  <!-- Step 1: choose the file -->
+  <div class="col gap-4" data-state="loaded">
+    <div class="card card-outlined">
+      <div class="card-header"><div class="card-header-text"><span class="card-title">Choose the spreadsheet</span>
+        <span class="card-description">A CSV file, one delivery per row. Download the template to start from the right columns.</span></div></div>
+      <div class="col gap-3">
+        <label class="btn btn-outlined" style="align-self:flex-start"><span class="mdi mdi-file-upload-outline" aria-hidden="true"></span>Choose a file<input type="file" accept=".csv,text/csv" hidden onchange="Proto.go('problems')"></label>
+        <button class="btn btn-text" type="button" style="align-self:flex-start" onclick="Proto.snack('Downloading deliveries-template.csv')"><span class="mdi mdi-download" aria-hidden="true"></span>Download the template</button>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-md">What each row needs</span></div></div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Column</th><th>Example</th><th>Rule</th></tr></thead><tbody id="cols"></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- Step 2a: checked, with problems -->
+  <div class="col gap-4" data-state="problems">
+    <div class="banner banner-error" role="alert"><span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm" id="p-title"></span><span class="text-body-md">Nothing has been imported. Fix these rows in the file and choose it again.</span></div></div>
+    <div class="section">
+      <div class="section-band" id="p-band"></div>
+      <div class="table-wrap only-wide"><table class="table"><thead><tr><th class="num">Row</th><th>Member</th><th>Problem</th></tr></thead><tbody id="p-rows"></tbody></table></div>
+      <div class="rowcards only-compact" id="p-cards"></div>
+    </div>
+    <div class="row gap-2 wrap">
+      <label class="btn btn-filled"><span class="mdi mdi-file-upload-outline" aria-hidden="true"></span>Choose the fixed file<input type="file" accept=".csv,text/csv" hidden onchange="Proto.go('ready')"></label>
+      <button class="btn btn-text" type="button" onclick="Proto.snack('Downloading the rows with their problems')">Download these problems</button>
+    </div>
+  </div>
+
+  <!-- Step 2b: checked, ready -->
+  <div class="col gap-4" data-state="ready">
+    <div class="banner banner-success"><span class="mdi mdi-check-circle-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm" id="r-title"></span><span class="text-body-md">Check the totals against your paper records, then import.</span></div></div>
+    <div class="section">
+      <div class="section-band" id="r-band"></div>
+      <div class="table-wrap only-wide"><table class="table"><thead><tr><th class="num">Row</th><th>Member</th><th>Date</th><th>Grade</th><th class="num">Quantity</th><th>Round</th><th>Centre</th><th>Receipt</th></tr></thead><tbody id="r-rows"></tbody></table></div>
+      <div class="rowcards only-compact" id="r-cards"></div>
+    </div>
+    <div class="col gap-2" id="r-warn"></div>
+  </div>
+
+  <!-- Step 3: imported -->
+  <div class="empty" data-state="imported">
+    <span class="mdi mdi-check-circle-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm" id="i-title"></span>
+    <span class="text-body-md">They're in the deliveries list, marked as imported, and members see them in the app.</span>
+    <div class="row gap-2 wrap center"><a class="btn btn-filled" href="index.html">See deliveries</a><button class="btn btn-text" type="button" onclick="Proto.go('loaded')">Import another file</button></div>
+  </div>
+
+  <!-- EMPTY: the file has no rows -->
+  <div class="empty" data-state="empty">
+    <span class="mdi mdi-file-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">The file has no deliveries in it</span>
+    <span class="text-body-md">Only the column names were found. Add one row per delivery under them, or start from the template.</span>
+    <div class="row gap-2 wrap center"><button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Choose another file</button></div>
+  </div>
+
+  <!-- LOADING: checking the file -->
+  <div class="col gap-4" data-state="loading">
+    <div class="row gap-3"><span class="spinner" aria-hidden="true"></span><span class="text-body-lg">Checking every row…</span></div>
+    <div class="skeleton-card" style="height:72px"></div><div class="skeleton-card" style="height:240px"></div>
+  </div>
+
+  <!-- ERROR -->
+  <div class="error-state" data-state="error">
+    <span class="mdi mdi-file-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't read the file</span>
+    <span class="text-body-md">Save it as CSV (comma separated) and try again. Spreadsheet files from Excel need "Save as CSV" first.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Choose another file</button>
+  </div>
+
+  <div data-footer data-roles="admin manager clerk" data-write>
+    <button class="btn btn-filled" type="button" id="go" onclick="Proto.go('imported')">Import</button>
+  </div>
+</div>
+
+<script>
+document.getElementById("screen").setAttribute("data-sub", Produce.coop().profile.short_name);
+document.addEventListener("DOMContentLoaded", function () {
+  var q = GF.q, f = GF.fmt, get = GF.get, P = Produce, C = P.coop(), esc = P.esc;
+  var $ = function (id) { return document.getElementById(id); };
+  var x = P.products(C).find(function (p) { return p.cp.recording_unit; }) || P.products(C)[0];
+  var unit = x.cp.recording_unit || x.unit;
+
+  $("cols").innerHTML = [
+    ["member_no", "M-0142", "A member of this cooperative who hasn't exited"],
+    ["delivered_on", "29/10/2026", "Day first; today or earlier"],
+    ["product", x.product.name, "One of the cooperative's active products"],
+    ["grade", x.grades[0] ? x.grades[0].name : "(blank)", x.grades.length ? "Blank if not graded" : "Leave blank: not graded"],
+    ["quantity", x.cp.recording_unit ? "2" : "18.5", "Above 0, up to 3 decimals, in " + GF.UNITS[unit][1] + (x.cp.recording_unit ? " (1 = " + x.cp.unit_factor + " " + GF.UNITS[x.unit][0] + ")" : "")],
+    ["round", "Evening", "Optional; a round set up in Settings"],
+    ["centre", "Ndumberi", "Where it was received"],
+    ["receipt_no", "R-2311", "Optional; not already on a recorded delivery"]
+  ].map(function (c) { return '<tr><td class="tabular"><code>' + c[0] + "</code></td><td>" + esc(c[1]) + "</td><td>" + c[2] + "</td></tr>"; }).join("");
+
+  /* The file: every delivery of the day before, from the shared data. */
+  var day = "2026-10-29";
+  var rows = q.deliveries({ cooperative: C.id, on: day }).filter(function (d) { return d.status === "RECORDED"; });
+  if (!rows.length) rows = q.deliveries({ cooperative: C.id, from: "2026-08-01", to: "2026-08-31" }).filter(function (d) { return d.status === "RECORDED"; }).slice(0, 40);
+  var exited = q.members(C.id).find(function (m) { return m.status === "EXITED"; });
+  var wan = q.deliveries({ cooperative: C.id, on: GF.TODAY }).find(function (d) { return d.receipt_no; });
+  var problems = [
+    [4, rows[2] && get(rows[2].member), "Quantity is 0. Enter what was delivered, or take the row out."],
+    [9, exited, exited ? exited.full_name + " has left the cooperative, so deliveries can't be recorded for them." : ""],
+    [15, null, "No member M-0999 in this cooperative. Check the number."],
+    [22, rows[20] && get(rows[20].member), wan ? "Receipt " + wan.receipt_no + " is already on " + get(wan.member).full_name + "'s delivery of " + f.date(wan.delivered_on) + "." : "Receipt already used."],
+    [31, rows[29] && get(rows[29].member), "Date 31/10/2026 is after today."]
+  ].filter(function (p) { return p[2]; });
+  var total = q.quantity(rows);
+  var qtyText = f.qty(total, x.unit, { digits: x.unit === "LITRE" ? 1 : 0 });
+  var band = function (n) {
+    return '<div class="section-figure lg"><span class="k">Rows</span><span class="v">' + (rows.length) + '</span></div><div class="section-figure"><span class="k">' + (n ? "With problems" : "Members") + '</span><span class="v">' +
+      (n ? n : new Set(rows.map(function (d) { return d.member; })).size) + '</span></div><div class="section-figure"><span class="k">Quantity</span><span class="v">' + qtyText + "</span></div>";
+  };
+  $("p-title").textContent = problems.length + " of " + (rows.length) + " rows need fixing";
+  $("p-band").innerHTML = band(problems.length);
+  $("p-rows").innerHTML = problems.map(function (p) { return '<tr><td class="num">' + p[0] + "</td><td>" + (p[1] ? p[1].full_name + '<span class="cell-sub tabular">' + p[1].member_no + "</span>" : '<span class="tabular">M-0999</span>') + "</td><td>" + esc(p[2]) + "</td></tr>"; }).join("");
+  $("p-cards").innerHTML = problems.map(function (p) { return '<div class="rowcard"><span class="grow"><span class="text-body-lg">Row ' + p[0] + " · " + (p[1] ? p[1].full_name : "M-0999") + '</span><span class="text-body-md tone-muted">' + esc(p[2]) + "</span></span></div>"; }).join("");
+
+  $("r-title").textContent = (rows.length) + " deliveries are ready";
+  $("r-band").innerHTML = band(0);
+  var show = rows.slice(0, 12);
+  $("r-rows").innerHTML = show.map(function (d, i) {
+    var m = get(d.member);
+    return '<tr><td class="num">' + (i + 2) + '</td><td class="primary-cell">' + m.full_name + '<span class="cell-sub tabular">' + m.member_no + '</span></td><td class="tabular">' + f.date(d.delivered_on, "short") + "</td><td>" + (d.grade ? get(d.grade).name : "–") +
+      '</td><td class="num">' + f.delivery(d) + "</td><td>" + (d.round ? get(d.round).name : "–") + "</td><td>" + get(d.cluster).name + '</td><td class="tabular">' + (d.receipt_no || "–") + "</td></tr>";
+  }).join("") + (rows.length > 12 ? '<tr><td colspan="8" class="tone-muted">and ' + (rows.length - 12) + " more rows</td></tr>" : "");
+  $("r-cards").innerHTML = show.map(function (d, i) {
+    var m = get(d.member);
+    return '<div class="rowcard"><span class="grow"><span class="text-body-lg">' + m.full_name + '</span><span class="text-body-md tone-muted tabular">Row ' + (i + 2) + " · " + m.member_no + (d.receipt_no ? " · " + d.receipt_no : "") + '</span></span><span class="text-title-md tabular">' + f.delivery(d) + "</span></div>";
+  }).join("");
+  $("r-warn").innerHTML = '<div class="banner banner-warning"><span class="mdi mdi-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">Row 7: ' + get(rows[5].member).full_name +
+    " already has a delivery in this round on " + f.date(rows[5].delivered_on) + ". It will be imported too; void one later if it was entered twice.</span></div></div>";
+  $("i-title").textContent = (rows.length) + " deliveries imported";
+
+  /* Stepper and footer follow the state. */
+  var STEPS = [["loaded", "Choose the file"], ["check", "Check"], ["imported", "Import"]];
+  function step(s) {
+    var at = s === "loaded" || s === "error" || s === "empty" ? 0 : s === "imported" ? 2 : 1;
+    $("stepper").innerHTML = STEPS.map(function (st, i) {
+      return (i ? '<span class="sep"></span>' : "") + '<span class="step' + (i < at ? " done" : "") + '"' + (i === at ? ' aria-current="step"' : "") + '><span class="n">' + (i < at ? "✓" : i + 1) + '</span><span class="lbl">' + st[1] + "</span></span>";
+    }).join("");
+    var foot = document.querySelector(".screen-footer");
+    if (foot) foot.classList.toggle("hidden", s !== "ready");
+    $("go").textContent = "Import " + (rows.length) + " deliveries";
+  }
+  document.addEventListener("proto:state", function (e) { step(e.detail); });
+  step(new URLSearchParams(location.search).get("state") || "loaded");
+});
+</script>
+</body>
+</html>

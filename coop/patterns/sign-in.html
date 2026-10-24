@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in · signed-out pattern · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Sign in" data-auth="sm">
+  <p class="proto-note"><b>Pattern sample: a signed-out screen (phase 2).</b> No app bar or navigation: one centred column (the kit's <code>Screen contentClassName="justify-center max-w-sm"</code>). Staff sign in with the kit's email and password, and an authenticator code if they turned it on (redesign plan §4). The set-up flow (phase 5) draws invitations and password reset.</p>
+
+  <div class="brand-lockup"><img src="../../assets/brand/grofunder-wordmark.png" alt="GroFunder"></div>
+
+  <form class="col gap-4" data-state="loaded wrong" onsubmit="Proto.go('code');return false">
+    <div class="col gap-1"><h1 class="text-headline-sm">Sign in</h1><p class="text-body-md tone-muted">For cooperative and GroFunder staff.</p></div>
+    <div class="banner banner-error" role="alert" data-state="wrong"><span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-body-md">That email and password don't match.</span></div></div>
+    <div class="field"><label class="field-label" for="email">Email</label><input class="field-input" id="email" type="email" autocomplete="username" value="grace@kijanidairy.example"></div>
+    <div class="field"><label class="field-label" for="pw">Password</label>
+      <div class="field-box"><input class="field-input" id="pw" type="password" autocomplete="current-password" value="secretsecret" style="padding-right:52px">
+        <button class="icon-btn" type="button" aria-label="Show what you typed"><span class="mdi mdi-eye-outline" aria-hidden="true"></span></button></div></div>
+    <button class="btn btn-filled btn-block" type="submit">Sign in</button>
+    <a class="btn btn-text" href="#" style="align-self:center">Forgot your password?</a>
+  </form>
+
+  <form class="col gap-4" data-state="code" onsubmit="location.href='../home/index.html';return false">
+    <div class="col gap-1"><h1 class="text-headline-sm">Enter your code</h1><p class="text-body-md tone-muted">Open your authenticator app and type the 6-digit code for GroFunder.</p></div>
+    <div class="field"><label class="field-label" for="code">Code</label><input class="field-input tabular" id="code" inputmode="numeric" autocomplete="one-time-code" placeholder="123 456"></div>
+    <button class="btn btn-filled btn-block" type="submit">Continue</button>
+    <a class="btn btn-text" href="#" style="align-self:center">Use a recovery code instead</a>
+  </form>
+</div>
+</body>
+</html>

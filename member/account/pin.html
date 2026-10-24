@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Change PIN · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Change PIN" data-flow data-back="index.html" data-compact>
+
+  <p class="proto-note"><b>M15 · Change PIN (note 06).</b> The kit's password change: the current PIN, then the new one twice. The kit ends every other session, so other phones are signed out. One step per screen on the keypad, as at sign-in.</p>
+  <p class="proto-note"><b>The PIN rule</b> (06, <code>MemberPinValidator</code>): exactly 4 digits, refusing one digit repeated (0000), a run up or down (1234, 9876) and a repeated pair (1212). Try 1234 on the new PIN.</p>
+  <p class="proto-note proto-gap"><b>F4.</b> PinPad and the PIN dots are proposed components (specimens/new-components.html), not yet in the kit.</p>
+
+  <div data-roles="out" class="empty">
+    <span class="mdi mdi-account-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">You're signed out</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a>
+  </div>
+
+  <div data-state="loaded" class="col gap-4" data-roles="in">
+    <div class="col gap-1" style="text-align:center">
+      <h1 class="text-headline-sm" id="step-title">Enter your current PIN</h1>
+      <p class="text-body-md tone-muted" id="step-sub">The 4 digits you sign in with.</p>
+    </div>
+    <div class="pin-dots" id="dots" aria-live="polite" aria-label="0 of 4 digits entered"><span></span><span></span><span></span><span></span></div>
+    <p class="text-body-md tone-error hidden" style="text-align:center" role="alert" id="pin-err"></p>
+    <div class="pinpad" role="group" aria-label="PIN keypad" id="pad">
+      <button type="button" data-key="1">1</button><button type="button" data-key="2">2</button><button type="button" data-key="3">3</button>
+      <button type="button" data-key="4">4</button><button type="button" data-key="5">5</button><button type="button" data-key="6">6</button>
+      <button type="button" data-key="7">7</button><button type="button" data-key="8">8</button><button type="button" data-key="9">9</button>
+      <span></span>
+      <button type="button" data-key="0">0</button>
+      <button type="button" class="key-plain" data-key="del" aria-label="Delete the last digit"><span class="mdi mdi-backspace-outline" aria-hidden="true"></span></button>
+    </div>
+  </div>
+
+  <div data-state="done" class="empty" data-roles="in">
+    <span class="mdi mdi-check-circle-outline tone-primary" aria-hidden="true"></span>
+    <span class="text-headline-sm">PIN changed</span>
+    <span class="text-body-md">Use your new PIN next time you sign in. If GroFunder was open on another phone, it has been signed out there.</span>
+    <a class="btn btn-filled" href="index.html">Back to your account</a>
+  </div>
+
+  <div data-state="loading" class="empty" data-roles="in">
+    <span class="spinner" aria-hidden="true"></span>
+    <span class="text-body-md">Changing your PIN…</span>
+  </div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't change your PIN</span><span class="text-body-md">Your PIN is as it was. Check your connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+/* 06: the member PIN rule. Returns the problem, or "" when the PIN is fine. */
+function pinProblem(p) {
+  if (!/^\d{4}$/.test(p)) return "Your PIN is 4 digits.";
+  var d = p.split("").map(Number);
+  if (d.every(function (x) { return x === d[0]; })) return "That's one digit repeated, which is easy to guess. Choose another PIN.";
+  var up = d.every(function (x, i) { return i === 0 || x === d[i - 1] + 1; }), down = d.every(function (x, i) { return i === 0 || x === d[i - 1] - 1; });
+  if (up || down) return "That's a run of digits, which is easy to guess. Choose another PIN.";
+  if (p.slice(0, 2) === p.slice(2)) return "That's a pair repeated, which is easy to guess. Choose another PIN.";
+  return "";
+}
+var STEPS = [
+  { title: "Enter your current PIN", sub: "The 4 digits you sign in with." },
+  { title: "Choose a new PIN", sub: "4 digits. Not one digit repeated (0000), a run (1234) or a repeated pair (1212)." },
+  { title: "Enter the new PIN again", sub: "To make sure it's the one you meant." }
+];
+var step = 0, entry = "", fresh = "";
+function draw() {
+  document.getElementById("step-title").textContent = STEPS[step].title;
+  document.getElementById("step-sub").textContent = STEPS[step].sub;
+  var dots = document.getElementById("dots");
+  dots.querySelectorAll("span").forEach(function (s, i) { s.classList.toggle("on", i < entry.length); });
+  dots.setAttribute("aria-label", entry.length + " of 4 digits entered");
+}
+function fail(msg) {
+  var e = document.getElementById("pin-err"); e.textContent = msg; e.classList.remove("hidden");
+  document.getElementById("dots").classList.add("error");
+}
+function clearErr() { document.getElementById("pin-err").classList.add("hidden"); document.getElementById("dots").classList.remove("error"); }
+function complete() {
+  var pin = entry; entry = "";
+  if (step === 0) { step = 1; clearErr(); return draw(); }  /* the kit checks the current PIN; any 4 digits pass here */
+  if (step === 1) {
+    var why = pinProblem(pin);
+    if (why) { draw(); return fail(why); }
+    fresh = pin; step = 2; clearErr(); return draw();
+  }
+  if (pin !== fresh) { step = 1; fresh = ""; draw(); return fail("Those PINs don't match. Choose your new PIN again."); }
+  Proto.go("done");
+}
+document.getElementById("pad").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-key]"); if (!b) return;
+  var k = b.getAttribute("data-key");
+  if (k === "del") { entry = entry.slice(0, -1); return draw(); }
+  if (entry.length >= 4) return;
+  if (!entry.length) clearErr();
+  entry += k; draw();
+  if (entry.length === 4) setTimeout(complete, 120);
+});
+draw();
+</script>
+</body>
+</html>

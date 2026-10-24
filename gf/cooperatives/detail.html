@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cooperative · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/console.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen id="screen" data-dest="cooperatives" data-back="index.html" data-wide>
+
+  <p class="proto-note"><b>G5 · From note 01.</b> One cooperative as GroFunder sees it. Open another with <code>?c=</code>: <a href="?c=co-kijani">Kijani</a> (active), <a href="?c=co-mumbi">Mumbi</a> (onboarding, invitation not yet accepted), <a href="?c=co-ruiru">Ruiru Hills</a> (on hold), <a href="?c=co-mawingu">Mawingu</a> (records maize in bags).</p>
+  <p class="proto-note"><b>What each role can do here (09).</b> View only reads. Operations edits the profile, products and documents, invites administrators and deletes a cooperative still onboarding. Full and Owner also change its status. Clusters belong to the cooperative (<code>manage_clusters</code> is usable only in cooperative accounts), so they are read-only here.</p>
+  <p class="proto-note"><b>Fewer pages (UI-13).</b> Each Profile card's Edit opens a panel with just that card's fields; a member opens as a panel over the Members tab (and from search, as <code>?m=</code>); "Change status" sits beside the status. ⋮ holds only Delete, while onboarding.</p>
+  <p class="proto-note"><b>Tabs, not destinations (UI-10).</b> A cooperative's members, deliveries and payouts are read here, through the GroFunder account's view codes, so they open in the context of the cooperative they belong to.</p>
+
+  <div id="banner"></div>
+
+  <div data-state="loaded" class="col gap-4" data-tabset>
+    <div class="card card-outlined card-lg" id="head"></div>
+
+    <div class="subnav" role="tablist" aria-label="Cooperative">
+      <button class="subnav-item" type="button" role="tab" data-tab="profile" aria-selected="true">Profile</button>
+      <button class="subnav-item" type="button" role="tab" data-tab="products" aria-selected="false">Products</button>
+      <button class="subnav-item" type="button" role="tab" data-tab="clusters" aria-selected="false">Clusters</button>
+      <button class="subnav-item" type="button" role="tab" data-tab="staff" aria-selected="false">Staff</button>
+      <button class="subnav-item" type="button" role="tab" data-tab="documents" aria-selected="false">Documents</button>
+      <button class="subnav-item" type="button" role="tab" data-tab="members" aria-selected="false">Members</button>
+      <button class="subnav-item" type="button" role="tab" data-tab="deliveries" aria-selected="false">Deliveries</button>
+      <button class="subnav-item" type="button" role="tab" data-tab="payouts" aria-selected="false">Payouts</button>
+      <button class="subnav-item" type="button" role="tab" data-tab="history" aria-selected="false">Status history</button>
+    </div>
+
+    <div data-panel="profile" class="col gap-4" id="p-profile"></div>
+    <div data-panel="products" class="col gap-4 hidden" id="p-products"></div>
+    <div data-panel="clusters" class="col gap-4 hidden" id="p-clusters"></div>
+    <div data-panel="staff" class="col gap-4 hidden" id="p-staff"></div>
+    <div data-panel="documents" class="col gap-4 hidden" id="p-documents"></div>
+    <div data-panel="members" class="col gap-4 hidden" id="p-members"></div>
+    <div data-panel="deliveries" class="col gap-4 hidden" id="p-deliveries"></div>
+    <div data-panel="payouts" class="col gap-4 hidden" id="p-payouts"></div>
+    <div data-panel="history" class="col gap-4 hidden" id="p-history"></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:180px"></div><div class="skeleton-card" style="height:320px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-office-building-remove-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">This cooperative isn't there</span><span class="text-body-md">It may have been deleted while onboarding, or the link is wrong.</span>
+    <a class="btn btn-tonal" href="index.html">All cooperatives</a></div>
+</div>
+
+<script>
+(function () {
+  var q = GF.q, f = GF.fmt, C = Console, esc = C.esc;
+  var id = new URLSearchParams(location.search).get("c") || "co-kijani";
+  var c = GF.get(id) || GF.get("co-kijani");
+  var p = c.profile, screen = document.getElementById("screen");
+  screen.setAttribute("data-title", c.profile.short_name);
+
+  /* UI-13: edits sit on the cards they change, status beside the status; ⋮ only for the rare and dangerous. */
+  if (c.status === "ONBOARDING") screen.setAttribute("data-menu", JSON.stringify([{ label: "Delete", icon: "delete-outline", roles: "owner full ops", destructive: true, on: "Console.remove('" + c.id + "')" }]));
+
+  var a = GF.get(c.area), county = a.county ? GF.get(a.county) : a;
+  var place = (a.county ? a.name + ", " : "") + county.name;
+  var vcs = q.valueChainsOf(c.id).map(function (v) { return v.name; }).join(", ");
+  var hist = q.coopHistory(c.id), last = hist[hist.length - 1];
+  var invites = q.invitationsOf(c.id).filter(function (i) { return i.owner; });
+
+  /* Banner by status. */
+  var b = "";
+  if (c.status === "ONBOARDING") {
+    b = invites.length
+      ? '<div class="banner banner-info"><span class="mdi mdi-email-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Waiting for the first administrator</span>' +
+        '<span class="text-body-md">' + esc(invites[0].email) + " was invited on " + f.date(invites[0].sent_at) + " and hasn't accepted yet. It can be activated once someone has.</span>" +
+        '<div class="banner-actions" data-roles="owner full ops"><button class="btn btn-text" type="button" onclick="Console.invite(\'' + c.id + '\', true)">Resend or copy the link</button></div></div></div>'
+      : '<div class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">Onboarding. Ready to activate.</span></div></div>';
+  } else if (c.status === "ON_HOLD") {
+    b = '<div class="banner banner-warning"><span class="mdi mdi-pause-circle-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">On hold since ' + f.date(last.changed_at) + "</span>" +
+      '<span class="text-body-md">"' + esc(last.details.reason) + '" (' + last.changed_by + "). Staff can sign in and see everything; deliveries and payouts carry on; nothing new starts.</span>" +
+      '<div class="banner-actions" data-roles="owner full"><button class="btn btn-text" type="button" onclick="Console.changeStatus(\'' + c.id + '\')">Lift the hold</button></div></div></div>';
+  } else if (c.status === "ENDED") {
+    b = '<div class="banner banner-info"><span class="mdi mdi-archive-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">Ended on ' + f.date(last.changed_at) + ". Read only.</span></div></div>";
+  }
+  document.getElementById("banner").innerHTML = b;
+
+  /* Header: identity, then the figures GroFunder looks at first. */
+  var month = q.deliveries({ cooperative: c.id, from: "2026-10-01", recorded: true });
+  var units = {}; month.forEach(function (d) { var u = GF.get(GF.get(d.product).product).unit; units[u] = (units[u] || 0) + d.quantity_milli / 1000; });
+  var collected = Object.keys(units).map(function (u) { return f.qty(units[u], u, { digits: 0 }); }).join(" · ") || "Nothing yet";
+  var paid = q.paidIn(c.id, "2026-10");
+  document.getElementById("head").innerHTML =
+    '<div class="row-top gap-4 wrap"><span class="avatar" style="width:56px;height:56px;font-size:18px">' + f.initials(p.short_name) + "</span>" +
+    '<div class="col gap-1 grow"><div class="row gap-3 wrap"><span class="text-headline-sm">' + esc(p.short_name) + "</span>" + C.chip(C.STATUS, c.status) +
+    (C.MOVES[c.status].length ? '<button class="btn btn-text btn-sm" type="button" data-roles="owner full" onclick="Console.changeStatus(&quot;' + c.id + '&quot;)">Change status</button>' : "") + "</div>" +
+    '<span class="text-body-md tone-muted">' + esc(c.name) + "</span>" +
+    '<span class="text-body-md tone-muted tabular">' + (c.registration_no || "No registration number yet") + " · " + place + (vcs ? " · " + vcs : "") + "</span></div></div>" +
+    '<div class="stats-grid">' +
+    '<div class="stat-card"><span class="stat-text"><span class="stat-label">Active members</span><span class="stat-value">' + q.activeCount(c.id).toLocaleString("en-KE") + '</span><span class="stat-caption">Of ' + p.declared_member_count.toLocaleString("en-KE") + " it says it has</span></span></div>" +
+    '<div class="stat-card"><span class="stat-text"><span class="stat-label">Collected in October</span><span class="stat-value">' + collected + '</span><span class="stat-caption">' + month.length.toLocaleString("en-KE") + " deliveries</span></span></div>" +
+    '<div class="stat-card"><span class="stat-text"><span class="stat-label">Paid in October</span><span class="stat-value">' + f.money(q.sum(paid, function (x) { return x.net_cents; }), { whole: true }) + '</span><span class="stat-caption">' + paid.length + " payouts</span></span></div>" +
+    '<div class="stat-card"><span class="stat-text"><span class="stat-label">Staff</span><span class="stat-value">' + q.staffOf(c.id).length + '</span><span class="stat-caption">' + (q.invitationsOf(c.id).length ? q.invitationsOf(c.id).length + " invited, not yet accepted" : "All accepted") + "</span></span></div></div>";
+
+  /* Profile: four cards, each edited in its own panel (UI-13). */
+  var LANG = { en: "English", sw: "Swahili" };
+  var addr = [p.address.street, p.address.village, p.address.ward ? p.address.ward + " ward" : "", place].filter(Boolean).join(", ");
+  var card = function (key, title, desc, facts) {
+    return '<div class="card card-outlined"><div class="card-header"><div class="card-header-text"><span class="card-title">' + title + "</span>" + (desc ? '<span class="card-description">' + desc + "</span>" : "") + "</div>" +
+      (c.status === "ENDED" ? "" : '<button class="btn btn-text btn-sm" type="button" data-roles="owner full ops" onclick="editCard(&quot;' + key + '&quot;)">Edit</button>') + '</div><dl class="facts">' + facts + "</dl></div>";
+  };
+  document.getElementById("p-profile").innerHTML =
+    card("registration", "Registration", "Its legal identity. Only GroFunder changes it.",
+      "<dt>Registered name</dt><dd>" + esc(c.name) + '</dd><dt>Registration number</dt><dd class="tabular">' + (c.registration_no || "–") + '</dd><dt>Registered on</dt><dd class="tabular">' + (p.registered_on ? f.date(p.registered_on) : "–") +
+      '</dd><dt>On GroFunder since</dt><dd class="tabular">' + f.date(c.created_at) + "</dd>") +
+    card("about", "About", "",
+      "<dt>Short name</dt><dd>" + esc(p.short_name) + "</dd><dt>What it does</dt><dd>" + (esc(p.description) || "–") + '</dd><dt>Members it says it has</dt><dd class="tabular">' + p.declared_member_count.toLocaleString("en-KE") +
+      "</dd><dt>Members' default language</dt><dd>" + LANG[p.default_language] + "</dd>") +
+    card("place", "Place", "The head office, as precisely as known.", "<dt>Address</dt><dd>" + esc(addr) + (p.address.postal_address ? "<br>" + esc(p.address.postal_address) : "") + "</dd>") +
+    card("contact", "Contact person", "Who GroFunder calls. They needn't have a login.",
+      "<dt>Name</dt><dd>" + esc(p.contact.name) + " (" + esc(p.contact.role) + ')</dd><dt>Phone</dt><dd class="tabular">' + f.phone(p.contact.phone) + "</dd><dt>Email</dt><dd>" + (esc(p.contact.email) || "–") + "</dd>");
+
+  var field = function (id, label, value, opts) {
+    opts = opts || {};
+    return '<div class="field"><label class="field-label" for="' + id + '">' + label + (opts.optional ? ' <span class="optional">(optional)</span>' : "") + "</label>" +
+      (opts.textarea ? '<textarea class="field-input" id="' + id + '">' + esc(value || "") + "</textarea>" : opts.select ? '<select class="field-input" id="' + id + '">' + opts.select + "</select>"
+        : '<input class="field-input' + (opts.tabular ? " tabular" : "") + '" id="' + id + '" value="' + esc(value || "") + '"' + (opts.mode ? ' inputmode="' + opts.mode + '"' : "") + ">") +
+      (opts.help ? '<span class="field-help">' + opts.help + "</span>" : "") + "</div>";
+  };
+  var countyId = a.county || a.id;
+  var counties = GF.areas.filter(function (x) { return x.level === "COUNTY"; }).sort(function (x, y) { return x.name < y.name ? -1 : 1; })
+    .map(function (x) { return '<option value="' + x.id + '"' + (x.id === countyId ? " selected" : "") + ">" + x.name + "</option>"; }).join("");
+  var subsOf = function (cid) { return '<option value="">Not sure</option>' + GF.areas.filter(function (x) { return x.parent === cid && x.level === "SUB_COUNTY"; }).map(function (x) { return '<option value="' + x.id + '"' + (x.id === c.area ? " selected" : "") + ">" + x.name + "</option>"; }).join(""); };
+  var wardsOf = function (sid) {
+    var ws = GF.areas.filter(function (x) { return x.parent === sid && x.level === "WARD"; });
+    return '<option value="">' + (ws.length ? "Not sure" : "No wards added yet") + "</option>" + ws.map(function (x) { return "<option" + (x.name === p.address.ward ? " selected" : "") + ">" + x.name + "</option>"; }).join("");
+  };
+  var FORMS = {
+    registration: ["Registration", field("e-n", "Registered name", c.name, { help: "As on the certificate. It is copied to the cooperative's account." }) + field("e-r", "Registration number", c.registration_no, { optional: true, tabular: true }) +
+      field("e-ro", "Registered on", p.registered_on ? f.date(p.registered_on) : "", { optional: true, tabular: true })],
+    about: ["About", field("e-s", "Short name", p.short_name, { help: "What members call it, in the app and in SMS." }) + field("e-dm", "Members it says it has", p.declared_member_count, { optional: true, tabular: true, mode: "numeric" }) +
+      field("e-d", "What it does", p.description, { optional: true, textarea: true }) + field("e-l", "Members' default language", "", { select: '<option value="sw"' + (p.default_language === "sw" ? " selected" : "") + '>Swahili</option><option value="en"' + (p.default_language === "en" ? " selected" : "") + ">English</option>" })],
+    place: ["Place", field("e-co", "County", "", { select: counties }) + field("e-sc", "Sub-county", "", { optional: true, select: subsOf(countyId) }) + field("e-w", "Ward", "", { optional: true, select: wardsOf(c.area), help: "The wards GroFunder has added under that sub-county (UI-14)." }) +
+      field("e-v", "Village", p.address.village, { optional: true }) + field("e-st", "Street or landmark", p.address.street, { optional: true }) + field("e-pa", "Postal address", p.address.postal_address, { optional: true })],
+    contact: ["Contact person", field("e-cn", "Name", p.contact.name) + field("e-cr", "Role", p.contact.role) + field("e-cp", "Phone", f.phone(p.contact.phone), { tabular: true, mode: "tel" }) + field("e-ce", "Email", p.contact.email, { optional: true })]
+  };
+  window.editCard = function (key) {
+    var form = FORMS[key];
+    var el = Proto.sheet({ title: "Edit · " + form[0], body: '<div class="col gap-4">' + form[1] + "</div>",
+      footer: '<button class="btn btn-text" type="button" onclick="Proto.close()">Cancel</button><button class="btn btn-filled" type="button" onclick="Proto.close();Proto.snack(&quot;' + form[0] + ' saved&quot;)">Save</button>' });
+    var co = el.querySelector("#e-co");
+    if (co) co.addEventListener("change", function () { el.querySelector("#e-sc").innerHTML = subsOf(co.value); el.querySelector("#e-w").innerHTML = wardsOf(""); });
+    var sc = el.querySelector("#e-sc");
+    if (sc) sc.addEventListener("change", function () { el.querySelector("#e-w").innerHTML = wardsOf(sc.value); });
+  };
+
+  /* Products: GroFunder may edit them too (edit_profile). */
+  var cps = GF.coopProducts.filter(function (cp) { return cp.cooperative === c.id; });
+  document.getElementById("p-products").innerHTML =
+    '<div class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Products</span><span class="text-body-md tone-muted">What it handles, from the catalog, and the unit its clerks record in.</span></div>' +
+    '<button class="btn btn-tonal btn-sm" type="button" data-roles="owner full ops" onclick="Proto.dialog({title:\'Add a product\',body:\'<div class=&quot;field&quot;><label class=&quot;field-label&quot; for=&quot;ap&quot;>Product</label><select class=&quot;field-input&quot; id=&quot;ap&quot;>' +
+    GF.products.filter(function (x) { return x.status === "ACTIVE"; }).map(function (x) { return "<option>" + x.name + " (" + GF.get(x.value_chain).name + ")</option>"; }).join("") +
+    '</select></div><div class=&quot;form-grid&quot;><div class=&quot;field&quot;><label class=&quot;field-label&quot; for=&quot;ru&quot;>Recorded in <span class=&quot;optional&quot;>(optional)</span></label><select class=&quot;field-input&quot; id=&quot;ru&quot;><option>The catalog unit</option><option>Bags</option><option>Crates</option><option>Tins</option></select></div><div class=&quot;field&quot;><label class=&quot;field-label&quot; for=&quot;uf&quot;>Catalog units in one <span class=&quot;optional&quot;>(optional)</span></label><input class=&quot;field-input tabular&quot; id=&quot;uf&quot; inputmode=&quot;decimal&quot; placeholder=&quot;90&quot;></div></div><div class=&quot;field&quot;><label class=&quot;field-label&quot; for=&quot;ln&quot;>What members call it <span class=&quot;optional&quot;>(optional)</span></label><input class=&quot;field-input&quot; id=&quot;ln&quot;></div>\',submit:\'Add product\',onSubmit:function(){Proto.snack(\'Product added\')}})">Add product</button></div>' +
+    (cps.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Product</th><th>Recorded in</th><th>Local name</th><th>Status</th><th></th></tr></thead><tbody>' + cps.map(function (cp) {
+      var pr = GF.get(cp.product), u = GF.UNITS[pr.unit];
+      var rec = cp.recording_unit ? GF.UNITS[cp.recording_unit][1] + " (1 " + GF.UNITS[cp.recording_unit][0] + " = " + cp.unit_factor + " " + u[0] + ")" : u[1];
+      return '<tr><td class="primary-cell">' + pr.name + '<span class="cell-sub">' + GF.get(pr.value_chain).name + "</span></td><td>" + rec + "</td><td>" + (esc(cp.details.local_name) || "–") + "</td><td>" +
+        (cp.status === "ACTIVE" ? '<span class="status status-success">Active</span>' : '<span class="status status-neutral">Archived</span>') + '</td><td class="num"><button class="btn btn-text btn-sm" type="button" data-roles="owner full ops" onclick="Proto.snack(\'Editing is the same form as Add\')">Edit</button></td></tr>';
+    }).join("") + "</tbody></table></div>" : '<div class="empty"><span class="mdi mdi-basket-outline" aria-hidden="true"></span><span class="text-title-lg">No products yet</span><span class="text-body-md">Its administrator adds them while setting up, or GroFunder can add them now.</span></div>') + "</div>";
+
+  /* Clusters: read-only here. */
+  var cls = GF.clusters.filter(function (x) { return x.cooperative === c.id; });
+  document.getElementById("p-clusters").innerHTML =
+    '<div class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Clusters</span><span class="text-body-md tone-muted">How the cooperative groups its members. Its own staff manage them.</span></div></div>' +
+    (cls.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Cluster</th><th>Sub-county</th><th class="num">Members</th><th>Status</th></tr></thead><tbody>' + cls.map(function (x) {
+      var n = GF.members.filter(function (m) { return m.cluster === x.id && m.status !== "EXITED"; }).length;
+      return '<tr><td class="primary-cell">' + x.name + "</td><td>" + GF.get(x.area).name + '</td><td class="num">' + n.toLocaleString("en-KE") + "</td><td>" + (x.status === "ACTIVE" ? '<span class="status status-success">Active</span>' : '<span class="status status-neutral">Archived</span>') + "</td></tr>";
+    }).join("") + "</tbody></table></div>" : '<div class="empty"><span class="mdi mdi-map-marker-multiple-outline" aria-hidden="true"></span><span class="text-title-lg">No clusters</span><span class="text-body-md">Not every cooperative uses them.</span></div>') + "</div>";
+
+  /* Staff: kit memberships, and invitations GroFunder sent. */
+  var ROLE = { cooperative_admin: "Administrator", cooperative_manager: "Manager", cooperative_accountant: "Accountant", cooperative_clerk: "Clerk", cooperative_viewer: "Viewer" };
+  var staff = q.staffOf(c.id), inv = q.invitationsOf(c.id);
+  document.getElementById("p-staff").innerHTML =
+    '<div class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Staff</span><span class="text-body-md tone-muted">The cooperative\'s administrators manage their own team. GroFunder invites the first administrator, or a replacement.</span></div>' +
+    '<button class="btn btn-tonal btn-sm" type="button" data-roles="owner full ops" onclick="Console.invite(\'' + c.id + '\')">Invite an administrator</button></div>' +
+    '<div class="rowcards">' + staff.map(function (u) {
+      var m = u.memberships.find(function (x) { return x.account === c.id; });
+      return '<div class="rowcard"><span class="avatar avatar-sm">' + f.initials(u.name) + '</span><span class="grow"><span class="text-body-lg">' + esc(u.name) + '</span><span class="text-body-md tone-muted">' + esc(u.email) + "</span></span>" +
+        '<span class="trail"><span class="text-body-md">' + ROLE[m.roles[0]] + "</span>" + (m.owner ? '<span class="text-body-sm tone-muted">Owner</span>' : "") + "</span></div>";
+    }).join("") + inv.map(function (i) {
+      return '<div class="rowcard"><span class="avatar avatar-sm"><span class="mdi mdi-email-outline" aria-hidden="true"></span></span><span class="grow"><span class="text-body-lg">' + esc(i.email) + '</span><span class="text-body-md tone-muted">Invited ' + f.date(i.sent_at) + " by " + i.sent_by + "</span></span>" +
+        '<span class="trail"><span class="status status-info">Invited</span>' + (i.owner ? '<button class="btn btn-text btn-sm" type="button" data-roles="owner full ops" onclick="Console.invite(\'' + c.id + '\', true)">Resend</button>' : "") + "</span></div>";
+    }).join("") + (staff.length + inv.length ? "" : '<div class="rowcard"><span class="text-body-md tone-muted">Nobody yet.</span></div>') + "</div></div>";
+
+  /* Documents. */
+  var PURPOSE = { LOGO: "Logo", REGISTRATION_CERTIFICATE: "Registration certificate", BY_LAWS: "By-laws", AGREEMENT: "Agreement", OTHER: "Other" };
+  var docs = q.documentsOf(c.id);
+  document.getElementById("p-documents").innerHTML =
+    '<div class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Documents</span><span class="text-body-md tone-muted">The logo is public; everything else is private to the cooperative and GroFunder.</span></div>' +
+    '<button class="btn btn-tonal btn-sm" type="button" data-roles="owner full ops" onclick="Proto.snack(\'Choose a file, then what it is\')"><span class="mdi mdi-upload" aria-hidden="true"></span>Upload</button></div>' +
+    '<div class="rowcards">' + (docs.length ? docs.map(function (d) {
+      return '<div class="rowcard"><span class="mdi mdi-' + (d.purpose === "LOGO" ? "image-outline" : "file-document-outline") + '" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">' + PURPOSE[d.purpose] +
+        '</span><span class="text-body-md tone-muted">' + d.file_name + " · " + Math.round(d.size / 1024).toLocaleString("en-KE") + " KB · " + f.date(d.uploaded_at) + ", " + d.uploaded_by + "</span></span>" +
+        '<span class="trail" style="flex-direction:row"><button class="icon-btn" type="button" aria-label="Download ' + PURPOSE[d.purpose] + '" onclick="Proto.snack(\'Downloading ' + d.file_name + '\')"><span class="mdi mdi-download" aria-hidden="true"></span></button>' +
+        '<button class="icon-btn" type="button" data-roles="owner full ops" aria-label="Remove ' + PURPOSE[d.purpose] + '" onclick="Proto.confirm({title:\'Remove this document?\',message:\'' + d.file_name + ' is removed from the cooperative.\',confirm:\'Remove\',destructive:true,onConfirm:function(){Proto.snack(\'Removed\',\'Undo\')}})"><span class="mdi mdi-delete-outline" aria-hidden="true"></span></button></span></div>';
+    }).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">No documents yet.</span></div>') + "</div></div>";
+
+  /* Members: the register, read-only. */
+  var all = q.members(c.id), memTerm = "", memStatus = "";
+  document.getElementById("p-members").innerHTML =
+    '<div class="section"><div class="section-toolbar"><div class="field search"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>' +
+    '<input class="field-input" id="mq" type="search" placeholder="Name, number, ID or phone" aria-label="Search members"></div></div>' +
+    '<select class="field-input" id="ms" aria-label="Status" style="width:auto"><option value="">All statuses</option><option value="ACTIVE">Active</option><option value="SUSPENDED">Suspended</option><option value="EXITED">Exited</option></select></div>' +
+    '<div class="table-wrap"><table class="table"><thead><tr><th>Member</th><th>Cluster</th><th>Phone</th><th>App</th><th>Status</th></tr></thead><tbody id="mrows"></tbody></table></div>' +
+    '<div class="section-body"><span class="text-body-sm tone-muted" id="mcount"></span></div></div>';
+  function drawMembers() {
+    var t = memTerm.toLowerCase(), dg = t.replace(/\D/g, "");
+    var list = all.filter(function (m) {
+      return (!memStatus || m.status === memStatus) && (!t || m.full_name.toLowerCase().indexOf(t) > -1 || m.member_no.toLowerCase().indexOf(t) > -1 || (dg.length > 3 && (m.id_number.indexOf(dg) > -1 || (m.phone || "").indexOf(dg.replace(/^0/, "")) > -1)));
+    });
+    document.getElementById("mrows").innerHTML = list.slice(0, 25).map(function (m) {
+      var login = q.loginOf(m);
+      return '<tr data-href="#" onclick="Console.memberPanel(\'' + m.id + '\')"><td class="primary-cell">' + esc(m.full_name) + '<span class="cell-sub tabular">' + m.member_no + "</span></td><td>" + (m.cluster ? GF.get(m.cluster).name : "–") +
+        '</td><td class="tabular">' + f.phone(m.phone) + "</td><td>" + (login ? (login.is_active ? "Signed up" : '<span class="status status-error">Login disabled</span>') : '<span class="tone-muted">–</span>') + "</td><td>" + C.chip(C.MEMBER, m.status) + "</td></tr>";
+    }).join("") || '<tr><td colspan="5" class="tone-muted">No member matches.</td></tr>';
+    document.getElementById("mcount").textContent = list.length > 25 ? "First 25 of " + list.length.toLocaleString("en-KE") + ". Search to narrow it down." : list.length + " shown";
+  }
+  document.getElementById("mq").addEventListener("input", function (e) { memTerm = e.target.value.trim(); drawMembers(); });
+  document.getElementById("ms").addEventListener("change", function (e) { memStatus = e.target.value; drawMembers(); });
+  drawMembers();
+
+  /* Deliveries: this month, by day, read-only. */
+  var recent = q.deliveries({ cooperative: c.id }).slice(-15).reverse();
+  document.getElementById("p-deliveries").innerHTML =
+    '<div class="section"><div class="section-band"><div class="section-figure lg"><span class="k">October</span><span class="v">' + collected + '</span></div><div class="section-figure"><span class="k">Deliveries</span><span class="v">' + month.length.toLocaleString("en-KE") +
+    '</span></div><div class="section-figure"><span class="k">Still to pay</span><span class="v">' + f.money(q.balance(q.deliveries({ cooperative: c.id })), { whole: true }) + "</span></div></div>" +
+    (recent.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Date</th><th>Member</th><th>Product</th><th class="num">Quantity</th><th>Centre</th></tr></thead><tbody>' + recent.map(function (d) {
+      var m = GF.get(d.member), v = d.status === "VOIDED";
+      return '<tr><td class="tabular">' + f.date(d.delivered_on, "short") + '</td><td class="primary-cell">' + esc(m.full_name) + '<span class="cell-sub tabular">' + m.member_no + "</span></td><td>" + f.productName(d.product, d.grade) +
+        '</td><td class="num' + (v ? " struck tone-muted" : "") + '">' + f.delivery(d) + "</td><td>" + GF.get(d.cluster).name + (v ? ' <span class="status status-neutral">Voided</span>' : "") + "</td></tr>";
+    }).join("") + "</tbody></table></div>" : '<div class="empty"><span class="mdi mdi-basket-outline" aria-hidden="true"></span><span class="text-title-lg">No deliveries yet</span></div>') + "</div>";
+
+  /* Payouts: totals by status, and the latest. */
+  var pos = q.payouts({ cooperative: c.id }), recentP = pos.slice(-12).reverse();
+  var PS = { PAID: ["success", "Paid"], DRAFT: ["info", "Draft"], CANCELLED: ["neutral", "Cancelled"] };
+  document.getElementById("p-payouts").innerHTML =
+    '<div class="section"><div class="section-band"><div class="section-figure lg"><span class="k">Paid in October</span><span class="v">' + f.money(q.sum(paid, function (x) { return x.net_cents; }), { whole: true }) +
+    '</span></div><div class="section-figure"><span class="k">Payouts</span><span class="v">' + paid.length + '</span></div><div class="section-figure"><span class="k">Drafts</span><span class="v">' + pos.filter(function (x) { return x.status === "DRAFT"; }).length + "</span></div></div>" +
+    (recentP.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Payout</th><th>Member</th><th class="num">Net</th><th>Status</th></tr></thead><tbody>' + recentP.map(function (x) {
+      var m = GF.get(x.member);
+      return '<tr><td class="primary-cell">' + esc(x.details.label) + '<span class="cell-sub">' + (x.paid_at ? f.date(x.paid_at) : "Not paid") + "</span></td><td>" + esc(m.full_name) + '<span class="cell-sub tabular">' + m.member_no + '</span></td><td class="num">' + f.money(x.net_cents) +
+        '</td><td><span class="status status-' + PS[x.status][0] + '">' + PS[x.status][1] + "</span></td></tr>";
+    }).join("") + "</tbody></table></div>" : '<div class="empty"><span class="mdi mdi-cash-multiple" aria-hidden="true"></span><span class="text-title-lg">No payouts yet</span></div>') + "</div>";
+
+  /* ?m= (from search or a link): open the Members tab and the member's panel. */
+  var mid = new URLSearchParams(location.search).get("m");
+  if (mid && GF.get(mid)) document.addEventListener("DOMContentLoaded", function () {
+    setTimeout(function () { var t = document.querySelector('[data-tab="members"]'); if (t) t.click(); C.memberPanel(mid); }, 0);
+  });
+
+  /* Status history (01, 03). */
+  var SRC = { CONSOLE: "in the console", PORTAL: "in the portal", SYSTEM: "by the system", IMPORT: "by import", PARTNER: "by a partner" };
+  document.getElementById("p-history").innerHTML = '<div class="card card-outlined"><div class="rowcards">' + hist.slice().reverse().map(function (h) {
+    return '<div class="rowcard">' + C.chip(C.STATUS, h.to_status) + '<span class="grow"><span class="text-body-lg">' + (h.from_status ? (h.details.reason ? '"' + esc(h.details.reason) + '"' : C.STATUS[h.from_status][1] + " → " + C.STATUS[h.to_status][1]) : "Added to GroFunder") +
+      '</span><span class="text-body-md tone-muted">' + f.date(h.changed_at) + " · " + h.changed_by + ", " + SRC[h.source] + "</span></span></div>";
+  }).join("") + "</div></div>";
+})();
+</script>
+</body>
+</html>

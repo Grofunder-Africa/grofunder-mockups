@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Overview · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/console.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Overview" data-dest="home" data-wide
+     data-action='{"label":"Add cooperative","icon":"plus","roles":"owner full ops","href":"../cooperatives/new.html"}'>
+
+  <p class="proto-note"><b>G1 · From note 01.</b> The platform's figures, members by county, and at the side the cooperatives that are onboarding or on hold (picked by their status alone, nothing else) above the latest status changes. Everything here is read through <code>cooperatives.view</code>, so every GroFunder role sees it; the actions follow each role.</p>
+  <p class="proto-note"><b>No "Needs attention" (UI-13).</b> Nothing in the notes defines what needs attention, so the overview doesn't guess. Onboarding and on hold are statuses, so they can be listed without a rule.</p>
+  <p class="proto-note"><b>No lending yet.</b> Part B adds what GroFunder lends; this overview is only cooperative operations.</p>
+
+  <div data-state="loaded" class="col gap-6">
+
+    <div class="stats-grid" id="stats"></div>
+
+    <div class="two-col">
+      <div class="section">
+        <div class="section-header"><div class="grow"><span class="text-title-lg">By county</span><span class="text-body-md tone-muted">Active members, where each cooperative's head office is</span></div></div>
+        <div class="table-wrap"><table class="table"><thead><tr><th>County</th><th class="num">Cooperatives</th><th class="num">Active members</th></tr></thead><tbody id="counties"></tbody></table></div>
+      </div>
+      <div class="col gap-4">
+        <div class="section">
+          <div class="section-header"><div class="grow"><span class="text-title-lg">Onboarding and on hold</span></div></div>
+          <div class="rowcards" id="attention"></div>
+        </div>
+        <div class="section">
+          <div class="section-header"><div class="grow"><span class="text-title-lg">Recent status changes</span></div></div>
+          <div class="rowcards" id="changes"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:160px"></div><div class="stats-grid"><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-sprout-outline" aria-hidden="true"></span><span class="text-headline-sm">No cooperatives yet</span>
+    <span class="text-body-md">Add the first one. Its administrator gets an invitation and sets up the rest.</span>
+    <a class="btn btn-filled" href="../cooperatives/new.html" data-roles="owner full ops"><span class="mdi mdi-plus" aria-hidden="true"></span>Add cooperative</a></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span><span class="text-headline-sm">Couldn't load the overview</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+(function () {
+  var q = GF.q, f = GF.fmt, C = Console, esc = C.esc;
+  var coops = GF.cooperatives, rows = [];
+  coops.filter(function (c) { return c.status === "ONBOARDING"; }).forEach(function (c) {
+    var inv = q.invitationsOf(c.id).filter(function (i) { return i.owner; })[0], days = inv ? Math.round((new Date("2026-10-30") - new Date(inv.sent_at)) / 864e5) : 0;
+    rows.push('<div class="rowcard"><span class="grow"><span class="row gap-2 wrap"><a class="text-body-lg" href="' + C.coopUrl(c.id) + '" style="color:inherit">' + esc(c.profile.short_name) + "</a>" + C.chip(C.STATUS, c.status) + "</span>" +
+      '<span class="text-body-md tone-muted">' + (inv ? "Invitation not accepted · " + days + " days" : "Ready to activate") + "</span>" +
+      '<span data-roles="owner full ops"><button class="btn btn-text btn-sm" type="button" style="margin-left:-12px" onclick="Console.invite(\'' + c.id + "', true)\">Resend the invitation</button></span></span></div>");
+  });
+  coops.filter(function (c) { return c.status === "ON_HOLD"; }).forEach(function (c) {
+    var h = q.coopHistory(c.id).slice(-1)[0];
+    rows.push('<div class="rowcard"><span class="grow"><span class="row gap-2 wrap"><a class="text-body-lg" href="' + C.coopUrl(c.id) + '" style="color:inherit">' + esc(c.profile.short_name) + "</a>" + C.chip(C.STATUS, c.status) + "</span>" +
+      '<span class="text-body-md tone-muted">Since ' + f.date(h.changed_at, "short") + ': "' + esc(h.details.reason) + '"</span>' +
+      '<span data-roles="owner full"><button class="btn btn-text btn-sm" type="button" style="margin-left:-12px" onclick="Console.changeStatus(\'' + c.id + "')\">Lift the hold</button></span></span></div>");
+  });
+  document.getElementById("attention").innerHTML = rows.join("") || '<div class="rowcard"><span class="text-body-md tone-muted">None right now.</span></div>';
+
+  var month = q.deliveries({ from: "2026-10-01", recorded: true });
+  var paid = GF.payouts.filter(function (p) { return p.status === "PAID" && p.paid_at.slice(0, 7) === "2026-10"; });
+  var n = function (x) { return x.toLocaleString("en-KE"); };
+  var stat = function (label, value, caption, href) {
+    return (href ? '<a class="stat-card" href="' + href + '">' : '<div class="stat-card">') + '<span class="stat-text"><span class="stat-label">' + label + '</span><span class="stat-value">' + value + "</span>" +
+      (caption ? '<span class="stat-caption">' + caption + "</span>" : "") + "</span>" + (href ? "</a>" : "</div>");
+  };
+  document.getElementById("stats").innerHTML =
+    stat("Active cooperatives", coops.filter(function (c) { return c.status === "ACTIVE"; }).length, coops.length + " on GroFunder", "../cooperatives/index.html") +
+    stat("Active members", n(coops.reduce(function (s, c) { return s + q.activeCount(c.id); }, 0)), n(GF.logins.length) + " use the member app") +
+    stat("Deliveries in October", n(month.length), "Across every cooperative") +
+    stat("Paid to members in October", f.money(q.sum(paid, function (p) { return p.net_cents; }), { whole: true }), n(paid.length) + " payouts");
+
+  var byCounty = {};
+  coops.forEach(function (c) { var a = GF.get(c.area), k = a.county || a.id; byCounty[k] = byCounty[k] || { coops: 0, members: 0 }; byCounty[k].coops++; byCounty[k].members += q.activeCount(c.id); });
+  document.getElementById("counties").innerHTML = Object.keys(byCounty).map(function (k) {
+    return '<tr><td class="primary-cell">' + GF.get(k).name + '</td><td class="num">' + byCounty[k].coops + '</td><td class="num">' + n(byCounty[k].members) + "</td></tr>";
+  }).join("");
+  document.getElementById("changes").innerHTML = GF.coopStatusChanges.slice().sort(function (a, b) { return a.changed_at < b.changed_at ? 1 : -1; }).slice(0, 6).map(function (h) {
+    var c = GF.get(h.cooperative);
+    return '<a class="rowcard" href="' + C.coopUrl(c.id) + '"><span class="grow"><span class="row gap-2 wrap"><span class="text-body-lg">' + esc(c.profile.short_name) + "</span>" + C.chip(C.STATUS, h.to_status) + '</span><span class="text-body-md tone-muted">' +
+      f.date(h.changed_at, "short") + " · " + h.changed_by + (h.details.reason ? ': "' + esc(h.details.reason) + '"' : "") + "</span></span></a>";
+  }).join("");
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>New components · GroFunder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../assets/tokens.css">
+<link rel="stylesheet" href="../assets/kit.css">
+<script src="../assets/proto.js" defer></script>
+<style>
+  .page { max-width: 1040px; margin: 0 auto; padding: 0 16px 64px; display: flex; flex-direction: column; gap: 40px; }
+  .top { position: sticky; top: 0; z-index: 30; background: var(--surface); border-bottom: var(--hairline); }
+  .top-inner { max-width: 1040px; margin: 0 auto; padding: 12px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .prop { display: flex; flex-direction: column; gap: 16px; }
+  .prop > header { display: flex; flex-direction: column; gap: 6px; }
+  .states { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; align-items: start; }
+  .state { border: var(--hairline); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .label { font-size: 11px; line-height: 16px; letter-spacing: 0.5px; font-weight: 500; color: var(--on-surface-variant); text-transform: uppercase; }
+  pre { margin: 0; padding: 12px 16px; border-radius: 8px; background: var(--surface-container); overflow-x: auto; font-size: 12px; line-height: 18px; }
+  .meta { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; font-size: 14px; line-height: 20px; }
+  .meta dt { color: var(--on-surface-variant); }
+  .meta dd { margin: 0; }
+</style>
+</head>
+<body>
+<div class="top"><div class="top-inner">
+  <img src="../assets/brand/grofunder-leaf.png" alt="" style="height:28px">
+  <span class="text-title-md grow">Proposed new components</span>
+  <a class="btn btn-text btn-sm" href="components.html">Components</a>
+  <a class="btn btn-text btn-sm" href="../index.html">Prototype contents</a>
+</div></div>
+
+<main class="page">
+  <header class="col gap-2" style="padding-top:24px">
+    <span class="text-label-md tone-muted">Phase 2 · proposals, for sign-off</span>
+    <h1 class="text-headline-md">New components</h1>
+    <p class="text-body-lg tone-muted">What GroFunder needs that <code>@kit/ui</code> doesn't have. Each is generic (nothing about cooperatives inside it), so it is built in the kit's <code>ui/</code> and pushed upstream, like the backend's kit additions. Gap numbers are in <code>mockups/gaps.md</code>.</p>
+    <div class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Not new: built from what the kit has</span>
+      <span class="text-body-md">ID entry (ChoiceChips for the ID type + TextField) · member picker (Combobox with ListItem rows) · payout statement (Section + DataTable with a footer row + KeyValueList totals) · cooperative switcher (ActionMenu, or a Sheet on a phone).</span></div></div>
+  </header>
+
+  <!-- PinPad -->
+  <section class="prop" id="pinpad">
+    <header><span class="status status-info">F4 · new</span><h2 class="text-title-lg">PinPad</h2>
+      <p class="text-body-md tone-muted">A 4-digit PIN on large keys, the way members already enter an M-Pesa PIN. The phone's own keyboard is never shown, and digits are never shown, only dots.</p></header>
+    <dl class="meta"><dt>Used in</dt><dd>Member sign-in, sign-up (set PIN), change PIN, forgot PIN, linking another membership (06)</dd>
+      <dt>Rules</dt><dd>Keys 64dp tall; dots announce "2 of 4 digits entered"; on the 4th digit it submits by itself; a wrong PIN shows the error and clears; the PIN rule (no 0000, 1234, 1212) is checked by the server, with its message under the dots</dd></dl>
+    <div class="states">
+      <div class="state"><span class="label">Two digits in</span>
+        <div class="pin-dots" aria-label="2 of 4 digits entered"><span class="on"></span><span class="on"></span><span></span><span></span></div>
+        <div class="pinpad" style="max-width:280px"><button type="button">1</button><button type="button">2</button><button type="button">3</button><button type="button">4</button><button type="button">5</button><button type="button">6</button><button type="button">7</button><button type="button">8</button><button type="button">9</button><button type="button" class="key-plain" aria-label="Help"><span class="mdi mdi-help-circle-outline" aria-hidden="true"></span></button><button type="button">0</button><button type="button" class="key-plain" aria-label="Delete the last digit"><span class="mdi mdi-backspace-outline" aria-hidden="true"></span></button></div></div>
+      <div class="state"><span class="label">Wrong PIN</span>
+        <div class="pin-dots error"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span></div>
+        <p class="text-body-md tone-error" style="text-align:center">That ID number and PIN don't match.</p></div>
+      <div class="state"><span class="label">Refused by the PIN rule (setting a PIN)</span>
+        <div class="pin-dots error"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span></div>
+        <p class="text-body-md tone-error" style="text-align:center">Choose a PIN that isn't a run like 1234 or a repeat like 1212.</p></div>
+      <div class="state"><span class="label">Locked out</span>
+        <div class="pin-dots"><span></span><span></span><span></span><span></span></div>
+        <p class="text-body-md" style="text-align:center">Too many tries. Try again in 15 minutes, or reset your PIN.</p>
+        <button class="btn btn-tonal" type="button" style="align-self:center">Reset PIN</button></div>
+    </div>
+    <pre>&lt;PinPad length={4} value={pin} onChange={setPin} onComplete={submit}
+        errorText={error} disabled={locked} helpLabel="Forgot your PIN?" onHelp={...} /&gt;</pre>
+  </section>
+
+  <!-- OtpInput -->
+  <section class="prop" id="otp">
+    <header><span class="status status-info">F4 · new</span><h2 class="text-title-lg">OtpInput</h2>
+      <p class="text-body-md tone-muted">An SMS code, one box per digit (the backend kit's codes are 6 digits). Typing moves to the next box, a pasted or auto-filled code fills them all, and to a screen reader it is one field.</p></header>
+    <dl class="meta"><dt>Used in</dt><dd>Every member sign-in (the SMS second factor), sign-up (claim), forgot PIN, change phone (06)</dd>
+      <dt>Rules</dt><dd><code>autocomplete="one-time-code"</code> and Android's SMS retriever so the code fills itself; resend after 60 s, at most 5 an hour (06); the code works for 5 minutes</dd></dl>
+    <div class="states">
+      <div class="state"><span class="label">Typing</span>
+        <div class="otp"><input value="4" aria-label="Digit 1"><input value="8" aria-label="Digit 2"><input value="1" aria-label="Digit 3"><input aria-label="Digit 4"><input aria-label="Digit 5"><input aria-label="Digit 6"></div>
+        <p class="text-body-md tone-muted" style="text-align:center">You can ask for another code in 0:42.</p></div>
+      <div class="state"><span class="label">Wrong code</span>
+        <div class="otp error"><input value="4" aria-label="Digit 1"><input value="8" aria-label="Digit 2"><input value="1" aria-label="Digit 3"><input value="9" aria-label="Digit 4"><input value="0" aria-label="Digit 5"><input value="2" aria-label="Digit 6"></div>
+        <p class="text-body-md tone-error" style="text-align:center">That code isn't right. 3 tries left.</p></div>
+      <div class="state"><span class="label">Resend available</span>
+        <div class="otp"><input aria-label="Digit 1"><input aria-label="Digit 2"><input aria-label="Digit 3"><input aria-label="Digit 4"><input aria-label="Digit 5"><input aria-label="Digit 6"></div>
+        <button class="btn btn-text" type="button" style="align-self:center">Send a new code</button></div>
+    </div>
+    <pre>&lt;OtpInput length={6} value={code} onChange={setCode} onComplete={verify}
+          errorText={error} resendIn={42} onResend={resend} /&gt;</pre>
+    <p class="proto-note">"3 tries left" assumes the server says how many are left; the kit's OTP service allows 5 tries (06). If it doesn't return the count, the line is just "That code isn't right."</p>
+  </section>
+
+  <!-- QuantityEntry -->
+  <section class="prop" id="quantity">
+    <header><span class="status status-info">F6 · new</span><h2 class="text-title-lg">QuantityEntry</h2>
+      <p class="text-body-md tone-muted">A decimal quantity typed in the unit the clerk measures in, with the stored figure worked out live underneath. Generic: a value, a unit, an optional factor to a base unit.</p></header>
+    <dl class="meta"><dt>Used in</dt><dd>Record delivery, delivery import preview, edit delivery, rejected quantity (07); prices per recording unit (07)</dd>
+      <dt>Rules</dt><dd>Decimal keyboard; up to 3 decimals; above 0; the converted line uses the factor at the time of entry and is what gets stored (<code>details.entered</code> keeps what was typed)</dd></dl>
+    <div class="states">
+      <div class="state"><span class="label">Catalog unit (no conversion)</span>
+        <div class="field qty-entry"><label class="field-label" for="q1">Quantity</label><div class="field-box has-trail"><input class="field-input tabular" id="q1" value="18.5" inputmode="decimal"><span class="trail affix">litres</span></div></div></div>
+      <div class="state"><span class="label">Recording unit, converted</span>
+        <div class="field qty-entry"><label class="field-label" for="q2">Quantity</label><div class="field-box has-trail"><input class="field-input tabular" id="q2" value="2" inputmode="decimal"><span class="trail affix">bags</span></div>
+          <div class="converted"><span class="text-title-md tabular">= 180 kg</span><span class="text-body-sm tone-muted">1 bag = 90 kg</span></div></div></div>
+      <div class="state"><span class="label">Error</span>
+        <div class="field qty-entry"><label class="field-label" for="q3">Quantity</label><div class="field-box has-trail"><input class="field-input tabular" id="q3" value="0" aria-invalid="true"><span class="trail affix">bags</span></div>
+          <span class="field-error">Enter a quantity above 0.</span></div></div>
+    </div>
+    <pre>&lt;QuantityEntry label="Quantity" value={qty} onChange={setQty}
+               unit="bag" unitLabel="bags" base={{ unit: "kg", factor: 90 }} maxDecimals={3} /&gt;</pre>
+  </section>
+
+  <!-- MoneyField -->
+  <section class="prop" id="money">
+    <header><span class="status status-info">F6 · new</span><h2 class="text-title-lg">MoneyField</h2>
+      <p class="text-body-md tone-muted">Shillings typed, cents stored. "Ksh" fixed in front; grouping added as you type; never a float in between.</p></header>
+    <dl class="meta"><dt>Used in</dt><dd>Prices (07), payout amounts per delivery and "pay an amount, oldest first", additions and deductions (08)</dd>
+      <dt>Rules</dt><dd>Value in cents (integer); two decimals at most; an optional maximum with its own message</dd></dl>
+    <div class="states">
+      <div class="state"><span class="label">Filled</span>
+        <div class="field money"><label class="field-label" for="m1">Price per litre</label><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input" id="m1" value="54.00" inputmode="decimal"></div>
+          <span class="field-help">From 15 Oct 2026. Ksh 52.50 until then.</span></div></div>
+      <div class="state"><span class="label">Over the maximum</span>
+        <div class="field money"><label class="field-label" for="m2">Pay now</label><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input" id="m2" value="9,000.00" aria-invalid="true"></div>
+          <span class="field-error">At most Ksh 8,748.00, the balance on this delivery.</span></div></div>
+    </div>
+    <pre>&lt;MoneyField label="Pay now" valueCents={cents} onChangeCents={setCents}
+            currency="KES" maxCents={874800} maxText="the balance on this delivery" /&gt;</pre>
+  </section>
+
+  <!-- KeyValueList -->
+  <section class="prop" id="kv">
+    <header><span class="status status-info">F9 · new</span><h2 class="text-title-lg">KeyValueList</h2>
+      <p class="text-body-md tone-muted">Labels and their values: a record's facts, or the summing rows under a statement. Two columns where there's room, stacked on a phone; a <code>totals</code> variant right-aligns tabular figures and rules off the last line.</p></header>
+    <dl class="meta"><dt>Used in</dt><dd>Member, cooperative and delivery details (01, 05, 07); payout totals and statements (08)</dd>
+      <dt>Why new</dt><dd>The kit's ListItem is a row to tap; a detail screen needs many short facts at a glance, and a statement needs its sums aligned</dd></dl>
+    <div class="states">
+      <div class="state"><span class="label">Facts</span>
+        <dl class="facts"><dt>ID</dt><dd class="tabular">National ID 23456789</dd><dt>Phone</dt><dd class="tabular">0712 345 678</dd><dt>Cluster</dt><dd>Gathiru</dd><dt>Joined</dt><dd class="tabular">3 Mar 2019</dd></dl></div>
+      <div class="state"><span class="label">Totals</span>
+        <div class="totals" style="width:100%">
+          <div><span>Paid for deliveries</span><span>Ksh 17,525.25</span></div>
+          <div><span>Quality bonus</span><span>+ Ksh 500.00</span></div>
+          <div><span>Transport levy <span class="sub">Ksh 1 per litre</span></span><span>− Ksh 412.50</span></div>
+          <div><span>Input credit <span class="sub">fertiliser, 2 bags</span></span><span>− Ksh 1,200.00</span></div>
+          <div class="net"><span>Net paid</span><span>Ksh 16,412.75</span></div>
+        </div></div>
+    </div>
+    <pre>&lt;KeyValueList items={[{ label: "ID", value: "National ID 23456789", tabular: true }, …]} /&gt;
+&lt;KeyValueList variant="totals" items={[…]} total={{ label: "Net paid", value: "Ksh 16,412.75" }} /&gt;</pre>
+  </section>
+
+  <!-- Avatar -->
+  <section class="prop" id="avatar">
+    <header><span class="status status-info">F10 · new</span><h2 class="text-title-lg">Avatar</h2>
+      <p class="text-body-md tone-muted">A person's photo, or their initials, in a small square (4px corner, UI-8); an icon for a thing. The kit's LogoSticker is an organisation's mark with its own treatment; people need a light, small one for lists.</p></header>
+    <dl class="meta"><dt>Used in</dt><dd>Member lists and detail (05), staff and team, nominees, the account button</dd>
+      <dt>Rules</dt><dd>Initials from the preferred name, else the full name; a photo from <code>media_library</code> when there is one; 32 / 40 / 64dp; decorative when a name sits beside it</dd></dl>
+    <div class="demo row gap-4 wrap">
+      <span class="avatar avatar-sm">WK</span><span class="avatar">WK</span><span class="avatar" style="width:64px;height:64px;font-size:22px">WK</span>
+      <span class="avatar"><span class="mdi mdi-water-outline" aria-hidden="true"></span></span>
+      <span class="avatar"><span class="mdi mdi-account-outline" aria-hidden="true"></span></span>
+    </div>
+    <pre>&lt;Avatar name="Wanjiku Kamau" photo={rendition} size="md" /&gt;   &lt;Avatar icon="water-outline" /&gt;</pre>
+  </section>
+</main>
+</body>
+</html>

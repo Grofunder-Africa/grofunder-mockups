@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Team · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/console.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Team" data-dest="team"
+     data-action='{"label":"Invite","icon":"account-plus-outline","roles":"owner","on":"invite()"}'>
+  <p class="proto-note"><b>G15 · The kit's team page, from note 09.</b> GroFunder's own staff: their roles (View only, Operations, Full, Owner) and pending invitations. Only the account's owners see this page and change it; the kit refuses removing the last owner. Switch the review bar's role to "Owner" to see it in the navigation.</p>
+  <p class="proto-note"><b>Kit, themed.</b> The kit already has this screen (<code>/accounts/{id}/users/</code>, <code>…/invitations/</code>); GroFunder only names its roles. Each role says what it adds, so an owner picks the least that does the job.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div class="section">
+      <div class="rowcards" id="people"></div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">What each role can do</span></div></div>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Role</th><th>Can</th></tr></thead>
+        <tbody>
+          <tr><td class="primary-cell">View only</td><td>Read every cooperative: profile, members, deliveries, payouts</td></tr>
+          <tr><td class="primary-cell">Operations</td><td>View only, plus add cooperatives, invite their administrators and edit their profiles</td></tr>
+          <tr><td class="primary-cell">Full</td><td>Operations, plus change a cooperative's status, curate the catalog and places, and disable member logins</td></tr>
+          <tr><td class="primary-cell">Owner</td><td>Full, plus manage this team. Lending powers come with the lending apps</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:280px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span><span class="text-headline-sm">Couldn't load the team</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var f = GF.fmt, C = Console;
+var ROLE = { gf_owner: "Owner", gf_full: "Full", gf_operations: "Operations", gf_view_only: "View only" };
+var team = GF.q.staffOf("grofunder");
+var owners = team.filter(function (u) { return u.memberships[0].owner; }).length;
+document.getElementById("people").innerHTML = team.map(function (u) {
+  var m = u.memberships[0];
+  var items = "[{label:'Change role',icon:'account-edit-outline',onSelect:'changeRole(&quot;" + u.name + "&quot;)'}," +
+    (m.owner && owners === 1 ? "{label:'Remove (the last owner can\\'t be removed)',icon:'account-remove-outline',onSelect:'Proto.snack(&quot;Make someone else an owner first&quot;)'}" :
+      "{label:'Remove from the team',icon:'account-remove-outline',destructive:true,onSelect:'removeUser(&quot;" + u.name + "&quot;)'}") + "]";
+  return '<div class="rowcard"><span class="avatar avatar-sm">' + f.initials(u.name) + '</span><span class="grow"><span class="text-body-lg">' + u.name + '</span><span class="text-body-md tone-muted">' + u.email + "</span></span>" +
+    '<span class="trail"><span class="text-body-md">' + ROLE[m.roles[0]] + "</span>" + (m.owner ? '<span class="text-body-sm tone-muted">Owner of the account</span>' : "") + "</span>" +
+    '<button class="icon-btn" type="button" aria-label="More for ' + u.name + '" onclick="Proto.menu(this,{heading:\'' + u.name + "',items:" + items + '})"><span class="mdi mdi-dots-vertical" aria-hidden="true"></span></button></div>';
+}).join("") + '<div class="rowcard"><span class="avatar avatar-sm"><span class="mdi mdi-email-outline" aria-hidden="true"></span></span><span class="grow"><span class="text-body-lg">joyce@grofunder.example</span>' +
+  '<span class="text-body-md tone-muted">Invited as Operations on 29 Oct by Amina Hassan</span></span><span class="status status-info">Invited</span>' +
+  '<button class="btn btn-text btn-sm" type="button" onclick="Proto.snack(\'Invitation sent again\')">Resend</button></div>';
+
+var ROLES = [["gf_view_only", "View only", "Reads every cooperative"], ["gf_operations", "Operations", "Adds cooperatives and invites their administrators"],
+             ["gf_full", "Full", "Also changes status, curates reference data, disables member logins"], ["gf_owner", "Owner", "Also manages this team"]];
+function rolePicker(current) {
+  return '<div class="radio-cards" role="radiogroup" aria-label="Role">' + ROLES.map(function (r) {
+    return '<button class="radio-card" type="button" role="radio" aria-checked="' + (r[0] === current) + '" onclick="this.parentElement.querySelectorAll(\'.radio-card\').forEach(function(x){x.setAttribute(\'aria-checked\',String(x===this))},this)">' +
+      '<span class="text-title-sm">' + r[1] + '</span><span class="text-body-sm tone-muted">' + r[2] + "</span></button>";
+  }).join("") + "</div>";
+}
+function invite() {
+  Proto.dialog({ title: "Invite to the GroFunder team", body: '<div class="field"><label class="field-label" for="ie">Email</label><input class="field-input" id="ie" type="email" placeholder="name@grofunder.example"></div>' +
+    '<span class="field-label">Role</span>' + rolePicker("gf_view_only"), submit: "Send invitation", onSubmit: function () { Proto.snack("Invitation sent"); } });
+}
+function changeRole(name) {
+  var u = team.find(function (x) { return x.name === name; });
+  Proto.dialog({ title: "Change " + name + "'s role", body: rolePicker(u.memberships[0].roles[0]) + '<p class="text-body-sm tone-muted">It takes effect on their next request; they don\'t need to sign in again.</p>',
+    submit: "Save", onSubmit: function () { Proto.snack("Role changed"); } });
+}
+function removeUser(name) {
+  Proto.confirm({ title: "Remove " + name + " from the team?", message: "They lose access to the console at once. What they did stays in the audit trail.", confirm: "Remove", destructive: true,
+    onConfirm: function () { Proto.snack(name + " removed", "Undo"); } });
+}
+</script>
+</body>
+</html>

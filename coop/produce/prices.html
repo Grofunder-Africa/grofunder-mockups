@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prices · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/produce.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Produce" data-dest="produce" data-wide id="screen">
+  <div data-subnav="produce" data-current="prices" data-label="Produce"></div>
+
+  <p class="proto-note"><b>C8 · From note 07 (UI-30).</b> A dated price per product, and per grade where a grade has its own. The price for a day is the latest one that starts on or before it, so each section leads with the price in force today and any future price. Everyone reads prices (<code>produce.view</code>). Managers and administrators set them (<code>produce.configure</code>). Members see the price in force in the member app.</p>
+  <p class="proto-note"><b>Typed per bag, kept per kg.</b> Where the cooperative records in its own unit (<a href="prices.html?c=co-mawingu">Mawingu's maize</a>, 90 kg bags), the price can be typed per bag. It is stored per catalog unit, and the table shows both. A price that doesn't divide evenly is rounded to the cent, and the dialog says so.</p>
+  <p class="proto-note"><b>Fixed once paid (08).</b> A price that has valued a paid delivery can't be corrected, so its row has no Correct button and says why. A new dated price is the way to change what members are paid from then on.</p>
+  <p class="proto-note"><b>Add price is on each product's section</b>, because a price always belongs to one product. The section is where the person is looking, so the product never has to be picked (UI-13).</p>
+
+  <div data-state="loaded" class="col gap-4" id="products"></div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:120px"></div><div class="skeleton-card" style="height:220px"></div></div>
+
+  <div data-state="empty" class="empty">
+    <span class="mdi mdi-tag-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No prices yet</span>
+    <span class="text-body-md">Deliveries can be recorded without a price; their value is worked out once one is set. A payout can't be marked paid until every delivery in it has one.</span>
+    <button class="btn btn-filled" type="button" data-roles="admin manager" data-write onclick="addPrice()">Add a price</button>
+  </div>
+
+  <div data-state="error" class="error-state">
+    <span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load prices</span>
+    <span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loading');setTimeout(function(){Proto.go('loaded')},800)">Try again</button>
+  </div>
+</div>
+
+<script>
+document.getElementById("screen").setAttribute("data-sub", Produce.coop().profile.short_name);
+document.addEventListener("DOMContentLoaded", function () {
+  var q = GF.q, f = GF.fmt, get = GF.get, P = Produce, C = P.coop(), esc = P.esc;
+  var PRODUCTS = P.products(C);
+  var CONFIG = "admin manager";
+
+  /* Prices that valued a paid delivery are fixed (08). */
+  var used = {};
+  GF.deliveryPayments.forEach(function (dp) { var d = get(dp.delivery), pr = q.priceOn(d.product, d.grade, d.delivered_on); if (pr) used[pr.id] = true; });
+
+  var unitName = function (u, n) { return GF.UNITS[u][n === 1 ? 0 : 1]; };
+  function pricesOf(cpId) { return GF.prices.filter(function (p) { return p.product === cpId; }).sort(function (a, b) { return a.effective_from < b.effective_from ? 1 : -1; }); }
+  /** Which price is in force today for each grade key, and which are future. */
+  function stateOf(p) {
+    if (p.effective_from > GF.TODAY) return "FUTURE";
+    var now = q.priceOn(p.product, p.grade, GF.TODAY);
+    return now && now.id === p.id ? "NOW" : "EARLIER";
+  }
+  var CHIP = { NOW: '<span class="status status-success">In force</span>', FUTURE: '<span class="status status-info">From ' + "{d}" + "</span>", EARLIER: '<span class="status status-neutral">Earlier</span>' };
+  var chip = function (p) { return CHIP[stateOf(p)].replace("{d}", f.date(p.effective_from, "short")); };
+  var perRec = function (cp, cents) { return f.money(cents * cp.unit_factor); };
+
+  function draw() {
+    document.getElementById("products").innerHTML = PRODUCTS.map(function (x) {
+      var cp = x.cp, ps = pricesOf(cp.id), ru = cp.recording_unit, u = x.unit;
+      var now = q.priceOn(cp.id, null, GF.TODAY), next = ps.filter(function (p) { return p.effective_from > GF.TODAY && !p.grade; }).pop();
+      var gradeNow = x.grades.map(function (g) { var p = q.priceOn(cp.id, g.id, GF.TODAY); return p && p.grade === g.id ? g.name + " " + f.money(p.price_cents) : ""; }).filter(Boolean);
+      return '<div class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">' + x.product.name + "</span>" +
+          '<span class="text-body-md tone-muted">' + (cp.details.local_name ? cp.details.local_name + " · " : "") + (ru ? "Recorded in " + unitName(ru) + " of " + cp.unit_factor + " " + GF.UNITS[u][0] : "Recorded in " + unitName(u)) +
+          (x.grades.length ? " · graded " + x.grades.map(function (g) { return g.name; }).join(", ") : "") + "</span></div>" +
+          '<button class="btn btn-tonal btn-sm" type="button" data-roles="' + CONFIG + '" data-write data-add="' + cp.id + '">Add price</button></div>' +
+        '<div class="section-band">' +
+          '<div class="section-figure lg"><span class="k">In force today</span><span class="v">' + (now ? f.money(now.price_cents) + " per " + GF.UNITS[u][0] : "No price") + "</span></div>" +
+          (now && ru ? '<div class="section-figure"><span class="k">Per ' + GF.UNITS[ru][0] + '</span><span class="v">' + perRec(cp, now.price_cents) + "</span></div>" : "") +
+          (now ? '<div class="section-figure"><span class="k">Since</span><span class="v">' + f.date(now.effective_from) + "</span></div>" : "") +
+          (next ? '<div class="section-figure"><span class="k">From ' + f.date(next.effective_from) + '</span><span class="v">' + f.money(next.price_cents) + "</span></div>" : "") +
+          (gradeNow.length ? '<span class="note">' + gradeNow.join(" · ") + "</span>" : "") +
+        "</div>" +
+        '<div class="table-wrap only-wide"><table class="table"><thead><tr><th>From</th>' + (x.grades.length ? "<th>Grade</th>" : "") + '<th class="num">Per ' + GF.UNITS[u][0] + "</th>" + (ru ? '<th class="num">Per ' + GF.UNITS[ru][0] + "</th>" : "") +
+          "<th>Note</th><th>Set by</th><th></th><th></th></tr></thead><tbody>" +
+          ps.map(function (p) {
+            return '<tr><td class="tabular">' + f.date(p.effective_from) + "</td>" + (x.grades.length ? "<td>" + (p.grade ? get(p.grade).name : "Every grade without its own") + "</td>" : "") +
+              '<td class="num">' + f.money(p.price_cents) + "</td>" + (ru ? '<td class="num">' + perRec(cp, p.price_cents) + "</td>" : "") +
+              "<td>" + (esc(p.details.note) || "–") + "</td><td>" + (p.set_by || "Imported") + "</td><td>" + chip(p) + "</td><td class=\"right\">" + action(p) + "</td></tr>";
+          }).join("") + "</tbody></table></div>" +
+        '<div class="rowcards only-compact">' + ps.map(function (p) {
+          return '<div class="rowcard"><span class="grow"><span class="text-body-lg tabular">' + f.money(p.price_cents) + " per " + GF.UNITS[u][0] + (ru ? " · " + perRec(cp, p.price_cents) + " per " + GF.UNITS[ru][0] : "") + "</span>" +
+            '<span class="text-body-md tone-muted tabular">From ' + f.date(p.effective_from) + (p.grade ? " · " + get(p.grade).name : "") + (p.details.note ? " · " + esc(p.details.note) : "") + "</span></span>" +
+            '<span class="col end gap-1">' + chip(p) + action(p) + "</span></div>";
+        }).join("") + "</div></div>";
+    }).join("");
+    Proto.applyRoles(document.getElementById("products"));
+  }
+  function action(p) {
+    if (used[p.id]) return '<span class="text-body-sm tone-muted row gap-1" title="It valued deliveries that have been paid"><span class="mdi mdi-lock-outline" aria-hidden="true"></span>Fixed: paid out</span>';
+    return '<button class="btn btn-text btn-sm" type="button" data-roles="' + CONFIG + '" data-write data-fix="' + p.id + '">Correct</button>';
+  }
+
+  /* Add or correct: a dialog of four fields (UI-13). */
+  function priceDialog(cpId, priceId) {
+    var x = PRODUCTS.find(function (y) { return y.id === cpId; }), cp = x.cp, ru = cp.recording_unit, u = x.unit, p = priceId ? get(priceId) : null;
+    var per = u; // the unit the price is typed in; the chips switch it
+    var el = Proto.dialog({ title: (p ? "Correct the price from " + f.date(p.effective_from) : "Add a price for " + x.product.name.toLowerCase()), submit: p ? "Save" : "Add price", body:
+      (x.grades.length ? '<div class="field"><label class="field-label" for="pg">Applies to</label><select class="field-input" id="pg"><option value="">Every grade without its own price</option>' +
+        x.grades.map(function (g) { return '<option value="' + g.id + '"' + (p && p.grade === g.id ? " selected" : "") + ">" + g.name + " only</option>"; }).join("") + "</select></div>" : "") +
+      '<div class="field"><label class="field-label" for="pf">From</label><input class="field-input tabular" id="pf" type="date" value="' + (p ? p.effective_from : "2026-11-15") + '"' + (p ? " disabled" : "") + ">" +
+        '<span class="field-help">' + (p ? "To change the date, add a new price instead." : "The first delivery date it applies to. It holds until the next price. A future date is fine.") + '</span><span class="field-error" id="pf-e" hidden></span></div>' +
+      (ru ? '<div class="chip-row" data-choice role="radiogroup" aria-label="Type the price per" id="pu"><button class="chip" type="button" role="radio" aria-checked="false" data-u="' + ru + '">Per ' + GF.UNITS[ru][0] + '</button><button class="chip" type="button" role="radio" aria-checked="true" data-u="' + u + '">Per ' + GF.UNITS[u][0] + "</button></div>" : "") +
+      '<div class="field money"><label class="field-label" for="pp" id="pp-l">Price per ' + GF.UNITS[u][0] + '</label><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input" id="pp" inputmode="decimal" value="' + (p ? (p.price_cents / 100).toFixed(2) : "") + '"></div>' +
+        '<span class="field-help tabular" id="pp-h"></span><span class="field-error" id="pp-e" hidden></span></div>' +
+      '<div class="field"><label class="field-label" for="pn">Note <span class="optional">(optional)</span></label><input class="field-input" id="pn" value="' + esc(p ? p.details.note : "") + '" placeholder="For example: advance price; final after the sale"></div>' });
+    var input = el.querySelector("#pp"), help = el.querySelector("#pp-h");
+    function cents() {
+      var v = input.value.replace(/,/g, "").trim();
+      if (!/^\d+(\.\d{0,2})?$/.test(v)) return null;
+      var typed = Math.round(parseFloat(v) * 100);
+      return per === u ? { stored: typed, typed: typed } : { stored: Math.round(typed / cp.unit_factor), typed: typed };
+    }
+    function sync() {
+      var c = cents();
+      el.querySelector("#pp-l").textContent = "Price per " + GF.UNITS[per][0];
+      if (!c) { help.textContent = ru ? "Kept per " + GF.UNITS[u][0] + "; shown per " + GF.UNITS[ru][0] + " beside it." : ""; return; }
+      if (per === u) help.textContent = ru ? "= " + f.money(c.stored * cp.unit_factor) + " per " + GF.UNITS[ru][0] : "";
+      else help.textContent = "Kept as " + f.money(c.stored) + " per " + GF.UNITS[u][0] + (c.stored * cp.unit_factor !== c.typed ? " (rounded; " + f.money(c.stored * cp.unit_factor) + " a " + GF.UNITS[ru][0] + ")" : "");
+    }
+    input.addEventListener("input", sync); sync();
+    var pu = el.querySelector("#pu");
+    if (pu) pu.addEventListener("click", function (e) { var b = e.target.closest("[data-u]"); if (!b) return; per = b.getAttribute("data-u"); setTimeout(sync, 0); });
+    /* Refuse a second price for the same product, grade and date (07's unique rule). */
+    var btn = el.querySelector("[data-submit]"), fresh = btn.cloneNode(true);
+    btn.parentNode.replaceChild(fresh, btn);
+    fresh.addEventListener("click", function () {
+      var from = el.querySelector("#pf").value, g = el.querySelector("#pg") ? el.querySelector("#pg").value || null : null, ok = true;
+      var clash = !p && GF.prices.find(function (y) { return y.product === cp.id && y.grade === g && y.effective_from === from; });
+      el.querySelector("#pf-e").hidden = !clash; el.querySelector("#pf-e").textContent = clash ? "There is already a price from " + f.date(from) + ". Correct that one instead." : "";
+      if (clash) ok = false;
+      var c = cents(); el.querySelector("#pp-e").hidden = !!c; el.querySelector("#pp-e").textContent = "Enter the price in shillings, such as 54.00.";
+      input.setAttribute("aria-invalid", String(!c));
+      if (!c) ok = false;
+      if (!ok) return;
+      Proto.close();
+      Proto.snack(p ? "Price corrected. Deliveries from " + f.date(p.effective_from) + " are valued at " + f.money(c.stored) + "." : "Price added: " + f.money(c.stored) + " per " + GF.UNITS[u][0] + " from " + f.date(from));
+    });
+  }
+  window.addPrice = function () { priceDialog(PRODUCTS[0].id); };
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest("[data-add]"), c = e.target.closest("[data-fix]");
+    if (a) priceDialog(a.getAttribute("data-add"));
+    if (c) { var p = get(c.getAttribute("data-fix")); priceDialog(p.product, p.id); }
+  });
+  draw();
+});
+</script>
+</body>
+</html>

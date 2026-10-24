@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Members · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/members.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Members" data-dest="members" data-wide id="screen">
+
+  <p class="proto-note"><b>C9 · From note 05 (UI-35).</b> The register. One box finds a member by member number or ID (exactly), by phone (exactly, when the text reads as one) or by name, which still matches with a letter wrong ("wanjku"). Filters: status, cluster, gender, position, and whether the member uses the app. Every staff role reads it (<code>members.view</code>). Adding and importing need <code>members.manage</code> (Manager, Administrator).</p>
+  <p class="proto-note"><b>Reports are views of the list.</b> Note 05 asks for counts by cluster, gender and age band (its <code>summary</code> service). Here they are tabs over the same filters, and a count opens the members it counts.</p>
+  <p class="proto-note"><b>Adding pauses on hold (01, 05).</b> While the cooperative is on hold or ended, Add and Import leave the screen. The register and every edit stay. While onboarding (Mumbi, as Rose), the empty register leads into adding or importing.</p>
+
+  <!-- LOADED -->
+  <div data-state="loaded" class="col gap-4">
+    <div class="section">
+      <div class="section-toolbar stack">
+        <div class="row gap-3 wrap">
+          <div class="field search"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>
+            <input class="field-input" id="q" type="search" placeholder="Name, member number, ID or phone" aria-label="Search members"></div></div>
+          <select class="field-input" id="f-cluster" aria-label="Cluster" style="width:auto"></select>
+          <select class="field-input" id="f-gender" aria-label="Gender" style="width:auto"><option value="">Any gender</option><option value="FEMALE">Women</option><option value="MALE">Men</option><option value="UNDISCLOSED">Not given</option></select>
+          <select class="field-input" id="f-position" aria-label="Position" style="width:auto"></select>
+          <select class="field-input" id="f-login" aria-label="Member app" style="width:auto"><option value="">App or not</option><option value="yes">Uses the app</option><option value="no">Not on the app</option></select>
+          <select class="field-input" id="f-sort" aria-label="Sort" style="width:auto"><option value="name">By name</option><option value="no">By number</option><option value="joined">Newest first</option></select>
+        </div>
+        <div class="row gap-3 wrap between">
+          <div class="chip-row scroll" data-choice role="radiogroup" aria-label="Status" id="f-status">
+            <button class="chip" type="button" role="radio" aria-checked="true" data-s="">All</button>
+            <button class="chip" type="button" role="radio" aria-checked="false" data-s="ACTIVE">Active</button>
+            <button class="chip" type="button" role="radio" aria-checked="false" data-s="SUSPENDED">Suspended</button>
+            <button class="chip" type="button" role="radio" aria-checked="false" data-s="EXITED">Exited</button>
+          </div>
+          <div class="chip-row scroll" data-choice role="radiogroup" aria-label="Show" id="f-view">
+            <button class="chip" type="button" role="radio" aria-checked="true" data-v="list">Members</button>
+            <button class="chip" type="button" role="radio" aria-checked="false" data-v="cluster">By cluster</button>
+            <button class="chip" type="button" role="radio" aria-checked="false" data-v="gender">By gender</button>
+            <button class="chip" type="button" role="radio" aria-checked="false" data-v="age">By age</button>
+          </div>
+        </div>
+      </div>
+      <div class="section-band">
+        <div class="section-figure lg"><span class="k">Shown</span><span class="v" id="b-shown"></span></div>
+        <div class="section-figure"><span class="k">Active</span><span class="v" id="b-active"></span></div>
+        <div class="section-figure"><span class="k">Suspended</span><span class="v" id="b-susp"></span></div>
+        <div class="section-figure"><span class="k">Exited</span><span class="v" id="b-exit"></span></div>
+        <span class="note" id="b-note"></span>
+      </div>
+      <div class="table-wrap only-wide"><table class="table"><thead id="head"></thead><tbody id="rows"></tbody></table></div>
+      <div class="rowcards only-compact" id="cards"></div>
+      <div class="section-body row center hidden" id="more-wrap"><button class="btn btn-text" type="button" id="more"></button></div>
+      <div class="empty hidden" id="none"><span class="mdi mdi-account-search-outline" aria-hidden="true"></span><span class="text-title-lg" id="none-t">No member matches</span>
+        <span class="text-body-md" id="none-b">Check the spelling, or try the member number, ID or phone.</span><button class="btn btn-tonal" type="button" onclick="clearFilters()">Clear filters</button></div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div data-state="loading" class="col gap-4">
+    <div class="skeleton" style="height:40px"></div><div class="skeleton-card" style="height:72px"></div>
+    <div class="col"><div class="skeleton-row"><span class="skeleton-avatar"></span><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:50%"></div><div class="skeleton skeleton-line" style="width:30%"></div></div></div>
+      <div class="skeleton-row"><span class="skeleton-avatar"></span><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:60%"></div><div class="skeleton skeleton-line" style="width:25%"></div></div></div></div>
+  </div>
+
+  <!-- EMPTY: nobody on the register yet -->
+  <div data-state="empty" class="empty">
+    <span class="mdi mdi-account-group-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No members yet</span>
+    <span class="text-body-md" data-role-text='{"accountant":"Members appear here once a manager or administrator adds them.","clerk":"Members appear here once a manager or administrator adds them.","viewer":"Members appear here once a manager or administrator adds them."}'>Add them one by one, or import the register you already keep in a spreadsheet. Every member needs an ID number.</span>
+    <div class="row gap-2 wrap center" data-roles="admin manager" data-coop="onboarding active">
+      <a class="btn btn-filled" href="new.html"><span class="mdi mdi-account-plus-outline" aria-hidden="true"></span>Add member</a>
+      <a class="btn btn-outlined" href="import.html">Import a spreadsheet</a></div>
+  </div>
+
+  <!-- ERROR -->
+  <div data-state="error" class="error-state">
+    <span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the register</span>
+    <span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loading');setTimeout(function(){Proto.go('loaded')},800)">Try again</button>
+  </div>
+</div>
+
+<script>
+/* Add and Import only while the cooperative takes new work (05: accepts_new_work); set before proto.js draws the bar. */
+(function () {
+  var s = document.getElementById("screen"), open = Members.acceptsNewWork();
+  if (open) s.setAttribute("data-action", JSON.stringify({ label: "Add member", icon: "account-plus-outline", href: "new.html", roles: "admin manager" }));
+  s.setAttribute("data-menu", JSON.stringify((open ? [{ label: "Import from a spreadsheet", icon: "file-upload-outline", roles: "admin manager", href: "import.html" }] : [])
+    .concat([{ label: "Download as CSV", icon: "download", on: "Proto.snack('Downloading the members shown')" }])));
+  s.setAttribute("data-sub", Members.coop().profile.short_name);
+})();
+Portal.mountBanner();
+document.addEventListener("DOMContentLoaded", function () {
+  var q = GF.q, f = GF.fmt, get = GF.get, M = Members, esc = M.esc, CID = M.coopId();
+  var $ = function (id) { return document.getElementById(id); };
+  var ALL = q.members(CID), view = "list", shown = 50, status = "", AGEBAND = null;
+  var CLUSTERS = GF.clusters.filter(function (c) { return c.cooperative === CID; });
+  var POS = GF.positions.filter(function (p) { return p.cooperative === CID; });
+  var held = function (m) { return GF.memberPositions.filter(function (h) { return h.member === m.id && h.status === "ACTIVE"; }); };
+  var GENDER = { FEMALE: "Women", MALE: "Men", UNDISCLOSED: "Not given" };
+  var BANDS = [["Under 25", 0, 24], ["25–34", 25, 34], ["35–44", 35, 44], ["45–54", 45, 54], ["55–64", 55, 64], ["65 and over", 65, 200]];
+  if (!ALL.length) { setTimeout(function () { Proto.go("empty"); }, 0); }
+
+  $("f-cluster").innerHTML = '<option value="">All clusters</option>' + CLUSTERS.map(function (c) { return '<option value="' + c.id + '">' + M.clusterName(c.id) + "</option>"; }).join("") + (CLUSTERS.length ? '<option value="none">No cluster</option>' : "");
+  if (!CLUSTERS.length) $("f-cluster").classList.add("hidden");
+  $("f-position").innerHTML = '<option value="">Any position</option>' + POS.filter(function (p) { return p.status === "ACTIVE"; }).map(function (p) { return '<option value="' + p.id + '">' + p.name + "</option>"; }).join("") + '<option value="any">Holds any position</option>';
+
+  function filtered(ignoreStatus) {
+    var t = $("q").value.trim(), hits = t ? M.find(CID, t) : null, cl = $("f-cluster").value, g = $("f-gender").value, p = $("f-position").value, lg = $("f-login").value;
+    var list = (hits || ALL).filter(function (m) {
+      if (!ignoreStatus && status && m.status !== status) return false;
+      if (cl && (cl === "none" ? m.cluster : m.cluster !== cl)) return false;
+      if (g && m.gender !== g) return false;
+      if (p) { var hs = held(m); if (p === "any" ? !hs.length : !hs.some(function (h) { return h.position === p; })) return false; }
+      if (lg && (lg === "yes") !== !!m.user) return false;
+      if (AGEBAND) { var a = M.age(m), b = BANDS.find(function (x) { return x[0] === AGEBAND; }); if (b ? (a === null || a < b[1] || a > b[2]) : a !== null) return false; }
+      return true;
+    });
+    var s = $("f-sort").value;
+    if (!hits || s !== "name") list = list.slice().sort(function (a, b) {
+      return s === "no" ? (a.member_no < b.member_no ? -1 : 1) : s === "joined" ? (a.joined_on < b.joined_on ? 1 : -1) : (a.full_name < b.full_name ? -1 : 1);
+    });
+    return list;
+  }
+  function draw() {
+    var all = filtered(true), list = filtered(false);
+    var by = function (s) { return all.filter(function (m) { return m.status === s; }).length; };
+    $("b-shown").textContent = list.length.toLocaleString("en-KE");
+    $("b-active").textContent = by("ACTIVE"); $("b-susp").textContent = by("SUSPENDED"); $("b-exit").textContent = by("EXITED");
+    var declared = Members.coop().profile.declared_member_count;
+    $("b-note").textContent = AGEBAND ? (AGEBAND === "unknown" ? "Members without a birth date. " : "Aged " + AGEBAND + ". ") + "Clear the filters to see everyone." : declared ? q.activeCount(CID) + " active of the " + declared + " members the cooperative declared to GroFunder." : "";
+    var none = !list.length;
+    $("none").classList.toggle("hidden", !none);
+    $("none-t").textContent = $("q").value.trim() ? 'No member matches "' + $("q").value.trim() + '"' : "No member matches these filters";
+    $("more-wrap").classList.toggle("hidden", view !== "list" || list.length <= shown);
+    $("more").textContent = "Show more (" + (list.length - shown) + " left)";
+    if (view !== "list") return drawGroups(list);
+    var page = list.slice(0, shown);
+    $("head").innerHTML = "<tr><th>Member</th><th>Cluster</th><th>Phone</th><th>Positions</th><th>Joined</th><th>App</th><th>Status</th></tr>";
+    $("rows").innerHTML = page.map(function (m) {
+      var hs = held(m);
+      return '<tr data-href="' + M.url(m.id) + '" onclick="location.href=this.getAttribute(\'data-href\')"><td class="primary-cell"><a href="' + M.url(m.id) + '" style="color:inherit;text-decoration:none">' + esc(m.full_name) + "</a>" +
+        '<span class="cell-sub tabular">' + (m.member_no || "No number") + " · ID " + m.id_number + "</span></td><td>" + M.clusterName(m.cluster) + '</td><td class="tabular">' + f.phone(m.phone) + "</td>" +
+        "<td>" + (hs.map(function (h) { return get(h.position).name; }).join(", ") || "–") + '</td><td class="tabular">' + f.date(m.joined_on) + "</td>" +
+        "<td>" + (m.user ? '<span class="mdi mdi-cellphone-check" role="img" aria-label="Uses the app"></span>' : "") + "</td><td>" + M.chip(m.status) + "</td></tr>";
+    }).join("");
+    $("cards").innerHTML = page.map(function (m) {
+      return '<a class="rowcard" href="' + M.url(m.id) + '"><span class="avatar avatar-sm" aria-hidden="true">' + f.initials(m.full_name) + '</span><span class="grow"><span class="text-body-lg">' + esc(m.full_name) +
+        '</span><span class="text-body-md tone-muted tabular">' + (m.member_no || "No number") + (m.cluster ? " · " + get(m.cluster).name : "") + "</span></span>" + (m.status !== "ACTIVE" ? M.chip(m.status) : "") + "</a>";
+    }).join("");
+  }
+  /* Report views (05 summary): a count per cluster, gender or age band; each row narrows the list. */
+  function drawGroups(list) {
+    var groups;
+    if (view === "cluster") groups = CLUSTERS.map(function (c) { return [c.id, M.clusterName(c.id)]; }).concat([["none", "No cluster"]]).map(function (g) { return { key: g[0], label: g[1], list: list.filter(function (m) { return g[0] === "none" ? !m.cluster : m.cluster === g[0]; }) }; });
+    else if (view === "gender") groups = Object.keys(GENDER).map(function (k) { return { key: k, label: GENDER[k], list: list.filter(function (m) { return m.gender === k; }) }; });
+    else groups = BANDS.map(function (b) { return { key: b[0], label: b[0], list: list.filter(function (m) { var a = M.age(m); return a !== null && a >= b[1] && a <= b[2]; }) }; })
+      .concat([{ key: "unknown", label: "Birth date unknown", list: list.filter(function (m) { return M.age(m) === null; }) }]);
+    groups = groups.filter(function (g) { return g.list.length; });
+    var who = { cluster: "Cluster", gender: "Gender", age: "Age" }[view];
+    var cnt = function (g, s) { return g.list.filter(function (m) { return m.status === s; }).length; };
+    $("head").innerHTML = "<tr><th>" + who + '</th><th class="num">Members</th><th class="num">Active</th><th class="num">Suspended</th><th class="num">Exited</th><th class="num">Share</th></tr>';
+    $("rows").innerHTML = groups.map(function (g) {
+      return '<tr data-href="#" data-g="' + g.key + '"><td class="primary-cell">' + g.label + '</td><td class="num">' + g.list.length + '</td><td class="num">' + cnt(g, "ACTIVE") + '</td><td class="num">' + cnt(g, "SUSPENDED") +
+        '</td><td class="num">' + cnt(g, "EXITED") + '</td><td class="num">' + Math.round(100 * g.list.length / list.length) + "%</td></tr>";
+    }).join("");
+    $("cards").innerHTML = groups.map(function (g) {
+      return '<a class="rowcard" href="#" data-g="' + g.key + '"><span class="grow"><span class="text-body-lg">' + g.label + '</span><span class="text-body-md tone-muted tabular">' + cnt(g, "ACTIVE") + " active · " + Math.round(100 * g.list.length / list.length) + "%</span></span>" +
+        '<span class="text-title-md tabular">' + g.list.length + "</span></a>";
+    }).join("");
+  }
+  function narrow(key) {
+    if (view === "cluster") $("f-cluster").value = key; else if (view === "gender") $("f-gender").value = key;
+    else AGEBAND = key;
+    setView("list");
+  }
+  function setView(v) { view = v; shown = 50; document.querySelectorAll("#f-view .chip").forEach(function (c) { c.setAttribute("aria-checked", String(c.getAttribute("data-v") === v)); }); draw(); }
+  document.addEventListener("click", function (e) { var r = e.target.closest("[data-g]"); if (r && r.closest("#rows, #cards")) { e.preventDefault(); narrow(r.getAttribute("data-g")); } });
+  document.querySelectorAll("#f-view .chip").forEach(function (c) { c.addEventListener("click", function () { setView(c.getAttribute("data-v")); }); });
+  document.querySelectorAll("#f-status .chip").forEach(function (c) { c.addEventListener("click", function () { status = c.getAttribute("data-s"); shown = 50; draw(); }); });
+  ["f-cluster", "f-gender", "f-position", "f-login", "f-sort"].forEach(function (id) { $(id).addEventListener("change", function () { shown = 50; draw(); }); });
+  $("q").addEventListener("input", function () { shown = 50; draw(); });
+  $("more").addEventListener("click", function () { shown += 50; draw(); });
+  window.clearFilters = function () { ["f-cluster", "f-gender", "f-position", "f-login"].forEach(function (id) { $(id).value = ""; }); $("q").value = ""; status = ""; AGEBAND = null; document.querySelectorAll("#f-status .chip").forEach(function (c) { c.setAttribute("aria-checked", String(c.getAttribute("data-s") === "")); }); draw(); };
+  /* ?q= prefills the search (links from elsewhere). */
+  var pre = new URLSearchParams(location.search).get("q"); if (pre) $("q").value = pre;
+  draw();
+});
+</script>
+</body>
+</html>

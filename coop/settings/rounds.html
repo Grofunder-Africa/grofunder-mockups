@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Collection rounds · Settings · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Settings" data-dest="settings" data-wide>
+  <div data-subnav="settings" data-current="rounds" data-label="Settings"></div>
+
+  <p class="proto-note"><b>C26 · From note 07 (CollectionRound).</b> Rounds are optional: when and where the cooperative collects. A round serves every cluster or one, and every product or one; the days say how often (all seven is daily), and months make it seasonal. Editing needs <code>produce.configure</code> (Administrator and Manager).</p>
+  <p class="proto-note"><b>Keeping past deliveries right (07).</b> A big schedule change is a new round: archive the old one, so past deliveries keep pointing at the round as it was. A round never used can be deleted. Names are unique within the cooperative and cluster, archived or not.</p>
+  <p class="proto-note"><b>Page, panel, dialog (UI-13).</b> A round has seven fields, so adding and editing happen in a panel over the list.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">Collection rounds</span>
+        <span class="text-body-md tone-muted">When collection runs. Members see their cluster's rounds in the app, and a delivery outside every round gets a warning when it's recorded.</span></div></div>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Round</th><th>When</th><th>Cluster</th><th>Product</th><th class="num">Deliveries</th></tr></thead>
+        <tbody id="rows"></tbody></table></div>
+    </div>
+    <div id="archived"></div>
+  </div>
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:240px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-calendar-clock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No collection rounds</span>
+    <span class="text-body-md">Rounds are optional. Add them if you collect at set times, such as a morning milk round or coffee on Tuesdays and Fridays. Members then see when to deliver, and late or early entries are flagged.</span>
+    <button class="btn btn-filled" type="button" data-roles="admin manager" data-write onclick="roundPanel()">Add a round</button></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the collection rounds</span><button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var esc = Portal.esc, K = Portal.COOP;
+var ROLE = (function () { try { return localStorage.getItem("gf.role.coop") || "admin"; } catch (e) { return "admin"; } })();
+var CAN = ["admin", "manager"].indexOf(ROLE) > -1 && Portal.status !== "ended";
+if (CAN) document.querySelector("[data-screen]").setAttribute("data-action", JSON.stringify({ label: "Add a round", icon: "plus", on: "roundPanel()" }));
+Portal.mountBanner();
+
+var DAYS = [["MON", "Mon"], ["TUE", "Tue"], ["WED", "Wed"], ["THU", "Thu"], ["FRI", "Fri"], ["SAT", "Sat"], ["SUN", "Sun"]];
+var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+var mine = GF.rounds.filter(function (r) { return r.cooperative === K; });
+var products = GF.coopProducts.filter(function (cp) { return cp.cooperative === K && cp.status === "ACTIVE"; });
+var clusters = GF.clusters.filter(function (c) { return c.cooperative === K && c.status === "ACTIVE"; });
+var used = {}; GF.deliveries.forEach(function (d) { if (d.round) used[d.round] = (used[d.round] || 0) + 1; });
+
+var time = function (t) { return t.replace(/^0/, ""); };
+var join = function (a) { return a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1]; };
+function days(s) { return s.days.length === 7 ? "Every day" : join(DAYS.filter(function (d) { return s.days.indexOf(d[0]) > -1; }).map(function (d) { return d[1]; })); }
+/* Months as a run, "Oct to Jan", when they follow on from each other (round the year end too). */
+function months(ms) {
+  if (!ms.length || ms.length === 12) return "";
+  var start = ms.find(function (m) { return ms.indexOf(m === 1 ? 12 : m - 1) === -1; });
+  var run = start ? ms.every(function (m, i) { return ms.indexOf(((start - 1 + i) % 12) + 1) > -1; }) : false;
+  return run && ms.length > 1 ? MONTHS[start - 1] + " to " + MONTHS[((start - 1 + ms.length - 1) % 12)] : join(ms.map(function (m) { return MONTHS[m - 1]; }));
+}
+function when(r) { var s = r.schedule, m = months(s.months); return days(s) + ", " + time(s.start_time) + "–" + time(s.end_time) + (m ? ", " + m : ""); }
+var productName = function (r) { return r.product ? GF.fmt.productName(r.product) : "All products"; };
+var clusterName = function (r) { return r.cluster ? GF.get(r.cluster).name : "All clusters"; };
+
+function row(r) {
+  return '<tr data-href="#" onclick="roundPanel(\'' + r.id + '\')"><td class="primary-cell">' + esc(r.name) + (r.schedule.name_sw ? '<span class="cell-sub">' + esc(r.schedule.name_sw) + "</span>" : "") +
+    '</td><td>' + when(r) + "</td><td>" + clusterName(r) + "</td><td>" + productName(r) + '</td><td class="num">' + (used[r.id] ? used[r.id].toLocaleString("en-KE") : "–") + "</td></tr>";
+}
+function draw() {
+  var act = mine.filter(function (r) { return r.status === "ACTIVE"; }), arch = mine.filter(function (r) { return r.status !== "ACTIVE"; });
+  document.getElementById("rows").innerHTML = act.map(row).join("");
+  document.getElementById("archived").innerHTML = arch.length ? '<div class="disclosure"><button class="disclosure-trigger" type="button" aria-expanded="false">Archived (' + arch.length + ')</button><div class="disclosure-panel" hidden><div class="table-wrap"><table class="table"><tbody>' + arch.map(row).join("") + "</tbody></table></div></div></div>" : "";
+}
+if (!mine.length) document.addEventListener("DOMContentLoaded", function () { setTimeout(function () { Proto.go("empty"); }, 0); });
+
+var opt = function (v, label, cur) { return '<option value="' + v + '"' + (v === cur ? " selected" : "") + ">" + label + "</option>"; };
+var chips = function (name, items, on) { return '<div class="chip-row" role="group" aria-label="' + name + '" data-multi>' + items.map(function (it) { return '<button class="chip" type="button" aria-pressed="' + (on(it[0]) ? "true" : "false") + '" data-v="' + it[0] + '">' + it[1] + "</button>"; }).join("") + "</div>"; };
+
+/* Add or edit a round in a panel (seven fields, UI-13). */
+function roundPanel(id) {
+  var r = id ? GF.get(id) : { name: "", product: null, cluster: null, status: "ACTIVE", schedule: { days: [], start_time: "", end_time: "", months: [], name_sw: "" } };
+  var s = r.schedule, n = used[r.id] || 0, active = r.status === "ACTIVE", edit = CAN && active;
+  if (!edit) {
+    return Proto.sheet({ title: esc(r.name), body: '<div class="row gap-2 wrap"><span class="status ' + (active ? "status-success" : "status-neutral") + '">' + (active ? "Active" : "Archived") + "</span></div>" +
+      '<dl class="facts"><dt>In Swahili</dt><dd>' + (esc(s.name_sw) || "–") + "</dd><dt>When</dt><dd>" + when(r) + "</dd><dt>Cluster</dt><dd>" + clusterName(r) + "</dd><dt>Product</dt><dd>" + productName(r) +
+      "</dd><dt>Deliveries</dt><dd class=\"tabular\">" + (n ? n.toLocaleString("en-KE") : "None yet") + "</dd></dl>",
+      footer: CAN && !active ? '<button class="btn btn-tonal" type="button" onclick="Proto.close();Proto.snack(\'' + esc(r.name) + ' is back\')">Bring it back</button>' : "" });
+  }
+  var el = Proto.sheet({ title: id ? esc(r.name) : "Add a collection round", body:
+    (n ? '<div class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">' + n.toLocaleString("en-KE") +
+      " deliveries came in on this round. For a big change to its days or times, archive it and add a new round, so those deliveries keep the round as it was.</span></div></div>" : "") +
+    '<div class="form-grid">' +
+    '<div class="field"><label class="field-label" for="rn">Name</label><input class="field-input" id="rn" value="' + esc(r.name) + '"><span class="field-error" id="rn-e" hidden></span></div>' +
+    '<div class="field"><label class="field-label" for="rs">Name in Swahili <span class="optional">(optional)</span></label><input class="field-input" id="rs" value="' + esc(s.name_sw) + '"></div>' +
+    '<div class="field"><label class="field-label" for="rp">Product</label><select class="field-input" id="rp">' + opt("", "All products", r.product || "") + products.map(function (cp) { return opt(cp.id, GF.fmt.productName(cp.id), r.product); }).join("") + "</select></div>" +
+    '<div class="field"><label class="field-label" for="rc">Cluster</label><select class="field-input" id="rc">' + opt("", "All clusters", r.cluster || "") + clusters.map(function (c) { return opt(c.id, esc(c.name), r.cluster); }).join("") + "</select>" +
+      '<span class="field-help">Add a round for one cluster only where its times differ.</span></div>' +
+    '<div class="field field-wide"><span class="field-label" id="rd-l">Days</span>' + chips("Days", DAYS, function (d) { return s.days.indexOf(d) > -1; }) +
+      '<span class="field-help">All seven means every day.</span><span class="field-error" id="rd-e" hidden>Choose at least one day.</span></div>' +
+    '<div class="field"><label class="field-label" for="rt1">Starts</label><input class="field-input tabular" id="rt1" type="time" value="' + s.start_time + '"></div>' +
+    '<div class="field"><label class="field-label" for="rt2">Ends</label><input class="field-input tabular" id="rt2" type="time" value="' + s.end_time + '"><span class="field-error" id="rt-e" hidden>It has to end after it starts.</span></div>' +
+    '<div class="field field-wide"><span class="field-label">Months <span class="optional">(optional)</span></span>' + chips("Months", MONTHS.map(function (m, i) { return [i + 1, m]; }), function (m) { return s.months.indexOf(m) > -1; }) +
+      '<span class="field-help">For a seasonal crop. None chosen means all year.</span></div>' +
+    "</div>",
+    footer: (id ? '<button class="btn btn-text" type="button" onclick="' + (n ? "archiveRound('" + id + "')" : "deleteRound('" + id + "')") + '">' + (n ? "Archive" : "Delete") + "</button>" : "") +
+      '<span class="spacer"></span><button class="btn btn-filled" type="button" id="save">' + (id ? "Save" : "Add round") + "</button>" });
+  el.querySelectorAll("[data-multi] .chip").forEach(function (c) { c.addEventListener("click", function () { c.setAttribute("aria-pressed", String(c.getAttribute("aria-pressed") !== "true")); }); });
+  var name = el.querySelector("#rn"), ne = el.querySelector("#rn-e");
+  el.querySelector("#save").addEventListener("click", function () {
+    var nm = name.value.trim(), cl = el.querySelector("#rc").value || null;
+    var clash = mine.find(function (x) { return x.id !== r.id && (x.cluster || null) === cl && x.name.toLowerCase() === nm.toLowerCase(); });
+    var noDays = !el.querySelector('[aria-label="Days"] .chip[aria-pressed="true"]');
+    var t1 = el.querySelector("#rt1").value, t2 = el.querySelector("#rt2").value, badTime = t1 && t2 && t2 <= t1;
+    ne.hidden = !(clash || !nm); ne.textContent = !nm ? "Name the round." : clash ? "There is already a round called " + clash.name + (cl ? " for that cluster" : "") + (clash.status === "ARCHIVED" ? " (archived)" : "") + "." : "";
+    name.setAttribute("aria-invalid", String(!ne.hidden));
+    el.querySelector("#rd-e").hidden = !noDays; el.querySelector("#rt-e").hidden = !badTime;
+    if (ne.hidden && !noDays && !badTime) { Proto.close(); Proto.snack(id ? r.name + " saved" : "Round added"); }
+  });
+}
+function archiveRound(id) {
+  var r = GF.get(id);
+  Proto.confirm({ title: "Archive " + esc(r.name) + "?", message: "It leaves the pickers and the member app. Its " + used[id].toLocaleString("en-KE") + " deliveries keep it.", confirm: "Archive",
+    onConfirm: function () { Proto.close(); Proto.snack(r.name + " archived", "Undo"); } });
+}
+function deleteRound(id) {
+  var r = GF.get(id);
+  Proto.confirm({ title: "Delete " + esc(r.name) + "?", message: "No delivery has come in on it, so it can go.", confirm: "Delete", destructive: true, onConfirm: function () { Proto.close(); Proto.snack(r.name + " deleted"); } });
+}
+draw();
+</script>
+</body>
+</html>

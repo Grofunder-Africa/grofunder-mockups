@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deliveries · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/produce.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Produce" data-dest="produce" data-wide id="screen"
+     data-action='{"label":"Record delivery","icon":"plus","href":"record.html","roles":"admin manager clerk","write":true}'
+     data-menu='[{"label":"Import from a spreadsheet","icon":"file-upload-outline","roles":"admin manager clerk","write":true,"href":"import.html"},{"label":"Download as CSV","icon":"download","on":"Proto.snack(&apos;Downloading the deliveries shown&apos;)"}]'>
+
+  <div data-subnav="produce" data-current="deliveries" data-label="Produce"></div>
+
+  <p class="proto-note"><b>C3 · From note 07 (UI-30).</b> Every delivery, filtered by period, product, round, centre and status. The band adds up what the filters show, and voided entries are never counted. Every role in the cooperative can read it (<code>produce.view</code>). Recording and importing need <code>produce.record</code> (Clerk, Manager, Administrator).</p>
+  <p class="proto-note"><b>Entries or totals.</b> Note 07 asks for totals by member, centre and day for reports, and later for payouts. They are views of this list, not separate reports. Each total row narrows the list to its entries.</p>
+  <p class="proto-note"><b>A row opens its panel (C5, UI-13).</b> Edit and void work in that panel without leaving the list. Searching for a receipt number looks across every date, because staff look up a slip long after the day.</p>
+  <p class="proto-note"><b>Two cooperatives.</b> Kijani records milk in litres in two rounds a day. <a href="index.html?c=co-mawingu">Mawingu</a> records coffee cherry in kg and maize in 90 kg bags, so its quantities read "2 bags (180 kg)".</p>
+
+  <div class="banner banner-info" data-coop="on_hold">
+    <span class="mdi mdi-information-outline" aria-hidden="true"></span>
+    <div class="grow"><span class="text-title-sm" id="hold-t">On hold</span>
+      <span class="text-body-md">Recording deliveries and paying members carry on (07, 08). Adding new members is paused until GroFunder lifts the hold.</span></div>
+  </div>
+
+  <!-- LOADED -->
+  <div data-state="loaded" class="col gap-4">
+    <div class="section">
+      <div class="section-toolbar stack">
+        <div class="row gap-3 wrap">
+          <div class="field search"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>
+            <input class="field-input" id="q" type="search" placeholder="Member, number or receipt" aria-label="Search deliveries"></div></div>
+          <select class="field-input" id="f-period" aria-label="Period" style="width:auto">
+            <option value="today">Today</option><option value="yesterday">Yesterday</option><option value="week">This week</option><option value="month">This month</option><option value="last">Last month</option></select>
+          <select class="field-input" id="f-product" aria-label="Product" style="width:auto"></select>
+          <select class="field-input" id="f-round" aria-label="Round" style="width:auto"></select>
+          <select class="field-input" id="f-centre" aria-label="Received at" style="width:auto"></select>
+          <select class="field-input" id="f-status" aria-label="Status" style="width:auto"><option value="">Recorded and voided</option><option value="RECORDED">Recorded only</option><option value="VOIDED">Voided only</option></select>
+        </div>
+        <div class="chip-row scroll" data-choice role="radiogroup" aria-label="Show" id="f-view">
+          <button class="chip" type="button" role="radio" aria-checked="true" data-v="entries">Entries</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-v="member">By member</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-v="centre">By centre</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-v="day">By day</button>
+        </div>
+      </div>
+      <div class="section-band">
+        <div class="section-figure lg" id="b-q0"><span class="k" id="b-k">Today</span><span class="v" id="b-qty"></span></div>
+        <div class="section-figure" id="b-c"><span class="k" id="b-ck">Deliveries</span><span class="v" id="b-count"></span></div>
+        <div class="section-figure"><span class="k">Members</span><span class="v" id="b-members"></span></div>
+        <div class="section-figure"><span class="k">Value</span><span class="v" id="b-value"></span></div>
+        <span class="note" id="b-note">Voided entries are left out of every total. Value is at the price in force on each day.</span>
+      </div>
+      <div class="table-wrap only-wide"><table class="table"><thead id="head"></thead><tbody id="rows"></tbody></table></div>
+      <div class="rowcards only-compact" id="cards"></div>
+      <div class="section-body row center hidden" id="more-wrap"><button class="btn btn-text" type="button" id="more"></button></div>
+      <div class="empty hidden" id="none"><span class="mdi mdi-filter-off-outline" aria-hidden="true"></span><span class="text-title-lg">No deliveries match</span>
+        <span class="text-body-md">Try another period, or clear the filters.</span><button class="btn btn-tonal" type="button" onclick="clearFilters()">Clear filters</button></div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div data-state="loading" class="col gap-4">
+    <div class="skeleton" style="height:40px"></div>
+    <div class="skeleton-card" style="height:72px"></div>
+    <div class="col"><div class="skeleton-row"><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:50%"></div><div class="skeleton skeleton-line" style="width:30%"></div></div></div>
+      <div class="skeleton-row"><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:60%"></div><div class="skeleton skeleton-line" style="width:25%"></div></div></div>
+      <div class="skeleton-row"><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:45%"></div><div class="skeleton skeleton-line" style="width:35%"></div></div></div></div>
+  </div>
+
+  <!-- EMPTY: nothing recorded yet at all (a new cooperative) -->
+  <div data-state="empty" class="empty">
+    <span class="mdi mdi-basket-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No deliveries yet</span>
+    <span class="text-body-md" data-role-text='{"accountant":"Deliveries appear here as clerks record them at the collection centres.","viewer":"Deliveries appear here as clerks record them at the collection centres."}'>Record them one by one at the collection centre, or import what's already in a spreadsheet.</span>
+    <div class="row gap-2 wrap center" data-roles="admin manager clerk" data-write>
+      <a class="btn btn-filled" href="record.html"><span class="mdi mdi-plus" aria-hidden="true"></span>Record delivery</a>
+      <a class="btn btn-outlined" href="import.html">Import a spreadsheet</a></div>
+  </div>
+
+  <!-- ERROR -->
+  <div data-state="error" class="error-state">
+    <span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load deliveries</span>
+    <span class="text-body-md">Check the connection and try again. Nothing already recorded is lost.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loading');setTimeout(function(){Proto.go('loaded')},800)">Try again</button>
+  </div>
+</div>
+
+<script>
+/* The app bar names the cooperative; set before proto.js draws it. */
+document.getElementById("screen").setAttribute("data-sub", Produce.coop().profile.short_name);
+document.addEventListener("DOMContentLoaded", function () {
+  var q = GF.q, f = GF.fmt, get = GF.get, P = Produce, C = P.coop();
+  var PRODUCTS = P.products(C), ROUNDS = GF.rounds.filter(function (r) { return r.cooperative === C.id; });
+  var CENTRES = GF.clusters.filter(function (x) { return x.cooperative === C.id && x.status === "ACTIVE"; });
+  var ALL = q.deliveries({ cooperative: C.id });
+  var view = "entries", shown = 60, ALL_DAY = null;
+  var $ = function (id) { return document.getElementById(id); };
+  $("hold-t").textContent = C.profile.short_name + " is on hold";
+
+  var fill = function (sel, all, list, label) { sel.innerHTML = '<option value="">' + all + "</option>" + list.map(function (x) { return '<option value="' + x.id + '">' + label(x) + "</option>"; }).join(""); };
+  fill($("f-product"), "All products", PRODUCTS, function (p) { return p.product.name; });
+  fill($("f-round"), "All rounds", ROUNDS, function (r) { return r.name; });
+  fill($("f-centre"), "All centres", CENTRES, function (x) { return x.name; });
+  if (PRODUCTS.length < 2) $("f-product").classList.add("hidden");
+
+  /* Periods, from "now" (Fri 30 Oct 2026). Weeks start on Monday. */
+  function period(v) {
+    var t = GF.TODAY, d = new Date(t + "T00:00:00Z"), iso = function (x) { return x.toISOString().slice(0, 10); };
+    if (v === "today") return [t, t, "Today"];
+    if (v === "yesterday") { d.setUTCDate(d.getUTCDate() - 1); return [iso(d), iso(d), "Yesterday"]; }
+    if (v === "week") { d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return [iso(d), t, "This week"]; }
+    if (v === "month") return [t.slice(0, 8) + "01", t, "This month"];
+    var first = new Date(Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 2, 1)), last = new Date(Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 1, 0));
+    return [iso(first), iso(last), "Last month"];
+  }
+  /* A receipt number looks like a member number (R-4471, M-0142), so it only counts as one when a delivery has it. */
+  var norm = function (t) { return t.toLowerCase().replace("-", ""); };
+  function isReceipt(term) { return !!term && /^[a-z]{1,3}-?\d{2,}$/i.test(term) && ALL.some(function (d) { return d.receipt_no && norm(d.receipt_no) === norm(term); }); }
+  function filtered() {
+    var term = $("q").value.trim().toLowerCase(), pr = period($("f-period").value);
+    var receipt = isReceipt(term);
+    return ALL.filter(function (d) {
+      if (!receipt && (d.delivered_on < pr[0] || d.delivered_on > pr[1])) return false;
+      if ($("f-product").value && d.product !== $("f-product").value) return false;
+      if ($("f-round").value && d.round !== $("f-round").value) return false;
+      if ($("f-centre").value && d.cluster !== $("f-centre").value) return false;
+      if ($("f-status").value && d.status !== $("f-status").value) return false;
+      if (ALL_DAY && d.delivered_on !== ALL_DAY) return false;
+      if (!term) return true;
+      var m = get(d.member);
+      return receipt ? (d.receipt_no || "").toLowerCase().replace("-", "") === term.replace("-", "") : (m.full_name + " " + m.member_no).toLowerCase().indexOf(term) > -1;
+    }).reverse();
+  }
+  /* Totals are per product, never added across products: coffee cherry and maize are both
+   * kg, but one kg figure for both means nothing. A product recorded in its own unit shows it
+   * too ("45 bags (4,050 kg)"). */
+  function perProduct(list) {
+    var rec = list.filter(function (d) { return d.status === "RECORDED"; });
+    return PRODUCTS.map(function (x) {
+      var mine = rec.filter(function (d) { return d.product === x.id; });
+      var qty = mine.reduce(function (s, d) { return s + d.quantity_milli; }, 0) / 1000;
+      var entered = mine.reduce(function (s, d) { return s + (d.details.entered ? d.details.entered.quantity : 0); }, 0);
+      var base = f.qty(qty, x.unit, { digits: x.unit === "LITRE" ? 1 : 0 });
+      var all = mine.length && mine.every(function (d) { return d.details.entered; });
+      return { x: x, n: mine.length, text: all ? entered + " " + GF.UNITS[x.cp.recording_unit][entered === 1 ? 0 : 1] + " (" + base + ")" : base };
+    }).filter(function (p) { return p.n; });
+  }
+  /* For a table cell: one line per product, named when the cooperative has more than one. */
+  function qtyText(list, sep) {
+    var ps = perProduct(list);
+    return ps.length ? ps.map(function (p) { return (PRODUCTS.length > 1 ? p.x.product.name + " " : "") + p.text; }).join(sep || "<br>") : "0";
+  }
+  var short = function (n) { if (!n) return "Device"; var p = n.split(" "); return p[0] + " " + (p[1] || "")[0] + "."; };
+
+  function draw() {
+    var list = filtered(), rec = list.filter(function (d) { return d.status === "RECORDED"; }), pr = period($("f-period").value);
+    var term = $("q").value.trim();
+    var when = isReceipt(term) ? "Receipt " + term.toUpperCase() : ALL_DAY ? f.date(ALL_DAY) : pr[2];
+    /* One figure per product; the period moves to the count when there are several. */
+    var ps = perProduct(list);
+    document.querySelectorAll(".b-qx").forEach(function (n) { n.remove(); });
+    $("b-k").textContent = ps.length > 1 ? ps[0].x.product.name : when;
+    $("b-qty").textContent = ps.length ? ps[0].text : "0";
+    ps.slice(1).forEach(function (p) {
+      var el = document.createElement("div"); el.className = "section-figure lg b-qx";
+      el.innerHTML = '<span class="k">' + p.x.product.name + '</span><span class="v">' + p.text + "</span>";
+      $("b-c").parentNode.insertBefore(el, $("b-c"));
+    });
+    $("b-ck").textContent = ps.length > 1 ? "Deliveries · " + when : "Deliveries";
+    $("b-count").textContent = rec.length;
+    $("b-members").textContent = new Set(rec.map(function (d) { return d.member; })).size;
+    $("b-value").textContent = f.money(q.value(rec), { whole: true });
+    $("none").classList.toggle("hidden", list.length > 0);
+    var groups = view === "entries" ? null : group(rec);
+    $("more-wrap").classList.toggle("hidden", !(view === "entries" && list.length > shown));
+    $("more").textContent = "Show more (" + (list.length - shown) + " left)";
+    if (groups) return drawGroups(groups);
+    $("head").innerHTML = "<tr><th>Member</th><th>Date</th>" + (PRODUCTS.length > 1 ? "<th>Product</th>" : "<th>Grade</th>") + '<th class="num">Quantity</th><th>Round</th><th>Received at</th><th>Receipt</th><th>Recorded by</th><th></th></tr>';
+    var page = list.slice(0, shown);
+    $("rows").innerHTML = page.map(function (d) {
+      var m = get(d.member), v = d.status === "VOIDED";
+      return '<tr data-href="#" data-d="' + d.id + '"><td class="primary-cell">' + m.full_name + '<span class="cell-sub tabular">' + m.member_no + '</span></td><td class="tabular">' + f.date(d.delivered_on, "short") + "</td>" +
+        "<td>" + (PRODUCTS.length > 1 ? f.productName(d.product, d.grade) : d.grade ? get(d.grade).name : "–") + '</td><td class="num' + (v ? " struck tone-muted" : "") + '">' + f.delivery(d) + "</td>" +
+        "<td>" + (d.round ? get(d.round).name : "–") + "</td><td>" + get(d.cluster).name + '</td><td class="tabular">' + (d.receipt_no || "–") + "</td><td>" + short(d.recorded_by) + "</td>" +
+        "<td>" + (v ? '<span class="status status-neutral">Voided</span>' : "") + "</td></tr>";
+    }).join("");
+    $("cards").innerHTML = page.map(function (d) {
+      var m = get(d.member), v = d.status === "VOIDED";
+      return '<a class="rowcard" href="#" data-d="' + d.id + '"><span class="grow"><span class="text-body-lg">' + m.full_name + '</span><span class="text-body-md tone-muted tabular">' +
+        m.member_no + " · " + f.date(d.delivered_on, "short") + (d.round ? " · " + get(d.round).name : "") + " · " + get(d.cluster).name + "</span></span>" +
+        '<span class="col end gap-1"><span class="text-title-md tabular' + (v ? " struck tone-muted" : "") + '">' + f.delivery(d) + "</span>" +
+        (v ? '<span class="status status-neutral">Voided</span>' : "") + "</span></a>";
+    }).join("");
+  }
+  function group(rec) {
+    var key = { member: function (d) { return d.member; }, centre: function (d) { return d.cluster; }, day: function (d) { return d.delivered_on; } }[view];
+    var g = {};
+    rec.forEach(function (d) { var k = key(d); (g[k] = g[k] || []).push(d); });
+    return Object.keys(g).map(function (k) { return { key: k, list: g[k] }; }).sort(function (a, b) {
+      return view === "day" ? (a.key < b.key ? 1 : -1) : q.quantity(b.list) - q.quantity(a.list);
+    });
+  }
+  function drawGroups(groups) {
+    var label = function (g) {
+      if (view === "member") { var m = get(g.key); return [m.full_name, m.member_no + " · " + get(m.cluster).name]; }
+      if (view === "centre") return [get(g.key).name, ""];
+      return [f.date(g.key), ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][new Date(g.key + "T00:00:00Z").getUTCDay()]];
+    };
+    var who = { member: "Member", centre: "Received at", day: "Day" }[view];
+    $("head").innerHTML = "<tr><th>" + who + '</th><th class="num">Deliveries</th>' + (view === "member" ? "" : '<th class="num">Members</th>') + '<th class="num">Quantity</th><th class="num">Value</th></tr>';
+    $("rows").innerHTML = groups.map(function (g) {
+      var l = label(g);
+      return '<tr data-href="#" data-g="' + g.key + '"><td class="primary-cell">' + l[0] + (l[1] ? '<span class="cell-sub tabular">' + l[1] + "</span>" : "") + '</td><td class="num">' + g.list.length + "</td>" +
+        (view === "member" ? "" : '<td class="num">' + new Set(g.list.map(function (d) { return d.member; })).size + "</td>") +
+        '<td class="num">' + qtyText(g.list) + '</td><td class="num">' + f.money(q.value(g.list), { whole: true }) + "</td></tr>";
+    }).join("");
+    $("cards").innerHTML = groups.map(function (g) {
+      var l = label(g);
+      return '<a class="rowcard" href="#" data-g="' + g.key + '"><span class="grow"><span class="text-body-lg">' + l[0] + '</span><span class="text-body-md tone-muted tabular">' +
+        (l[1] ? l[1] + " · " : "") + g.list.length + " deliveries</span></span>" +
+        '<span class="col end gap-1"><span class="text-title-md tabular">' + qtyText(g.list) + '</span><span class="text-body-sm tone-muted tabular">' + f.money(q.value(g.list), { whole: true }) + "</span></span></a>";
+    }).join("");
+  }
+  /* A total's row narrows the list to its entries. */
+  function narrow(key) {
+    if (view === "member") $("q").value = get(key).member_no;
+    else if (view === "centre") $("f-centre").value = key;
+    else ALL_DAY = key;
+    setView("entries");
+  }
+  function setView(v) {
+    view = v; shown = 60;
+    document.querySelectorAll("#f-view .chip").forEach(function (c) { c.setAttribute("aria-checked", String(c.getAttribute("data-v") === v)); });
+    draw();
+  }
+  document.addEventListener("click", function (e) {
+    var row = e.target.closest("[data-d], [data-g]");
+    if (!row || !row.closest("#rows, #cards")) return;
+    e.preventDefault();
+    if (row.hasAttribute("data-d")) P.delivery(row.getAttribute("data-d")); else narrow(row.getAttribute("data-g"));
+  });
+  document.querySelectorAll("#f-view .chip").forEach(function (c) { c.addEventListener("click", function () { ALL_DAY = null; setView(c.getAttribute("data-v")); }); });
+  ["f-period", "f-product", "f-round", "f-centre", "f-status"].forEach(function (id) { $(id).addEventListener("change", function () { ALL_DAY = null; shown = 60; draw(); }); });
+  $("q").addEventListener("input", function () { shown = 60; draw(); });
+  $("more").addEventListener("click", function () { shown += 60; draw(); });
+  window.clearFilters = function () { ["f-product", "f-round", "f-centre", "f-status"].forEach(function (id) { $(id).value = ""; }); $("q").value = ""; ALL_DAY = null; draw(); };
+  draw();
+  /* ?d= opens a delivery's panel (from search, the member's tabs, a statement). */
+  /* ?d= takes a delivery id, or a receipt number, which stays stable when the data is regenerated. */
+  var did = new URLSearchParams(location.search).get("d");
+  var hit = did && (get(did) || ALL.find(function (d) { return d.receipt_no === did && d.status === "RECORDED"; }));
+  if (hit) setTimeout(function () { P.delivery(hit.id); }, 0);
+});
+</script>
+</body>
+</html>

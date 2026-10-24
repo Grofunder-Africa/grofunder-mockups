@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Statement · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Statement" data-dest="payments" data-back="index.html" data-compact id="screen">
+
+  <p class="proto-note"><b>M12 · From note 08 (UI-18).</b> One paid payout as the member sees it: the deliveries it paid, grouped by product, grade and price (<code>details.breakdown</code>), each with its value, what was paid before, what was paid now and what is still owed; then the additions and deductions with their notes, the net, how it was paid, the reference, and where the money went (<code>pay_to</code>, kept as it was even if the member's phone changes later).</p>
+  <p class="proto-note"><b>The same figures as the cooperative's statement</b> (C20), from the same breakdown, so what the member and the clerk see never differ. Nothing changes here: a paid payout is fixed, and a mistake is put right on the next one (08). Who in the office prepared it isn't shown to the member.</p>
+  <p class="proto-note"><b>Try:</b> <a href="statement.html?p=po-3">October, part paid, with a bonus and two deductions</a> · <a href="statement.html?p=po-1">August</a>. Switch to Mawingu on Home for maize in bags.</p>
+
+  <div data-roles="out" class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span>
+    <div class="grow"><span class="text-body-md">Signed out, the member app shows only the sign-in screens.</span>
+      <div class="banner-actions"><a class="btn btn-text" href="../auth/sign-in.html">Open sign-in</a></div></div></div>
+
+  <div data-state="loaded" class="col gap-4" data-roles="in">
+    <div class="card card-outlined" id="head"></div>
+    <div class="banner banner-warning hidden" id="b-owed"><span class="mdi mdi-progress-clock" aria-hidden="true"></span>
+      <div class="grow"><span class="text-body-md" id="b-owed-t"></span></div></div>
+
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-md">Deliveries paid</span><span class="text-body-md tone-muted" id="bd-sub"></span></div></div>
+      <div class="list rowcards" id="bd"></div>
+      <div class="disclosure"><div class="disclosure-item">
+        <button class="disclosure-trigger" type="button" aria-expanded="false" id="dl-t">Each delivery</button>
+        <div class="disclosure-panel" hidden><div class="rowcards" id="dl"></div></div>
+      </div></div>
+    </div>
+
+    <div class="card card-outlined">
+      <div class="card-header"><div class="card-header-text"><span class="card-title">What you received</span></div></div>
+      <div class="totals" id="totals"></div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4" data-roles="in">
+    <div class="skeleton-card" style="height:150px"></div><div class="skeleton-card" style="height:200px"></div><div class="skeleton-card" style="height:160px"></div>
+  </div>
+  <div data-state="empty" class="empty" data-roles="in">
+    <span class="mdi mdi-file-document-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No statement yet</span>
+    <span class="text-body-md">A statement appears once the cooperative has paid you.</span>
+    <a class="btn btn-tonal" href="index.html">Payments</a>
+  </div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">The statement shows again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var q = GF.q, f = GF.fmt, A = MemberApp, esc = A.esc, me = A.current, qs = new URLSearchParams(location.search);
+A.title();
+var METHOD = { MPESA: "M-Pesa", BANK: "Bank", CASH: "Cash" };
+var mine = q.payouts({ member: me.id, status: "PAID" }).slice().sort(function (a, b) { return a.paid_at < b.paid_at ? 1 : -1; });
+/* Only the member's own PAID payouts (08). Another one's id, or a draft, isn't shown. */
+var S = qs.get("p") ? mine.find(function (p) { return p.id === qs.get("p"); }) : mine[0];
+
+function unitOf(cpId) { return GF.get(GF.get(cpId).product).unit; }
+/* Quantity as the member knows it: in bags when the cooperative records in bags (07). */
+function qtyOf(g) {
+  var cp = GF.get(g.product), unit = unitOf(g.product), qn = g.quantity_milli / 1000;
+  var base = f.qty(qn, unit, { digits: unit === "LITRE" ? 1 : 0 });
+  if (!cp.recording_unit) return base;
+  var n = qn / cp.unit_factor;
+  return n + " " + (n === 1 ? GF.UNITS[cp.recording_unit][0] : GF.UNITS[cp.recording_unit][1]) + " (" + base + ")";
+}
+function priceOf(g) {
+  var cp = GF.get(g.product), u = unitOf(g.product) === "LITRE" ? "litre" : GF.UNITS[unitOf(g.product)][0];
+  return f.money(g.price_cents) + " a " + u + (cp.recording_unit ? " (" + f.money(g.price_cents * cp.unit_factor) + " a " + GF.UNITS[cp.recording_unit][0] + ")" : "");
+}
+function payTo(p) {
+  var t = p.details.pay_to || {};
+  if (p.method === "CASH") return "Cash, at the office";
+  return t.bank_name ? t.bank_name + " ····" + t.account_last4 : f.phone(t.phone);
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  if (!S) { Proto.go("empty"); return; }
+  var bd = S.details.breakdown, owed = q.sum(bd, function (g) { return g.balance_cents; });
+  document.getElementById("screen").setAttribute("data-sub", S.details.label);
+  document.getElementById("head").innerHTML =
+    '<div class="row between gap-4 wrap"><div class="col gap-1"><span class="text-title-lg">' + esc(S.details.label) + '</span><span class="status status-success" style="align-self:flex-start">Paid</span></div>' +
+    '<div class="col end"><span class="text-body-sm tone-muted">You received</span><span class="text-headline-md tabular" id="net">' + f.money(S.net_cents) + "</span></div></div>" +
+    '<dl class="facts">' +
+      '<dt>Paid on</dt><dd class="tabular">' + f.date(S.paid_at) + "</dd>" +
+      "<dt>By</dt><dd>" + METHOD[S.method] + "</dd>" +
+      (S.method === "CASH" ? "" : "<dt>Sent to</dt><dd class=\"tabular\">" + esc(payTo(S)) + "</dd>") +
+      "<dt>" + (S.method === "BANK" ? "Bank reference" : "M-Pesa receipt") + '</dt><dd class="tabular">' + (S.method === "CASH" ? "None for cash" : esc(S.payment_ref || "Not entered")) + "</dd>" +
+      '<dt>For deliveries up to</dt><dd class="tabular">' + f.date(S.period_end) + (S.product ? " · " + esc(f.productName(S.product)) : "") + "</dd>" +
+      "<dt>Member number</dt><dd class=\"tabular\">" + esc(me.member_no) + "</dd>" +
+    "</dl>";
+  if (owed > 0) {
+    document.getElementById("b-owed").classList.remove("hidden");
+    document.getElementById("b-owed-t").textContent = f.money(owed) + " is still owed on these deliveries. It's offered on your next payout.";
+  }
+
+  var period = function (g) { return g.first === g.last ? f.date(g.first, "short") : f.date(g.first, "short") + " – " + f.date(g.last, "short"); };
+  document.getElementById("bd-sub").textContent = q.sum(bd, function (g) { return g.count; }) + " deliveries, grouped by product, grade and price";
+  document.getElementById("bd").innerHTML = bd.map(function (g) {
+    return '<div class="rowcard" style="align-items:flex-start" data-group><div class="grow col gap-2"><span class="text-body-lg">' + esc(f.productName(g.product, g.grade)) + "</span>" +
+      '<span class="text-body-sm tone-muted tabular">' + period(g) + " · " + g.count + " deliveries · " + qtyOf(g) + "</span>" +
+      '<div class="totals" style="width:100%"><div><span>Value at ' + priceOf(g) + "</span><span>" + f.money(g.value_cents) + "</span></div>" +
+      (g.paid_before_cents ? "<div><span>Paid before</span><span>" + f.money(g.paid_before_cents) + "</span></div>" : "") +
+      "<div><span>Paid now</span><span data-now>" + f.money(g.paid_now_cents) + "</span></div><div><span>Still owed</span><span>" + f.money(g.balance_cents) + "</span></div></div></div></div>";
+  }).join("");
+
+  document.getElementById("dl-t").textContent = "Each delivery (" + S.lines.length + ")";
+  document.getElementById("dl").innerHTML = S.lines.map(function (l) {
+    var d = GF.get(l.delivery);
+    return '<a class="rowcard" href="../deliveries/index.html?d=' + d.id + '"><span class="grow"><span class="text-body-lg tabular">' + f.date(d.delivered_on, "short") + " · " + f.delivery(d) + "</span>" +
+      '<span class="text-body-sm tone-muted tabular">' + esc([(GF.get(d.round) || {}).name, d.receipt_no].filter(Boolean).join(" · ")) + "</span></span>" +
+      '<span class="trail"><span class="text-title-md tabular">' + f.money(l.amount_cents) + "</span></span></a>";
+  }).join("");
+
+  var rows = '<div><span>For your deliveries</span><span data-gross>' + f.money(S.gross_cents) + "</span></div>";
+  S.items.forEach(function (it) {
+    var ty = GF.get(it.type), add = ty.direction === "ADDITION";
+    rows += '<div data-item="' + ty.direction + '" data-cents="' + it.amount_cents + '"><span>' + esc(ty.name) + (it.details.note ? ' <span class="sub">' + esc(it.details.note) + "</span>" : "") + "</span><span>" + (add ? "+ " : "− ") + f.money(it.amount_cents) + "</span></div>";
+  });
+  rows += '<div class="net"><span>You received</span><span>' + f.money(S.net_cents) + "</span></div>";
+  document.getElementById("totals").innerHTML = rows;
+});
+</script>
+</body>
+</html>

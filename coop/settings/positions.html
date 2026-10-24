@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Positions · Settings · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Settings" data-dest="settings" data-wide>
+  <div data-subnav="settings" data-current="positions" data-label="Settings"></div>
+
+  <p class="proto-note"><b>C25 · From note 05 (Position).</b> Every new cooperative starts with the default list (chair, vice chair, secretary, treasurer, board member, supervisory committee member, cluster leader), which it renames, extends or archives. Editing needs <code>members.configure</code> (Administrator and Manager).</p>
+  <p class="proto-note"><b>The rules on screen (05).</b> Scope can't change while anyone holds the position; the limit can't go below the people holding it now (per cluster for a cluster position); a position never held can be deleted, otherwise it is archived and its past holders keep their record. Names are unique, archived or not.</p>
+  <p class="proto-note"><b>Page, panel, dialog (UI-13).</b> A position opens as a panel with its holders; Add is a dialog of four fields. Who holds what is assigned on a member's record (phase 6), so holders here are read-only.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">Positions</span>
+        <span class="text-body-md tone-muted">The positions members can hold, for the whole cooperative or for one cluster.</span></div></div>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Position</th><th>Held for</th><th class="num">At once</th><th class="num">Holders now</th><th>Status</th></tr></thead>
+        <tbody id="rows"></tbody></table></div>
+    </div>
+    <div id="archived"></div>
+  </div>
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:360px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-account-tie-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No positions</span>
+    <span class="text-body-md">Positions such as chair or cluster leader are what members can hold. Add the ones your by-laws name.</span>
+    <button class="btn btn-filled" type="button" data-roles="admin manager" data-write onclick="addPosition()">Add position</button></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the positions</span><button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var q = GF.q, esc = Portal.esc, K = Portal.COOP;
+var ROLE = (function () { try { return localStorage.getItem("gf.role.coop") || "admin"; } catch (e) { return "admin"; } })();
+var CAN = ["admin", "manager"].indexOf(ROLE) > -1 && Portal.status !== "ended";
+if (CAN) document.querySelector("[data-screen]").setAttribute("data-action", JSON.stringify({ label: "Add position", icon: "plus", on: "addPosition()" }));
+Portal.mountBanner();
+
+var mine = GF.positions.filter(function (p) { return p.cooperative === K; });
+var holders = function (pid) { return GF.memberPositions.filter(function (h) { return h.position === pid && h.status === "ACTIVE"; }); };
+var everHeld = function (pid) { return GF.memberPositions.some(function (h) { return h.position === pid; }); };
+var scopeLabel = function (s) { return s === "CLUSTER" ? "One cluster" : "The cooperative"; };
+var limit = function (p) { return p.max_holders == null ? "No limit" : p.max_holders + (p.scope === "CLUSTER" ? " per cluster" : ""); };
+var stat = function (s) { return s === "ACTIVE" ? '<span class="status status-success">Active</span>' : '<span class="status status-neutral">Archived</span>'; };
+/* The most holders in any one cluster, which is what a cluster position's limit counts. */
+function peak(p) {
+  var hs = holders(p.id);
+  if (p.scope !== "CLUSTER") return hs.length;
+  var by = {}; hs.forEach(function (h) { by[h.cluster] = (by[h.cluster] || 0) + 1; });
+  return Object.keys(by).reduce(function (m, k) { return Math.max(m, by[k]); }, 0);
+}
+function row(p) {
+  return '<tr data-href="#" onclick="positionPanel(\'' + p.id + '\')"><td class="primary-cell">' + esc(p.name) + (p.details.name_sw ? '<span class="cell-sub">' + esc(p.details.name_sw) + "</span>" : "") +
+    "</td><td>" + scopeLabel(p.scope) + '</td><td class="num">' + limit(p) + '</td><td class="num">' + (holders(p.id).length || "–") + "</td><td>" + stat(p.status) + "</td></tr>";
+}
+function draw() {
+  var active = mine.filter(function (p) { return p.status === "ACTIVE"; }), arch = mine.filter(function (p) { return p.status !== "ACTIVE"; });
+  document.getElementById("rows").innerHTML = active.map(row).join("");
+  document.getElementById("archived").innerHTML = arch.length ? '<div class="disclosure"><button class="disclosure-trigger" type="button" aria-expanded="false">Archived (' + arch.length + ')</button><div class="disclosure-panel" hidden><div class="table-wrap"><table class="table"><tbody>' + arch.map(row).join("") + "</tbody></table></div></div></div>" : "";
+}
+if (!mine.length) document.addEventListener("DOMContentLoaded", function () { setTimeout(function () { Proto.go("empty"); }, 0); });
+
+var field = function (id, label, value, opts) {
+  opts = opts || {};
+  return '<div class="field"><label class="field-label" for="' + id + '">' + label + (opts.optional ? ' <span class="optional">(optional)</span>' : "") + "</label>" +
+    (opts.select ? '<select class="field-input" id="' + id + '"' + (opts.disabled ? " disabled" : "") + ">" + opts.select + "</select>"
+      : '<input class="field-input' + (opts.num ? " tabular" : "") + '" id="' + id + '"' + (opts.num ? ' inputmode="numeric"' : "") + ' value="' + esc(value == null ? "" : value) + '">') +
+    (opts.help ? '<span class="field-help" id="' + id + '-h">' + opts.help + "</span>" : "") + '<span class="field-error" id="' + id + '-e" hidden></span></div>';
+};
+var scopeOpts = function (cur) { return [["COOPERATIVE", "The whole cooperative"], ["CLUSTER", "One cluster (each cluster has its own)"]].map(function (o) { return '<option value="' + o[0] + '"' + (o[0] === cur ? " selected" : "") + ">" + o[1] + "</option>"; }).join(""); };
+
+/* Add: a dialog of four fields (UI-13). An existing name, archived or not, is refused; an archived one is offered back. */
+function addPosition() {
+  var el = Proto.dialog({ title: "Add a position", body:
+    field("pn", "Name", "") + field("ps", "Name in Swahili", "", { optional: true }) + field("pc", "Held for", "", { select: scopeOpts("COOPERATIVE") }) +
+    field("pm", "How many can hold it at once", "", { optional: true, num: true, help: "Leave it empty for no limit. For a cluster position, it counts per cluster." }),
+    submit: "Add position", onSubmit: function () { Proto.snack("Position added"); } });
+  var n = el.querySelector("#pn"), e = el.querySelector("#pn-e");
+  n.addEventListener("input", function () {
+    var hit = mine.find(function (p) { return p.name.toLowerCase() === n.value.trim().toLowerCase(); });
+    e.hidden = !hit; n.setAttribute("aria-invalid", String(!!hit));
+    if (hit) e.innerHTML = hit.status === "ARCHIVED" ? esc(hit.name) + ' is archived. <a href="#" onclick="Proto.close();Proto.snack(\'' + esc(hit.name) + ' is back\');return false">Bring it back</a> instead.' : "There is already a position called " + esc(hit.name) + ".";
+  });
+}
+
+/* A position as a panel: its fields, and who holds it now (UI-13: one item and its children). */
+function positionPanel(id) {
+  var p = GF.get(id), hs = holders(id), held = hs.length > 0, top = peak(p), active = p.status === "ACTIVE";
+  var editable = CAN && active;
+  var list = hs.map(function (h) {
+    var m = GF.get(h.member), cl = h.cluster ? GF.get(h.cluster).name : "";
+    return '<a class="rowcard" href="../members/member.html?m=' + m.id + '"><span class="grow"><span class="text-body-lg">' + esc(m.full_name) + '</span><span class="text-body-sm tone-muted">' +
+      m.member_no + (cl ? " · " + esc(cl) : "") + " · since " + GF.fmt.date(h.details.started_on) + '</span></span><span class="mdi mdi-chevron-right" aria-hidden="true"></span></a>';
+  }).join("");
+  var el = Proto.sheet({ title: esc(p.name), body:
+    '<div class="row gap-2 wrap">' + stat(p.status) + '<span class="text-body-md tone-muted">' + scopeLabel(p.scope) + " · " + limit(p) + "</span></div>" +
+    (editable ? '<div class="col gap-4">' + field("en", "Name", p.name) + field("es", "Name in Swahili", p.details.name_sw, { optional: true }) +
+      field("ec", "Held for", "", { select: scopeOpts(p.scope), disabled: held, help: held ? "Can't change while " + hs.length + (hs.length === 1 ? " person holds" : " people hold") + " it. End their terms on their records first." : "" }) +
+      field("em", "How many can hold it at once", p.max_holders, { optional: true, num: true, help: "Leave it empty for no limit." + (top ? " " + top + (p.scope === "CLUSTER" ? " in one cluster" : "") + " hold it now." : "") }) +
+      '<div class="field"><label class="field-label" for="ed">What the position involves <span class="optional">(optional)</span></label><textarea class="field-input" id="ed">' + esc(p.details.description) + "</textarea></div></div>"
+      : '<dl class="facts"><dt>In Swahili</dt><dd>' + (esc(p.details.name_sw) || "–") + "</dd><dt>Held for</dt><dd>" + scopeLabel(p.scope) + "</dd><dt>At once</dt><dd>" + limit(p) + "</dd><dt>What it involves</dt><dd>" + (esc(p.details.description) || "–") + "</dd></dl>") +
+    '<div class="col gap-2"><span class="text-title-md">Holding it now</span><span class="text-body-sm tone-muted">Positions are given and ended on a member\'s record.</span>' +
+    '<div class="list rowcards">' + (list || '<div class="rowcard"><span class="text-body-md tone-muted">Nobody holds it now.</span></div>') + "</div></div>",
+    footer: editable ? '<button class="btn btn-text" type="button" onclick="' + (everHeld(id) ? "archivePosition('" + id + "')" : "deletePosition('" + id + "')") + '">' + (everHeld(id) ? "Archive" : "Delete") + "</button>" +
+      '<span class="spacer"></span><button class="btn btn-filled" type="button" id="save">Save</button>'
+      : (CAN && !active ? '<button class="btn btn-tonal" type="button" onclick="Proto.close();Proto.snack(\'' + esc(p.name) + ' is back\')">Bring it back</button>' : "") });
+  if (!editable) return;
+  var max = el.querySelector("#em"), err = el.querySelector("#em-e");
+  el.querySelector("#save").addEventListener("click", function () {
+    var v = max.value.trim(), n = v === "" ? null : +v, bad = "";
+    if (v !== "" && !(n >= 0 && Math.floor(n) === n)) bad = "Enter a whole number, or leave it empty for no limit.";
+    else if (n != null && n < top) bad = top + (top === 1 ? " person holds" : " people hold") + " it now" + (p.scope === "CLUSTER" ? " in one cluster" : "") + ", so the limit can't go below " + top + ".";
+    else if (n === 0) bad = "Enter 1 or more, or leave it empty for no limit.";
+    err.hidden = !bad; err.textContent = bad; max.setAttribute("aria-invalid", String(!!bad));
+    if (!bad) { Proto.close(); Proto.snack(p.name + " saved"); }
+  });
+}
+function archivePosition(id) {
+  var p = GF.get(id), n = holders(id).length;
+  Proto.confirm({ title: "Archive " + esc(p.name) + "?", message: "It leaves the pickers." + (n ? " The " + n + " current " + (n === 1 ? "holder keeps" : "holders keep") + " it until their terms are ended." : "") + " Past holders keep it on their record.",
+    confirm: "Archive", onConfirm: function () { Proto.close(); Proto.snack(p.name + " archived", "Undo"); } });
+}
+function deletePosition(id) {
+  var p = GF.get(id);
+  Proto.confirm({ title: "Delete " + esc(p.name) + "?", message: "Nobody has ever held it, so it can go.", confirm: "Delete", destructive: true, onConfirm: function () { Proto.close(); Proto.snack(p.name + " deleted"); } });
+}
+draw();
+</script>
+</body>
+</html>

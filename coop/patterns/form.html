@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Record delivery · form pattern · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Record delivery" data-sub="Kijani Valley Dairy" data-flow data-back="list.html" data-compact>
+
+  <p class="proto-note"><b>Pattern sample: a task form, phone-first (phase 2).</b> Clerks record deliveries on phones at the collection centres (UI-2), so the form is one column, the main action is pinned at the foot, and the keyboard opens on numbers for the quantity. The produce flow (phase 7) designs it properly from note 07.</p>
+  <p class="proto-note"><b>A flow, not a destination.</b> No navigation bar under a form being filled in; the app bar has a way back. On a phone that is the whole screen.</p>
+  <p class="proto-note"><b>One after another.</b> After "Record", the form stays open for the next member and keeps the date, round and centre. The result is a snackbar with View, never a dialog.</p>
+  <p class="proto-note"><b>Soft checks warn, they don't block</b> (note 07): a second delivery in the same round, a date outside the round's days. Hard rules (an exited member, a quantity of 0) are field errors.</p>
+  <p class="proto-note proto-gap"><b>F5: offline.</b> Collection centres often have poor signal, and the kit has only an offline banner. The "offline" state shows what a queued entry could look like; it needs a design and a kit decision.</p>
+
+  <form class="col gap-4" onsubmit="return false" data-state="loaded invalid offline">
+    <div class="banner banner-info" data-state="offline">
+      <span class="mdi mdi-cloud-off-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm">No connection</span>
+        <span class="text-body-md">Deliveries you record are kept on this phone and sent when the connection is back. 3 waiting.</span></div>
+    </div>
+
+    <div class="field combo">
+      <label class="field-label" for="member">Member</label>
+      <div class="field-box has-trail">
+        <input class="field-input" id="member" value="Wanjiku Kamau" autocomplete="off">
+        <button class="icon-btn" type="button" aria-label="Clear member"><span class="mdi mdi-close-circle-outline" aria-hidden="true"></span></button>
+      </div>
+      <span class="field-help tabular">M-0142 · Gathiru cluster · ID 23456789</span>
+    </div>
+
+    <div class="field">
+      <span class="field-label" id="grade-l">Grade <span class="optional">(optional)</span></span>
+      <div class="chip-row" data-choice role="radiogroup" aria-labelledby="grade-l">
+        <button class="chip" type="button" role="radio" aria-checked="true">Grade A</button>
+        <button class="chip" type="button" role="radio" aria-checked="false">Grade B</button>
+        <button class="chip" type="button" role="radio" aria-checked="false">Not graded</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label" for="qty">Quantity</label>
+      <div class="field-box has-trail">
+        <input class="field-input tabular" id="qty" inputmode="decimal" value="18.5" data-state="loaded offline">
+        <span class="trail affix">litres</span>
+      </div>
+      <span class="field-help">Raw milk is recorded in litres.</span>
+    </div>
+    <div class="field" data-state="invalid">
+      <label class="field-label" for="qty2">Quantity</label>
+      <div class="field-box has-trail">
+        <input class="field-input tabular" id="qty2" inputmode="decimal" value="0" aria-invalid="true" aria-describedby="qty2-e">
+        <span class="trail affix">litres</span>
+      </div>
+      <span class="field-error" id="qty2-e">Enter a quantity above 0.</span>
+    </div>
+
+    <div class="form-grid">
+      <div class="pair">
+        <div class="field">
+          <label class="field-label" for="date">Date</label>
+          <div class="field-box has-trail"><input class="field-input tabular" id="date" value="30 Oct 2026">
+            <span class="trail"><span class="mdi mdi-calendar-blank-outline" aria-hidden="true"></span></span></div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="round">Round</label>
+          <select class="field-input" id="round"><option>Morning</option><option>Evening</option><option>No round</option></select>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="centre">Received at</label>
+        <select class="field-input" id="centre"><option>Gathiru</option><option>Kiamwangi</option><option>Ndumberi</option></select>
+      </div>
+      <div class="field">
+        <label class="field-label" for="receipt">Receipt number <span class="optional">(optional)</span></label>
+        <input class="field-input tabular" id="receipt" value="R-4473">
+      </div>
+    </div>
+
+    <div class="banner banner-warning" role="status" data-state="loaded offline">
+      <span class="mdi mdi-alert-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-body-md">Wanjiku already has a delivery in the morning round today (18.0 L, R-4468). Record this one too if it is a second delivery.</span></div>
+    </div>
+    <div class="banner banner-error" role="alert" data-state="invalid">
+      <span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm">Check one thing</span><span class="text-body-md">The quantity is missing.</span></div>
+    </div>
+
+    <div class="disclosure">
+      <div class="disclosure-item">
+        <button class="disclosure-trigger" type="button" aria-expanded="false">Rejected milk, quality readings and a note</button>
+        <div class="disclosure-panel" hidden>
+          <div class="form-grid">
+            <div class="field"><label class="field-label" for="rej">Turned away <span class="optional">(optional)</span></label>
+              <div class="field-box has-trail"><input class="field-input tabular" id="rej" inputmode="decimal"><span class="trail affix">litres</span></div></div>
+            <div class="field"><label class="field-label" for="den">Density <span class="optional">(optional)</span></label>
+              <input class="field-input tabular" id="den" inputmode="decimal" placeholder="1.028"></div>
+            <div class="field field-wide"><label class="field-label" for="note">Note <span class="optional">(optional)</span></label>
+              <textarea class="field-input" id="note"></textarea></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <div data-footer>
+    <button class="btn btn-filled" type="button" onclick="Proto.snack('Recorded 18.5 L for Wanjiku Kamau', 'View')">Record</button>
+  </div>
+</div>
+</body>
+</html>

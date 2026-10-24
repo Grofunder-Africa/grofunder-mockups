@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Member · detail pattern · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Wanjiku Kamau" data-dest="members" data-back="list.html" data-wide
+     data-action='{"label":"Record delivery","icon":"plus","href":"form.html","roles":"admin manager clerk"}'
+     data-menu='[{"label":"Edit details","icon":"pencil-outline","roles":"admin manager","on":"Proto.snack(&apos;Editing is drawn with the members flow&apos;)"},{"label":"Assign a position","icon":"account-star-outline","roles":"admin manager","on":"Proto.snack(&apos;Positions are drawn with the members flow&apos;)"},{"label":"Start a payout","icon":"cash-plus","roles":"admin manager accountant","on":"Proto.snack(&apos;Payouts are drawn in phase 8&apos;)"},{"label":"Suspend","icon":"pause-circle-outline","roles":"admin manager","sep":true,"on":"suspend()"},{"label":"Record an exit","icon":"logout-variant","roles":"admin manager","destructive":true,"on":"suspend(true)"}]'>
+
+  <p class="proto-note"><b>Pattern sample: a record's detail screen (phase 2).</b> A header card with the record's identity and status, figures, then in-page tabs for what belongs to it. The members flow (phase 6) designs it properly from note 05.</p>
+  <p class="proto-note"><b>Actions.</b> The page's main action is in the app bar (a FAB on a phone); everything else is in ⋮, role-gated by the codes in note 09. A status change that needs a reason asks for it in a dialog; the result is a snackbar.</p>
+
+  <!-- LOADED -->
+  <div data-state="loaded" class="col gap-4">
+    <div class="card card-outlined card-lg">
+      <div class="row-top gap-4 wrap">
+        <span class="avatar" style="width:64px;height:64px;font-size:22px">WK</span>
+        <div class="col gap-1 grow">
+          <div class="row gap-3 wrap"><span class="text-headline-sm">Wanjiku Kamau</span><span class="status status-success" id="status-chip">Active</span></div>
+          <span class="text-body-md tone-muted tabular">M-0142 · Gathiru cluster · member since 3 Mar 2019</span>
+          <span class="text-body-md tone-muted"><span class="mdi mdi-cellphone-check" aria-hidden="true"></span> Uses the member app</span>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card"><span class="stat-text"><span class="stat-label">Delivered in October</span><span class="stat-value" id="s-oct"></span><span class="stat-caption" id="s-oct-c"></span></span></div>
+        <div class="stat-card"><span class="stat-text"><span class="stat-label">Still to pay</span><span class="stat-value" id="s-owed"></span><span class="stat-caption" id="s-owed-c"></span></span></div>
+        <div class="stat-card"><span class="stat-text"><span class="stat-label">Last paid</span><span class="stat-value" id="s-last"></span><span class="stat-caption" id="s-last-c"></span></span></div>
+      </div>
+    </div>
+
+    <div data-tabset class="col gap-4">
+      <div class="tabs secondary" role="tablist" aria-label="Member">
+        <button class="tab" type="button" role="tab" data-tab="details" aria-selected="true">Details</button>
+        <button class="tab" type="button" role="tab" data-tab="deliveries" aria-selected="false">Deliveries</button>
+        <button class="tab" type="button" role="tab" data-tab="payouts" aria-selected="false">Payouts</button>
+        <button class="tab" type="button" role="tab" data-tab="history" aria-selected="false">History</button>
+      </div>
+
+      <div data-panel="details" class="two-col">
+        <div class="col gap-4">
+          <div class="card card-outlined">
+            <div class="card-header"><div class="card-header-text"><span class="card-title">Personal details</span></div>
+              <button class="btn btn-text btn-sm" type="button" data-roles="admin manager">Edit</button></div>
+            <dl class="facts">
+              <dt>Name as on ID</dt><dd>Wanjiku Kamau</dd>
+              <dt>Likes to be called</dt><dd>Shiru</dd>
+              <dt>ID</dt><dd class="tabular">National ID 23456789</dd>
+              <dt>Phone</dt><dd class="tabular">0712 345 678</dd>
+              <dt>Gender</dt><dd>Female</dd>
+              <dt>Born</dt><dd class="tabular">14 Jun 1981 (45)</dd>
+              <dt>Lives in</dt><dd>Gathiru village, Ndumberi ward, Kiambu Town, Kiambu</dd>
+              <dt>Language</dt><dd>Swahili</dd>
+            </dl>
+          </div>
+          <div class="card card-outlined">
+            <div class="card-header"><div class="card-header-text"><span class="card-title">Nominees</span><span class="card-description">Who receives Wanjiku's interest if she dies. Shares add up to 100%.</span></div></div>
+            <div class="rowcards">
+              <div class="rowcard"><span class="avatar avatar-sm">JK</span><span class="grow"><span class="text-body-lg">James Kamau</span><span class="text-body-md tone-muted">Husband · 0722 111 222</span></span><span class="trail text-title-md tabular">60%</span></div>
+              <div class="rowcard"><span class="avatar avatar-sm">AN</span><span class="grow"><span class="text-body-lg">Alice Njoki</span><span class="text-body-md tone-muted">Daughter</span></span><span class="trail text-title-md tabular">40%</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="col gap-4">
+          <div class="card card-outlined">
+            <div class="card-header"><div class="card-header-text"><span class="card-title">Positions</span></div></div>
+            <div class="rowcards">
+              <div class="rowcard"><span class="mdi mdi-account-star-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Cluster leader</span><span class="text-body-md tone-muted">Gathiru · since 1 Jan 2024</span></span></div>
+            </div>
+          </div>
+          <div class="card card-outlined">
+            <div class="card-header"><div class="card-header-text"><span class="card-title">Staff notes</span></div></div>
+            <p class="text-body-md">Delivers to Gathiru most mornings; her son brings the evening milk.</p>
+          </div>
+        </div>
+      </div>
+
+      <div data-panel="deliveries" class="hidden"><div class="list rowcards" id="t-deliveries"></div></div>
+      <div data-panel="payouts" class="hidden"><div class="list rowcards" id="t-payouts"></div></div>
+      <div data-panel="history" class="hidden">
+        <div class="card card-outlined"><div class="rowcards" id="t-history"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div data-state="loading" class="col gap-4">
+    <div class="skeleton-card" style="height:200px"></div>
+    <div class="skeleton" style="height:48px"></div>
+    <div class="skeleton-card" style="height:260px"></div>
+  </div>
+
+  <!-- ERROR -->
+  <div data-state="error" class="error-state">
+    <span class="mdi mdi-account-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load this member</span>
+    <span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button>
+  </div>
+</div>
+
+<script>
+/* Wanjiku Kamau (M-0142) from the shared data. */
+(function () {
+  var q = GF.q, f = GF.fmt, W = GF.who.wanjiku;
+  var all = q.deliveries({ member: W });
+  var oct = all.filter(function (d) { return d.delivered_on >= "2026-10-01"; });
+  var owing = all.filter(function (d) { return d.status === "RECORDED" && q.standing(d).balance_cents > 0; });
+  var paid = q.payouts({ member: W, status: "PAID" }).sort(function (a, b) { return a.paid_at < b.paid_at ? 1 : -1; });
+  var set = function (id, t) { document.getElementById(id).textContent = t; };
+  set("s-oct", f.qty(q.quantity(oct), "LITRE"));
+  set("s-oct-c", oct.filter(function (d) { return d.status === "RECORDED"; }).length + " deliveries");
+  set("s-owed", f.money(q.balance(owing)));
+  set("s-owed-c", "On " + owing.length + " deliveries");
+  set("s-last", f.money(paid[0].net_cents));
+  set("s-last-c", f.date(paid[0].paid_at, "short") + ", " + { MPESA: "M-Pesa", BANK: "bank", CASH: "cash" }[paid[0].method]);
+  document.getElementById("t-deliveries").innerHTML = all.slice().reverse().slice(0, 8).map(function (d) {
+    var v = d.status === "VOIDED", st = q.standing(d);
+    var chip = v ? '<span class="status status-neutral">Voided</span>' : st.state === "PAID" ? '<span class="status status-success">Paid</span>' : st.state === "PART_PAID" ? '<span class="status status-warning">Part paid</span>' : '<span class="status status-neutral">Unpaid</span>';
+    return '<div class="rowcard"><span class="grow"><span class="text-body-lg">' + f.productName(d.product, d.grade) + '</span><span class="text-body-md tone-muted tabular">' +
+      f.date(d.delivered_on, "short") + " · " + GF.get(d.round).name + " · " + (d.receipt_no || "no receipt") + (v ? " · " + d.details.void_reason : "") + "</span></span>" +
+      '<span class="trail"><span class="text-title-md tabular' + (v ? " struck tone-muted" : "") + '">' + f.delivery(d) + "</span>" + chip + "</span></div>";
+  }).join("");
+  document.getElementById("t-payouts").innerHTML = q.payouts({ member: W }).slice().reverse().map(function (p) {
+    return '<a class="rowcard" href="#"><span class="grow"><span class="text-body-lg">' + p.details.label + '</span><span class="text-body-md tone-muted">' +
+      (p.paid_at ? f.date(p.paid_at, "short") + " · " + { MPESA: "M-Pesa", BANK: "Bank", CASH: "Cash" }[p.method] : "Draft") + "</span></span>" +
+      '<span class="trail"><span class="text-title-md tabular">' + f.money(p.net_cents) + '</span><span class="status status-' + (p.status === "PAID" ? "success" : p.status === "DRAFT" ? "info" : "neutral") + '">' +
+      { PAID: "Paid", DRAFT: "Draft", CANCELLED: "Cancelled" }[p.status] + "</span></span></a>";
+  }).join("");
+  var TONE = { ACTIVE: "success", SUSPENDED: "warning", EXITED: "neutral" }, LABEL = { ACTIVE: "Active", SUSPENDED: "Suspended", EXITED: "Exited" };
+  document.getElementById("t-history").innerHTML = q.statusHistory(W).map(function (h) {
+    var what = h.from_status === "" ? "Joined" : h.from_status === "SUSPENDED" && h.to_status === "ACTIVE" ? "Back from suspension" : '"' + h.details.reason + '"';
+    return '<div class="rowcard"><span class="status status-' + TONE[h.to_status] + '">' + LABEL[h.to_status] + '</span><span class="grow"><span class="text-body-lg">' + what +
+      '</span><span class="text-body-md tone-muted">' + f.date(h.changed_at) + " · " + (h.changed_by ? h.changed_by + ", in the portal" : "imported from the old register") + "</span></span></div>";
+  }).join("");
+})();
+function suspend(exit) {
+  Proto.dialog({
+    title: exit ? "Record an exit" : "Suspend Wanjiku",
+    body: '<p class="text-body-md tone-muted">' + (exit
+      ? "She stops being a member. Her deliveries and payouts stay on record, and her cluster leader position ends."
+      : "She stays a member, but her cluster leader position ends. You can make her active again later.") + "</p>" +
+      (exit ? '<div class="field"><label class="field-label" for="why-k">Why</label><select class="field-input" id="why-k"><option>Withdrew</option><option>Expelled</option><option>Died</option><option>Transferred</option></select></div>' : "") +
+      '<div class="field"><label class="field-label" for="why">Reason</label><textarea class="field-input" id="why" placeholder="Shown in her history"></textarea></div>',
+    submit: exit ? "Record exit" : "Suspend",
+    onSubmit: function () {
+      var c = document.getElementById("status-chip");
+      c.textContent = exit ? "Exited" : "Suspended";
+      c.className = "status " + (exit ? "status-neutral" : "status-warning");
+      Proto.snack(exit ? "Exit recorded" : "Wanjiku is suspended", "Undo");
+    }
+  });
+}
+</script>
+</body>
+</html>

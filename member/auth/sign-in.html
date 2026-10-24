@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in · member app · GroFunder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+<script src="auth.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Sign in" data-auth="sm">
+  <p class="proto-note"><b>M2 · Sign in (note 06).</b> The ID number (its type picked first) or the phone, then the 4-digit PIN on a keypad, then a 6-digit SMS code, every time. The code is sent only after a correct PIN. One step per screen; the steps are this page's states.</p>
+  <p class="proto-note"><b>One answer for every failure</b> (06): a wrong ID, a wrong PIN, and a login whose records have all ended get the same message, so the screen reveals nothing. After 5 wrong tries the ID is locked for 15 minutes.</p>
+  <p class="proto-note"><b>Codes</b> (06): 5 minutes, 5 tries, another after 60 s, at most 5 an hour.</p>
+  <p class="proto-note proto-gap"><b>F1 and F4.</b> The kit has no ID-or-phone, PIN and SMS-code sign-in (F1), and no PinPad or OtpInput (F4; proposed in <code>specimens/new-components.html</code>).</p>
+
+  <div class="brand-lockup"><img src="../../assets/brand/grofunder-wordmark.png" alt="GroFunder"></div>
+
+  <!-- Step 1: who -->
+  <form class="col gap-4" data-state="loaded" id="who" novalidate>
+    <div class="col gap-1"><h1 class="text-headline-sm">Sign in</h1><p class="text-body-md tone-muted">See your deliveries and payments from your cooperative.</p></div>
+    <div class="field">
+      <span class="field-label" id="how">Sign in with</span>
+      <div class="chip-row" data-choice role="radiogroup" aria-labelledby="how" id="kind">
+        <button class="chip" type="button" role="radio" aria-checked="true" data-kind="NATIONAL_ID">National ID</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-kind="PASSPORT">Passport</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-kind="ALIEN_ID">Alien ID</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-kind="PHONE">Phone number</button>
+      </div>
+    </div>
+    <div class="field"><label class="field-label" for="idno" id="idno-l">ID number</label>
+      <input class="field-input tabular" id="idno" inputmode="numeric" value="23456789" autocomplete="username" aria-describedby="idno-e">
+      <span class="field-error hidden" id="idno-e">Enter your ID number.</span></div>
+    <button class="btn btn-filled btn-lg btn-block" type="submit">Continue</button>
+    <div class="col center gap-1">
+      <a class="btn btn-text" href="claim.html">First time? Find your membership</a>
+      <a class="btn btn-text" href="forgot.html">Forgot your PIN?</a>
+    </div>
+  </form>
+
+  <!-- Step 2: PIN -->
+  <div class="col gap-4" data-state="pin wrong" id="pin-step">
+    <div class="col gap-1" style="text-align:center"><h1 class="text-headline-sm">Enter your PIN</h1>
+      <p class="text-body-md tone-muted tabular"><span class="who-line">National ID 23456789</span> · <a href="#" onclick="Proto.go('loaded');return false">Change</a></p></div>
+    <p class="text-body-md tone-error" style="text-align:center" role="alert" data-state="wrong">Those details don't match. Check your ID number and PIN. 3 tries left.</p>
+    <div id="pin-pad"></div>
+  </div>
+
+  <!-- Locked: 5 wrong tries -->
+  <div class="col gap-4" data-state="locked">
+    <div class="banner banner-error"><span class="mdi mdi-lock-clock" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm">Too many tries</span>
+        <span class="text-body-md">For your safety, signing in with this ID is paused for 15 minutes. If you've forgotten your PIN, you can set a new one now.</span></div></div>
+    <a class="btn btn-filled btn-lg btn-block" href="forgot.html">Set a new PIN</a>
+    <button class="btn btn-text" type="button" onclick="Proto.go('loaded')">Back to sign in</button>
+  </div>
+
+  <!-- Step 3: SMS code -->
+  <div class="col gap-4" data-state="code expired" id="code-step">
+    <div class="col gap-1"><h1 class="text-headline-sm">Enter the code we sent</h1>
+      <p class="text-body-md tone-muted tabular">An SMS with a 6-digit code went to 0712 ••• 678. It works for 5 minutes.</p></div>
+    <div id="code-boxes"></div>
+    <p class="text-body-md tone-error" role="alert" data-state="expired">That code has expired. Ask for a new one.</p>
+    <p class="text-body-md tone-muted" style="text-align:center" id="resend"><button class="btn btn-text" type="button" onclick="Proto.snack('A new code is on its way');MemberAuth.countdown(document.getElementById('resend'),60)">Send a new code</button><span data-left></span></p>
+    <p class="text-body-sm tone-muted" style="text-align:center">Lost the phone or the number? Ask your cooperative's office for help.</p>
+  </div>
+
+  <div class="col gap-4" data-state="loading">
+    <div class="skeleton" style="height:32px;width:60%"></div><div class="skeleton" style="height:48px"></div><div class="skeleton" style="height:48px"></div>
+  </div>
+  <div class="error-state" data-state="error"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Signing in needs a connection. Try again when you have signal.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var LABEL = { NATIONAL_ID: "National ID", PASSPORT: "Passport", ALIEN_ID: "Alien ID", PHONE: "Phone" };
+  var kind = "NATIONAL_ID", input = document.getElementById("idno"), err = document.getElementById("idno-e");
+  document.getElementById("kind").addEventListener("click", function (e) {
+    var c = e.target.closest("[data-kind]"); if (!c) return;
+    kind = c.getAttribute("data-kind");
+    var phone = kind === "PHONE";
+    document.getElementById("idno-l").textContent = phone ? "Phone number" : LABEL[kind] + " number";
+    input.setAttribute("inputmode", phone ? "tel" : kind === "NATIONAL_ID" ? "numeric" : "text");
+    input.value = phone ? "0712 345 678" : kind === "NATIONAL_ID" ? "23456789" : "";
+    err.textContent = phone ? "Enter your phone number." : "Enter your " + LABEL[kind].toLowerCase() + " number.";
+  });
+  document.getElementById("who").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var empty = !input.value.trim();
+    err.classList.toggle("hidden", !empty); input.setAttribute("aria-invalid", String(empty));
+    if (empty) return;
+    document.querySelectorAll(".who-line").forEach(function (n) { n.textContent = LABEL[kind] + " " + input.value.trim(); });
+    Proto.go("pin");
+  });
+  document.getElementById("pin-pad").innerHTML = MemberAuth.padHtml('<button type="button" class="key-plain" aria-label="Forgot your PIN?" onclick="location.href=\'forgot.html\'"><span class="mdi mdi-help-circle-outline" aria-hidden="true"></span></button>');
+  MemberAuth.keypad(document.getElementById("pin-step"), { done: function () { Proto.go("code"); MemberAuth.countdown(document.getElementById("resend"), 60); } });
+  document.getElementById("code-boxes").innerHTML = MemberAuth.otpHtml();
+  MemberAuth.otp(document.getElementById("code-step"), function () { MemberAuth.finish(); });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Forgot PIN · member app · GroFunder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+<script src="auth.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Forgot PIN" data-auth="sm">
+  <p class="proto-note"><b>M4 · Forgot PIN (note 06).</b> The kit's reset by an SMS code to the login's phone; holding the phone is the proof, so the ID isn't asked again. The new PIN follows the PIN rule. Every session ends, so other phones are signed out.</p>
+  <p class="proto-note"><b>The same answer either way:</b> the code step says "if this matches a login", so the screen doesn't confirm who has one (06).</p>
+  <p class="proto-note proto-gap"><b>Gap: a lost number.</b> The reset code goes to the login's phone, sign-up refuses an ID that already has a login, and nothing in note 06 lets staff or GroFunder move a login to a new number. So a member who loses their number has no way back in. Logged for the backend.</p>
+  <p class="proto-note proto-gap"><b>F1 and F4.</b> The kit's reset screen takes an email or phone and a typed code; the member app's version uses the keypad and code boxes proposed in F4.</p>
+
+  <div class="brand-lockup"><img src="../../assets/brand/grofunder-wordmark.png" alt="GroFunder"></div>
+
+  <form class="col gap-4" data-state="loaded" id="who" novalidate>
+    <div class="col gap-1"><h1 class="text-headline-sm">Set a new PIN</h1>
+      <p class="text-body-md tone-muted">We'll text a code to the phone on your login.</p></div>
+    <div class="field">
+      <span class="field-label" id="how">Find my login by</span>
+      <div class="chip-row" data-choice role="radiogroup" aria-labelledby="how" id="kind">
+        <button class="chip" type="button" role="radio" aria-checked="true" data-kind="PHONE">Phone number</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-kind="ID">ID number</button>
+      </div>
+    </div>
+    <div class="field"><label class="field-label" for="f-who" id="f-who-l">Phone number</label>
+      <input class="field-input tabular" id="f-who" inputmode="tel" value="0712 345 678">
+      <span class="field-error hidden" id="f-err">Enter your phone number.</span></div>
+    <button class="btn btn-filled btn-lg btn-block" type="submit">Send me a code</button>
+    <a class="btn btn-text" href="sign-in.html">Back to sign in</a>
+  </form>
+
+  <div class="col gap-4" data-state="code" id="code-step">
+    <div class="col gap-1"><h1 class="text-headline-sm">Enter the code</h1>
+      <p class="text-body-md tone-muted">If this matches a GroFunder login, we've texted a 6-digit code to its phone (0712 ••• 678). It works for 5 minutes.</p></div>
+    <div id="code-boxes"></div>
+    <p class="text-body-md tone-muted" style="text-align:center" id="resend"><button class="btn btn-text" type="button" onclick="Proto.snack('A new code is on its way');MemberAuth.countdown(document.getElementById('resend'),60)">Send a new code</button><span data-left></span></p>
+    <p class="text-body-sm tone-muted" style="text-align:center">Lost the phone or the number? Ask your cooperative's office for help.</p>
+  </div>
+
+  <div class="col gap-4" data-state="pin weak mismatch" id="pin-step">
+    <div class="col gap-1" style="text-align:center"><h1 class="text-headline-sm">Choose a new PIN</h1>
+      <p class="text-body-md tone-muted">4 digits that aren't easy to guess.</p></div>
+    <p class="text-body-md tone-error" style="text-align:center" role="alert" data-state="weak" id="weak-msg">Don't use the same digit four times.</p>
+    <p class="text-body-md tone-error" style="text-align:center" role="alert" data-state="mismatch">The two PINs didn't match. Choose your PIN again.</p>
+    <div id="pin-pad"></div>
+  </div>
+  <div class="col gap-4" data-state="confirm" id="confirm-step">
+    <div class="col gap-1" style="text-align:center"><h1 class="text-headline-sm">Enter the new PIN again</h1></div>
+    <div id="confirm-pad"></div>
+  </div>
+
+  <div class="col gap-4" data-state="done">
+    <div class="banner banner-success"><span class="mdi mdi-check-circle-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm">Your PIN is changed</span>
+        <span class="text-body-md">You're signed out on any other phone. Sign in with your new PIN.</span></div></div>
+    <a class="btn btn-filled btn-lg btn-block" href="sign-in.html">Sign in</a>
+  </div>
+
+  <div class="col gap-4" data-state="loading"><div class="skeleton" style="height:32px;width:60%"></div><div class="skeleton" style="height:48px"></div></div>
+  <div class="error-state" data-state="error"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Setting a new PIN needs a connection. Try again when you have signal.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  var input = document.getElementById("f-who"), err = document.getElementById("f-err"), kind = "PHONE";
+  document.getElementById("kind").addEventListener("click", function (e) {
+    var c = e.target.closest("[data-kind]"); if (!c) return;
+    kind = c.getAttribute("data-kind");
+    document.getElementById("f-who-l").textContent = kind === "PHONE" ? "Phone number" : "National ID number";
+    input.setAttribute("inputmode", kind === "PHONE" ? "tel" : "numeric");
+    input.value = kind === "PHONE" ? "0712 345 678" : "23456789";
+    err.textContent = kind === "PHONE" ? "Enter your phone number." : "Enter your ID number.";
+  });
+  document.getElementById("who").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var empty = !input.value.trim(); err.classList.toggle("hidden", !empty);
+    if (!empty) { Proto.go("code"); MemberAuth.countdown(document.getElementById("resend"), 60); }
+  });
+  document.getElementById("code-boxes").innerHTML = MemberAuth.otpHtml();
+  MemberAuth.otp(document.getElementById("code-step"), function () { Proto.go("pin"); });
+  var first = "";
+  document.getElementById("pin-pad").innerHTML = MemberAuth.padHtml();
+  document.getElementById("confirm-pad").innerHTML = MemberAuth.padHtml();
+  MemberAuth.keypad(document.getElementById("pin-step"), { done: function (pin) {
+    var why = MemberAuth.weak(pin);
+    if (why) { document.getElementById("weak-msg").textContent = why; Proto.go("weak"); return; }
+    first = pin; Proto.go("confirm");
+  } });
+  MemberAuth.keypad(document.getElementById("confirm-step"), { done: function (pin) {
+    if (pin !== first) { first = ""; Proto.go("mismatch"); return; }
+    Proto.go("done");
+  } });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Notifications · Settings · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Settings" data-dest="settings" data-wide>
+  <div data-subnav="settings" data-current="notifications" data-label="Settings"></div>
+
+  <p class="proto-note"><b>C30 · The cooperative's notification settings, from note 01.</b> The status notices that reach the cooperative's staff, each by email and in the app. The cooperative sets them for everyone (<code>notification-settings/</code>, <code>cooperatives.edit_profile</code>: administrators and managers); each person can still change their own in Your account. Each switch saves on its own, one tap (UI-13).</p>
+  <p class="proto-note"><b>Locked notices.</b> "Put on hold" and "ended" are mandatory in note 01, because they change what staff can do, so their switches are shown on and locked. The rest say whether they follow GroFunder's default or the cooperative's own choice.</p>
+
+  <div class="empty" data-roles="accountant clerk viewer">
+    <span class="mdi mdi-bell-cog-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Administrators and managers set these</span>
+    <span class="text-body-md">You can choose your own notices in Your account.</span>
+    <a class="btn btn-tonal" href="../account/index.html">Your account</a>
+  </div>
+
+  <div data-state="loaded" class="col gap-4" data-roles="admin manager">
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">When the cooperative's status changes</span>
+        <span class="text-body-md tone-muted">GroFunder changes the status. These settings decide who on your staff hears about it, and how.</span></div></div>
+      <div class="list rowcards" id="types"></div>
+    </div>
+    <p class="text-body-sm tone-muted">Staff can turn notices off for themselves in Your account, except the locked ones.</p>
+  </div>
+  <div data-state="loading" class="col gap-4" data-roles="admin manager"><div class="skeleton-card" style="height:360px"></div></div>
+  <div data-state="empty" class="empty" data-roles="admin manager">
+    <span class="mdi mdi-bell-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No notices to set up yet</span>
+    <span class="text-body-md">Notices appear here as GroFunder adds them: first the cooperative's status, then members, deliveries and payouts as those parts arrive.</span>
+  </div>
+  <div data-state="error" class="error-state" data-roles="admin manager"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the notification settings</span><button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var f = GF.fmt, esc = Portal.esc;
+var ENDED = Portal.status === "ended";
+Portal.mountBanner();
+var CH = [["email", "Email"], ["in_app", "In the app"]];
+var own = function (type, ch) { return GF.coopNotificationSettings.find(function (s) { return s.cooperative === Portal.COOP && s.type === type && s.channel === ch; }); };
+
+document.getElementById("types").innerHTML = GF.coopNotificationTypes.map(function (t) {
+  var switches = CH.map(function (c) {
+    var o = own(t.type, c[0]), on = o ? o.enabled : t.channels[c[0]];
+    var id = "sw-" + t.type.replace(/\W/g, "-") + "-" + c[0];
+    return '<label class="check" for="' + id + '"><input type="checkbox" role="switch" id="' + id + '" data-type="' + t.type + '" data-ch="' + c[0] + '"' + (on ? " checked" : "") +
+      (t.mandatory || ENDED ? " disabled" : "") + "><span>" + c[1] + "</span></label>";
+  }).join("");
+  var set = CH.map(function (c) { return own(t.type, c[0]); }).filter(Boolean)[0];
+  var source = t.mandatory ? '<span class="text-body-sm tone-muted" data-locked><span class="mdi mdi-lock-outline" aria-hidden="true"></span> Always sent: it changes what staff can do</span>'
+    : set ? '<span class="text-body-sm tone-muted">Set by ' + esc(set.set_by) + " on " + f.date(set.set_at, "short") + "</span>"
+    : '<span class="text-body-sm tone-muted">GroFunder\'s default</span>';
+  return '<div class="rowcard wrap" data-notice="' + t.type + '"><span class="grow" style="min-width:220px"><span class="text-body-lg">' + esc(t.label) + '</span><span class="text-body-md tone-muted">To ' + esc(t.audience.toLowerCase()) + "</span>" + source + "</span>" +
+    '<span class="row gap-4 wrap">' + switches + "</span></div>";
+}).join("");
+
+/* One tap saves (UI-13); the snackbar says what changed. */
+document.getElementById("types").addEventListener("change", function (e) {
+  var s = e.target; if (!s.matches('input[role="switch"]')) return;
+  var t = GF.coopNotificationTypes.find(function (x) { return x.type === s.getAttribute("data-type"); });
+  var ch = s.getAttribute("data-ch") === "email" ? "Email" : "In-app notice";
+  Proto.snack(ch + " " + (s.checked ? "on" : "off") + " for “" + t.label.toLowerCase() + "”", "Undo", function () { s.checked = !s.checked; });
+});
+</script>
+</body>
+</html>

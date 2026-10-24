@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in · member app pattern · GroFunder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Sign in" data-auth="sm">
+  <p class="proto-note"><b>Pattern sample: member sign-in (phase 2).</b> From note 06: the ID number (or the phone) and a 4-digit PIN, then an SMS code every time. The steps are the page's states. The member app flow (phase 9) designs sign-up (claim), forgot PIN and linking from the same note.</p>
+  <p class="proto-note"><b>ID type.</b> The ID type is chosen first because the sign-in name is built from it (<code>P</code> + number for a passport, <code>A</code> + number for an alien ID), so a national ID number can never collide with another type. ChoiceChips and a TextField: no new component.</p>
+  <p class="proto-note proto-gap"><b>F1 and F4.</b> The kit has no phone/ID + PIN + SMS-code sign-in screens (F1), and no PinPad or OtpInput (F4). Both are proposed in <code>specimens/new-components.html</code>.</p>
+
+  <div class="brand-lockup"><img src="../../assets/brand/grofunder-wordmark.png" alt="GroFunder"></div>
+
+  <!-- Step 1: who -->
+  <form class="col gap-4" data-state="loaded" onsubmit="Proto.go('pin');return false">
+    <div class="col gap-1"><h1 class="text-headline-sm">Sign in</h1><p class="text-body-md tone-muted">See your deliveries and payments from your cooperative.</p></div>
+    <div class="field">
+      <span class="field-label" id="how">Sign in with</span>
+      <div class="chip-row" data-choice role="radiogroup" aria-labelledby="how">
+        <button class="chip" type="button" role="radio" aria-checked="true">National ID</button>
+        <button class="chip" type="button" role="radio" aria-checked="false">Passport</button>
+        <button class="chip" type="button" role="radio" aria-checked="false">Alien ID</button>
+        <button class="chip" type="button" role="radio" aria-checked="false">Phone number</button>
+      </div>
+    </div>
+    <div class="field"><label class="field-label" for="idno">ID number</label>
+      <input class="field-input tabular" id="idno" inputmode="numeric" value="23456789" autocomplete="username"></div>
+    <button class="btn btn-filled btn-block" type="submit">Continue</button>
+    <div class="col center gap-1">
+      <a class="btn btn-text" href="../soon.html">New here? Find your membership</a>
+      <a class="btn btn-text" href="../soon.html">Forgot your PIN?</a>
+    </div>
+  </form>
+
+  <!-- Step 2: PIN -->
+  <div class="col gap-4" data-state="pin wrong">
+    <div class="col gap-1 center" style="text-align:center"><h1 class="text-headline-sm">Enter your PIN</h1>
+      <p class="text-body-md tone-muted tabular">National ID 23456789 · <a href="#" onclick="Proto.go('loaded');return false">Change</a></p></div>
+    <div class="pin-dots" aria-label="2 of 4 digits entered" data-state="pin"><span class="on"></span><span class="on"></span><span></span><span></span></div>
+    <div class="pin-dots error" aria-label="PIN wrong" data-state="wrong"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span></div>
+    <p class="text-body-md tone-error" style="text-align:center" role="alert" data-state="wrong">That ID number and PIN don't match.</p>
+    <div class="pinpad" role="group" aria-label="PIN keypad">
+      <button type="button">1</button><button type="button">2</button><button type="button">3</button>
+      <button type="button">4</button><button type="button">5</button><button type="button">6</button>
+      <button type="button">7</button><button type="button">8</button><button type="button">9</button>
+      <button type="button" class="key-plain" aria-label="Forgot your PIN?" onclick="Proto.snack('Forgot PIN is drawn in phase 9')"><span class="mdi mdi-help-circle-outline" aria-hidden="true"></span></button>
+      <button type="button" onclick="Proto.go('code')">0</button>
+      <button type="button" class="key-plain" aria-label="Delete the last digit"><span class="mdi mdi-backspace-outline" aria-hidden="true"></span></button>
+    </div>
+  </div>
+
+  <!-- Step 3: SMS code -->
+  <form class="col gap-4" data-state="code" onsubmit="location.href='../home/index.html';return false">
+    <div class="col gap-1"><h1 class="text-headline-sm">Enter the code we sent</h1>
+      <p class="text-body-md tone-muted tabular">An SMS with a 6-digit code went to 0712 ••• 678. It works for 5 minutes.</p></div>
+    <div class="otp" role="group" aria-label="6-digit code">
+      <input inputmode="numeric" maxlength="1" value="4" aria-label="Digit 1"><input inputmode="numeric" maxlength="1" value="8" aria-label="Digit 2"><input inputmode="numeric" maxlength="1" value="1" aria-label="Digit 3">
+      <input inputmode="numeric" maxlength="1" aria-label="Digit 4"><input inputmode="numeric" maxlength="1" aria-label="Digit 5"><input inputmode="numeric" maxlength="1" aria-label="Digit 6">
+    </div>
+    <button class="btn btn-filled btn-block" type="submit">Sign in</button>
+    <p class="text-body-md tone-muted" style="text-align:center">No SMS? You can ask for another in 0:42.</p>
+  </form>
+</div>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Accept an invitation · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Accept an invitation" data-auth="sm">
+  <p class="proto-note"><b>S2 · The kit's invitation screen</b> (<code>AcceptInvitationScreen</code>), opened from the invitation email or from a link GroFunder copied into WhatsApp or SMS (note 01). This is the invitation GroFunder sent Rose Wairimu for Mumbi Maize &amp; Beans in phase 4: as an <b>owner</b> with <code>cooperative_admin</code> (01, <code>invite</code>).</p>
+  <p class="proto-note"><b>Four cases, as the kit has them,</b> are this page's states: <b>loaded</b> (a new address: choose a password), <b>existing</b> (the address already has a login: sign in to accept), <b>other</b> (signed in as someone else), <b>match</b> (signed in as the invitee). <b>invalid</b> is the kit's screen for an expired, revoked or used link, or one replaced by GroFunder's "Resend", which stops the old link (01).</p>
+  <p class="proto-note"><b>Accepting</b> lands straight on Mumbi's home with its set-up checklist (UI-16). In the prototype it switches the review bar to Onboarding, so the portal shows Mumbi as Rose.</p>
+  <p class="proto-note proto-gap"><b>F13.</b> The kit's summary says only "Invitation for {email} as owner." Who sent it and which role it carries are GroFunder's wording, passed in by the host.</p>
+
+  <div class="brand-lockup"><img src="../../assets/brand/grofunder-wordmark.png" alt="GroFunder"></div>
+
+  <div class="col gap-4" data-state="loading">
+    <div class="skeleton-card" style="height:120px"></div>
+    <div class="skeleton-line" style="width:70%"></div>
+    <div class="skeleton-card" style="height:200px"></div>
+  </div>
+
+  <div class="error-state" data-state="error"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't open your invitation</span>
+    <span class="text-body-md">Check your connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+
+  <div class="empty" data-state="invalid"><span class="mdi mdi-email-remove-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">This invitation isn't valid</span>
+    <span class="text-body-md">It may have expired, been revoked or already been used. If a newer link was sent, only that one works. Ask whoever invited you for a new one.</span>
+    <a class="btn btn-tonal" href="sign-in.html">Go to the app</a></div>
+
+  <div class="col gap-4" data-state="loaded existing other match">
+    <div class="card card-outlined">
+      <div class="card-header"><div class="card-header-text"><span class="card-title" id="join"></span>
+        <span class="card-description" id="who"></span></div></div>
+      <p class="text-body-sm tone-muted" id="expires"></p>
+    </div>
+
+    <form class="col gap-4" data-state="loaded" onsubmit="accept();return false">
+      <p class="text-body-md" id="choose"></p>
+      <div class="form-grid">
+        <div class="field"><label class="field-label" for="fn">First name <span class="optional">(optional)</span></label><input class="field-input" id="fn" autocomplete="given-name" value="Rose"></div>
+        <div class="field"><label class="field-label" for="ln">Last name <span class="optional">(optional)</span></label><input class="field-input" id="ln" autocomplete="family-name" value="Wairimu"></div>
+      </div>
+      <div class="field"><label class="field-label" for="pw">Password</label><input class="field-input" id="pw" type="password" autocomplete="new-password" value="mumbimaize26">
+        <span class="field-help">Use at least 8 characters.</span></div>
+      <div class="field"><label class="field-label" for="pw2">Confirm password</label><input class="field-input" id="pw2" type="password" autocomplete="new-password" value="mumbimaize26"></div>
+      <button class="btn btn-filled btn-lg btn-block" type="submit">Accept and create login</button>
+    </form>
+
+    <form class="col gap-4" data-state="existing" onsubmit="accept();return false">
+      <p class="text-body-md" id="already"></p>
+      <h2 class="text-title-lg">Sign in to accept</h2>
+      <div class="field"><label class="field-label" for="xe">Email, phone or username</label><input class="field-input" id="xe" autocomplete="username"></div>
+      <div class="field"><label class="field-label" for="xp">Password</label><input class="field-input" id="xp" type="password" autocomplete="current-password"></div>
+      <a class="btn btn-text btn-sm" href="forgot.html" style="align-self:flex-end">Forgot password?</a>
+      <button class="btn btn-filled btn-lg btn-block" type="submit">Sign in</button>
+    </form>
+
+    <div class="col gap-4" data-state="other">
+      <p class="text-body-md" id="mismatch"></p>
+      <div class="actions"><a class="btn btn-text" href="../home/index.html">Not now</a><a class="btn btn-tonal" href="#" onclick="Proto.go('existing');return false">Sign out to accept</a></div>
+    </div>
+
+    <div class="col gap-4" data-state="match">
+      <p class="text-body-md">You're signed in as <span id="me-email"></span>.</p>
+      <div class="actions"><a class="btn btn-text" href="../home/index.html">Not now</a><button class="btn btn-filled" type="button" onclick="accept()">Accept invitation</button></div>
+    </div>
+  </div>
+</div>
+<script>
+var inv = GF.invitations.find(function (i) { return i.id === "inv-1"; });
+var co = GF.get(inv.account), f = GF.fmt, esc = Portal.esc;
+var exp = new Date(inv.sent_at + "T00:00:00Z"); exp.setUTCDate(exp.getUTCDate() + 7);
+var set = function (id, html) { document.getElementById(id).innerHTML = html; };
+set("join", "Join " + esc(co.profile.short_name));
+set("who", esc(inv.sent_by) + " from GroFunder invited <b>" + esc(inv.email) + "</b> as an owner, with the Administrator role: you'll set up the cooperative and manage its team.");
+set("expires", "Expires " + f.date(exp.toISOString()) + ".");
+set("choose", "Choose a password to create your login for <b>" + esc(inv.email) + "</b>.");
+set("already", "You already have a login. Sign in as <b>" + esc(inv.email) + "</b> to accept.");
+set("mismatch", "This invitation is for <b>" + esc(inv.email) + "</b>, but you're signed in as <b>grace@kijanidairy.example</b>.");
+set("me-email", "<b>" + esc(inv.email) + "</b>");
+document.getElementById("xe").value = inv.email;
+function accept() {
+  try { localStorage.setItem("gf.coopStatus", "onboarding"); localStorage.setItem("gf.role.coop", "admin"); } catch (e) {}
+  location.href = "../home/index.html";
+}
+</script>
+</body>
+</html>

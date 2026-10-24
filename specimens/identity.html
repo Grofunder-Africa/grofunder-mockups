@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GroFunder identity specimen</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+/* Specimen-only styles. Colours are roles from tokens.css; no hex here.
+   Sizes and weights are the kit's type scale with D5's weights. Phase 2 turns
+   the component parts of this into kit.css. */
+:root { --font-sans: "Figtree"; }
+* { box-sizing: border-box; }
+html { color-scheme: light dark; }
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
+body {
+  margin: 0; background: var(--surface); color: var(--on-surface);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 14px; line-height: 20px; letter-spacing: .25px;
+}
+.mdi:before { line-height: 1; }
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Type scale: kit sizes (tokens.json), GroFunder weights (D5). */
+.text-display-lg { font-size: 57px; line-height: 64px; letter-spacing: -.25px; font-weight: 700; }
+.text-display-md { font-size: 45px; line-height: 52px; font-weight: 700; }
+.text-display-sm { font-size: 36px; line-height: 44px; font-weight: 700; }
+.text-headline-lg { font-size: 32px; line-height: 40px; font-weight: 700; }
+.text-headline-md { font-size: 28px; line-height: 36px; font-weight: 700; }
+.text-headline-sm { font-size: 24px; line-height: 32px; font-weight: 700; }
+.text-title-lg { font-size: 22px; line-height: 28px; font-weight: 600; }
+.text-title-md { font-size: 16px; line-height: 24px; letter-spacing: .15px; font-weight: 600; }
+.text-title-sm { font-size: 14px; line-height: 20px; letter-spacing: .1px; font-weight: 600; }
+.text-label-lg { font-size: 14px; line-height: 20px; letter-spacing: .1px; font-weight: 600; }
+.text-label-md { font-size: 12px; line-height: 16px; letter-spacing: .5px; font-weight: 500; }
+.text-label-sm { font-size: 11px; line-height: 16px; letter-spacing: .5px; font-weight: 500; }
+.text-body-lg { font-size: 16px; line-height: 24px; letter-spacing: .5px; font-weight: 400; }
+.text-body-md { font-size: 14px; line-height: 20px; letter-spacing: .25px; font-weight: 400; }
+.text-body-sm { font-size: 12px; line-height: 16px; letter-spacing: .4px; font-weight: 400; }
+.tone-muted { color: var(--on-surface-variant); }
+.tone-primary { color: var(--primary); }
+.tone-error { color: var(--error); }
+h1, h2, h3, p { margin: 0; }
+
+/* Page */
+.page { max-width: 1240px; margin: 0 auto; padding: 0 16px 64px; }
+.controls {
+  position: sticky; top: 0; z-index: 5; background: var(--surface-container);
+  border-bottom: 1px solid var(--outline-variant);
+}
+@media (max-width: 599px) { .controls { position: static; } }
+.controls-inner { max-width: 1240px; margin: 0 auto; padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
+.controls .logo { height: 28px; width: auto; margin-right: 8px; }
+.seg { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.seg > span { color: var(--on-surface-variant); }
+.seg button {
+  font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; height: 32px; padding: 0 12px;
+  border-radius: 4px; border: 1px solid var(--outline-variant); background: transparent; color: var(--on-surface-variant);
+}
+.seg button[aria-pressed="true"] { background: var(--inverse-surface); color: var(--inverse-on-surface); border-color: var(--inverse-surface); }
+.section { padding-top: 40px; }
+.section > header { margin-bottom: 16px; max-width: 760px; }
+.section > header p { margin-top: 4px; }
+.note {
+  margin-top: 12px; padding: 12px 16px; border-radius: 4px; background: var(--surface-container-high);
+  color: var(--on-surface-variant); max-width: 760px;
+}
+.note b { color: var(--on-surface); }
+.grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); }
+
+/* Colour swatches */
+.swatch { border-radius: 4px; overflow: hidden; border: 1px solid var(--outline-variant); }
+.swatch > div { padding: 12px 14px; min-height: 64px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; }
+.swatch code { font-family: inherit; font-variant-numeric: tabular-nums; font-size: 12px; opacity: .85; }
+.ramp { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 0; border-radius: 4px; overflow: hidden; border: 1px solid var(--outline-variant); }
+.ramp > div { padding: 12px 14px; min-height: 72px; display: flex; flex-direction: column; justify-content: space-between; color: var(--on-surface); }
+
+/* Kit components, as the kit draws them (D6: M3 defaults) */
+.btn {
+  font: inherit; font-size: 14px; line-height: 20px; letter-spacing: .1px; font-weight: 600;
+  height: 40px; padding: 0 24px; border-radius: 4px; border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap;
+}
+.btn .mdi { font-size: 18px; }
+.btn-filled { background: var(--primary); color: var(--on-primary); }
+.btn-tonal { background: var(--secondary-container); color: var(--on-secondary-container); }
+.btn-outlined { background: transparent; color: var(--primary); border: 1px solid var(--outline); }
+.btn-text { background: transparent; color: var(--primary); padding: 0 12px; }
+.btn-destructive { background: var(--error); color: var(--on-error); }
+.btn-lg { height: 56px; font-size: 16px; }
+.btn-block { width: 100%; }
+.chip-status { display: inline-block; border-radius: 4px; padding: 2px 8px; font-size: 12px; line-height: 16px; letter-spacing: .5px; font-weight: 500; white-space: nowrap; }
+.tone-neutral-c { background: var(--surface-container-high); color: var(--on-surface-variant); }
+.tone-primary-c { background: var(--primary-container); color: var(--on-primary-container); }
+.tone-info-c { background: var(--info-container); color: var(--on-info-container); }
+.tone-success-c { background: var(--success-container); color: var(--on-success-container); }
+.tone-warning-c { background: var(--warning-container); color: var(--on-warning-container); }
+.tone-error-c { background: var(--error-container); color: var(--on-error-container); }
+.chip-filter {
+  display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 16px; border-radius: 4px;
+  border: 1px solid var(--outline-variant); color: var(--on-surface-variant); font-size: 14px; font-weight: 600; letter-spacing: .1px;
+}
+.chip-filter[aria-selected="true"] { background: var(--inverse-surface); border-color: var(--inverse-surface); color: var(--inverse-on-surface); }
+.card { border-radius: 4px; background: var(--surface-container-low); padding: 16px; }
+.card-outlined { background: var(--surface); border: 1px solid var(--outline-variant); }
+.field { position: relative; border: 1px solid var(--outline); border-radius: 4px; min-height: 56px; padding: 16px 16px 8px; display: flex; align-items: center; gap: 12px; }
+.field > label { position: absolute; top: -9px; left: 12px; padding: 0 4px; background: var(--surface); font-size: 12px; line-height: 16px; color: var(--on-surface-variant); }
+.field .val { font-size: 16px; line-height: 24px; letter-spacing: .5px; flex: 1; }
+.field .mdi { font-size: 22px; color: var(--on-surface-variant); }
+.field-help { font-size: 12px; line-height: 16px; letter-spacing: .4px; color: var(--on-surface-variant); padding: 4px 16px 0; }
+.banner { border-radius: 4px; padding: 12px 16px; display: flex; gap: 12px; align-items: flex-start; }
+.banner .mdi { font-size: 20px; line-height: 20px; }
+.banner-warning { background: var(--warning-container); color: var(--on-warning-container); }
+.divider { height: 1px; background: var(--outline-variant); }
+
+/* Sample screens: a compact window (under 600) and an expanded one */
+.samples { display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); align-items: start; }
+.samples .wide { grid-column: 1 / -1; }
+.screen {
+  border: 1px solid var(--outline-variant); border-radius: 4px; overflow: hidden; background: var(--surface);
+  max-width: 400px; width: 100%; display: flex; flex-direction: column;
+}
+.wide .screen { max-width: none; }
+.screen-caption { margin-bottom: 8px; }
+.appbar { height: 64px; display: flex; align-items: center; gap: 8px; padding: 0 8px 0 16px; background: var(--surface); }
+.appbar .title { flex: 1; font-size: 22px; line-height: 28px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.icon-btn { width: 40px; height: 40px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; color: var(--on-surface-variant); font-size: 24px; }
+.avatar { width: 32px; height: 32px; border-radius: 4px; background: var(--secondary-container); color: var(--on-secondary-container); display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; }
+.body { padding: 4px 16px 16px; display: flex; flex-direction: column; gap: 16px; }
+.hero { border-radius: 4px; background: var(--primary-container); color: var(--on-primary-container); padding: 16px; display: flex; flex-direction: column; gap: 4px; }
+.hero .meta { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.list { border-radius: 4px; background: var(--surface-container-low); overflow: hidden; }
+.row { display: flex; align-items: center; gap: 16px; padding: 12px 16px; min-height: 64px; }
+.row + .row { border-top: 1px solid var(--outline-variant); }
+.row .lead { width: 40px; height: 40px; border-radius: 4px; background: var(--secondary-container); color: var(--on-secondary-container); display: inline-flex; align-items: center; justify-content: center; font-size: 20px; flex: none; }
+.row .main { flex: 1; min-width: 0; }
+.row .trail { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.struck { text-decoration: line-through; color: var(--on-surface-variant); }
+.navbar { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--surface-container-lowest); border-top: 1px solid var(--outline-variant); margin-top: auto; }
+.navbar a { padding: 8px 0 10px; }
+.navbar a { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--on-surface-variant); text-decoration: none; font-size: 12px; font-weight: 500; letter-spacing: .5px; }
+.navbar .ind { width: 32px; height: 28px; border-radius: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+.navbar a[aria-current="page"] { color: var(--on-surface); font-weight: 600; }
+.navbar a[aria-current="page"] { background: var(--secondary-container); color: var(--on-secondary-container); box-shadow: inset 0 3px 0 var(--primary); }
+.sec-title { display: flex; justify-content: space-between; align-items: baseline; }
+.entry-calc { display: flex; align-items: baseline; gap: 8px; padding: 4px 16px 0; }
+.stmt-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; align-items: center; padding: 16px 24px; }
+.stmt-head .left { display: flex; flex-direction: column; gap: 4px; }
+.stmt-head .left > div { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.table-wrap { overflow-x: auto; padding: 0 24px; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; }
+th, td { padding: 12px 8px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; padding-left: 0; }
+th:last-child, td:last-child { padding-right: 0; }
+thead th { font-size: 12px; line-height: 16px; letter-spacing: .5px; font-weight: 500; color: var(--on-surface-variant); border-bottom: 1px solid var(--outline-variant); }
+tbody td { border-bottom: 1px solid var(--outline-variant); }
+.totals { display: grid; gap: 8px; padding: 16px 24px 24px; margin-left: auto; width: min(100%, 420px); }
+.totals > div { display: flex; justify-content: space-between; gap: 16px; font-variant-numeric: tabular-nums; }
+.totals > div > span:last-child { white-space: nowrap; }
+.totals .net { border-top: 1px solid var(--outline-variant); padding-top: 12px; }
+.stmt-foot { padding: 0 24px 24px; }
+
+/* Status gallery */
+.status-table { display: grid; gap: 12px; }
+.status-table > div { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.status-table .what { width: 120px; flex: none; }
+
+/* Type scale */
+.type-row { display: grid; grid-template-columns: 140px 1fr; gap: 16px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--outline-variant); }
+.type-row .sample { overflow-wrap: anywhere; }
+@media (max-width: 599px) { .type-row { grid-template-columns: 1fr; gap: 2px; } }
+
+/* Numbers */
+.num-compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; }
+.num-col { border-radius: 4px; background: var(--surface-container-low); padding: 16px; }
+.num-col div { text-align: right; font-size: 16px; line-height: 28px; }
+.fmt td, .fmt th { text-align: left; white-space: normal; }
+.fmt table { min-width: 0; }
+
+/* Icons */
+.icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; }
+.icons > div { border-radius: 4px; background: var(--surface-container-low); padding: 12px 8px; text-align: center; display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.icons .mdi { font-size: 28px; color: var(--on-surface); }
+.icons code { font-family: inherit; font-size: 11px; color: var(--on-surface-variant); overflow-wrap: anywhere; }
+
+.logos { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.logos > div { border-radius: 4px; padding: 24px; display: flex; align-items: center; justify-content: center; min-height: 120px; }
+.logos img { max-width: 100%; height: 48px; width: auto; }
+</style>
+</head>
+<body>
+
+<div class="controls" role="region" aria-label="Specimen switches">
+  <div class="controls-inner">
+    <img class="logo" src="../assets/brand/grofunder-wordmark.png" alt="GroFunder">
+    <div class="seg" data-control="scheme"><span class="text-label-md">Colour</span>
+      <button data-value="proposed">Proposed</button>
+      <button data-value="tonalspot">Kit standard</button>
+      <button data-value="fidelity">Without teal</button>
+    </div>
+    <div class="seg" data-control="font"><span class="text-label-md">Font</span>
+      <button data-value="Figtree">Figtree</button>
+      <button data-value="Inter">Inter</button>
+      <button data-value="Atkinson Hyperlegible Next">Atkinson</button>
+    </div>
+    <div class="seg" data-control="theme"><span class="text-label-md">Theme</span>
+      <button data-value="system">System</button>
+      <button data-value="light">Light</button>
+      <button data-value="dark">Dark</button>
+    </div>
+  </div>
+</div>
+
+<main class="page">
+
+  <section class="section">
+    <header>
+      <h1 class="text-headline-md">Identity specimen</h1>
+      <p class="text-body-lg tone-muted">Phase 1 of the UI plan: colour, type and number formats, shown on sample screens. Decisions D1–D8 are in <code>mockups/identity.md</code>. Use the switches above to compare.</p>
+    </header>
+    <div class="note" id="scheme-note"></div>
+  </section>
+
+  <!-- ===================== Sample screens ===================== -->
+  <section class="section" aria-labelledby="h-samples">
+    <header>
+      <h2 class="text-title-lg" id="h-samples">On sample screens</h2>
+      <p class="text-body-md tone-muted">Not designs yet: these only test the colours and type on the kinds of screens GroFunder has. The data is fictional.</p>
+    </header>
+    <div class="samples">
+
+      <!-- Member home -->
+      <div>
+        <p class="text-label-lg screen-caption">Member app · home (phone)</p>
+        <div class="screen" style="min-height: 720px">
+          <div class="appbar">
+            <span class="title">Kijani Valley Dairy</span>
+            <span class="icon-btn mdi mdi-bell-outline" aria-hidden="true"></span>
+            <span class="avatar" aria-label="Account">WK</span>
+          </div>
+          <div class="body">
+            <p class="text-title-md">Good morning, Wanjiku</p>
+            <div class="hero">
+              <span class="text-label-lg">October so far</span>
+              <span class="text-display-sm tabular">487.0 litres</span>
+              <span class="text-title-md tabular">Worth Ksh 25,922.25</span>
+              <div class="meta text-body-md">
+                <span class="tabular">Paid Ksh 16,412.75</span>
+                <span>Next: Evening round, 17:00</span>
+              </div>
+            </div>
+            <div class="sec-title"><p class="text-title-md">Recent deliveries</p><span class="btn btn-text">See all</span></div>
+            <div class="list">
+              <div class="row"><span class="lead mdi mdi-water-outline" aria-hidden="true"></span>
+                <div class="main"><p class="text-body-lg">Raw milk</p><p class="text-body-md tone-muted">30 Oct · Morning round</p></div>
+                <div class="trail"><span class="text-title-md tabular">18.5 L</span></div></div>
+              <div class="row"><span class="lead mdi mdi-water-outline" aria-hidden="true"></span>
+                <div class="main"><p class="text-body-lg">Raw milk</p><p class="text-body-md tone-muted">29 Oct · Morning round</p></div>
+                <div class="trail"><span class="text-title-md tabular">19.0 L</span></div></div>
+              <div class="row"><span class="lead mdi mdi-water-outline" aria-hidden="true"></span>
+                <div class="main"><p class="text-body-lg">Raw milk</p><p class="text-body-md tone-muted">28 Oct · Entered twice</p></div>
+                <div class="trail"><span class="text-title-md tabular struck">12.0 L</span><span class="chip-status tone-neutral-c">Voided</span></div></div>
+            </div>
+            <div class="sec-title"><p class="text-title-md">Payments</p><span class="btn btn-text">See all</span></div>
+            <div class="list">
+              <div class="row"><span class="lead mdi mdi-cash-multiple" aria-hidden="true"></span>
+                <div class="main"><p class="text-body-lg">October 2026 – Milk</p><p class="text-body-md tone-muted">28 Oct · M-Pesa</p></div>
+                <div class="trail"><span class="text-title-md tabular">Ksh 16,412.75</span><span class="chip-status tone-success-c">Paid</span></div></div>
+            </div>
+          </div>
+          <nav class="navbar" aria-label="Member app">
+            <a aria-current="page"><span class="ind mdi mdi-home-variant" aria-hidden="true"></span>Home</a>
+            <a><span class="ind mdi mdi-basket-outline" aria-hidden="true"></span>Deliveries</a>
+            <a><span class="ind mdi mdi-cash-multiple" aria-hidden="true"></span>Payments</a>
+            <a><span class="ind mdi mdi-account-circle-outline" aria-hidden="true"></span>Account</a>
+          </nav>
+        </div>
+      </div>
+
+      <!-- Clerk: record a delivery -->
+      <div>
+        <p class="text-label-lg screen-caption">Cooperative portal · clerk records a delivery (phone)</p>
+        <div class="screen" style="min-height: 720px">
+          <div class="appbar">
+            <span class="icon-btn mdi mdi-arrow-left" aria-hidden="true"></span>
+            <span class="title">Record delivery</span>
+          </div>
+          <div class="body">
+            <div>
+              <div class="field"><label>Member</label>
+                <span class="val">Wanjiku Kamau</span><span class="mdi mdi-close-circle-outline" aria-hidden="true"></span></div>
+              <p class="field-help tabular">M-0142 · Gathiru cluster · ID 23456789</p>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap">
+              <span class="chip-filter" aria-selected="true">Maize</span>
+              <span class="chip-filter">Beans</span>
+            </div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px">
+              <div class="field"><label>Quantity (bags)</label><span class="val tabular">2</span></div>
+              <div class="field"><label>Grade</label><span class="val">Grade 1</span><span class="mdi mdi-menu-down" aria-hidden="true"></span></div>
+            </div>
+            <div class="entry-calc"><span class="text-title-md tabular">= 180 kg</span><span class="text-body-sm tone-muted">1 bag = 90 kg</span></div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px">
+              <div class="field"><label>Date</label><span class="val tabular">30 Oct 2026</span></div>
+              <div class="field"><label>Round</label><span class="val">Morning</span><span class="mdi mdi-menu-down" aria-hidden="true"></span></div>
+            </div>
+            <div class="field"><label>Receipt number (optional)</label><span class="val tabular">R-4471</span></div>
+            <div class="banner banner-warning" role="status">
+              <span class="mdi mdi-alert-outline" aria-hidden="true"></span>
+              <p class="text-body-md">Wanjiku already has a maize delivery in the morning round today. Record this one too if it is a second delivery.</p>
+            </div>
+            <button class="btn btn-filled btn-block" type="button">Record delivery</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payout statement -->
+      <div class="wide">
+        <p class="text-label-lg screen-caption">Cooperative portal · payout statement (desktop)</p>
+        <div class="screen">
+          <div class="stmt-head">
+            <div class="left">
+              <div><h3 class="text-headline-sm">October 2026 – Milk</h3><span class="chip-status tone-success-c">Paid</span></div>
+              <p class="text-body-md tone-muted tabular">Wanjiku Kamau · M-0142 · deliveries up to 23 Oct 2026</p>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap">
+              <button class="btn btn-outlined" type="button"><span class="mdi mdi-share-variant-outline" aria-hidden="true"></span>Share</button>
+              <button class="btn btn-filled" type="button"><span class="mdi mdi-plus" aria-hidden="true"></span>New payout</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Delivered</th><th>Quantity</th><th>Price</th><th>Value</th><th>Paid before</th><th>Paid now</th><th>Balance</th></tr></thead>
+              <tbody>
+                <tr><td>Raw milk · 1–14 Oct</td><td>250.5 L</td><td>Ksh 52.50</td><td>Ksh 13,151.25</td><td>Ksh 0.00</td><td>Ksh 13,151.25</td><td>Ksh 0.00</td></tr>
+                <tr><td>Raw milk · 15–23 Oct</td><td>162.0 L</td><td>Ksh 54.00</td><td>Ksh 8,748.00</td><td>Ksh 0.00</td><td>Ksh 4,374.00</td><td><span class="chip-status tone-warning-c">Ksh 4,374.00 left</span></td></tr>
+                <tr><td class="text-title-sm">Total</td><td class="text-title-sm">412.5 L</td><td></td><td class="text-title-sm">Ksh 21,899.25</td><td class="text-title-sm">Ksh 0.00</td><td class="text-title-sm">Ksh 17,525.25</td><td class="text-title-sm">Ksh 4,374.00</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="totals text-body-lg">
+            <div><span>Paid for deliveries</span><span>Ksh 17,525.25</span></div>
+            <div><span>Quality bonus</span><span>+ Ksh 500.00</span></div>
+            <div><span>Transport levy <span class="tone-muted text-body-md">(Ksh 1 per litre)</span></span><span>− Ksh 412.50</span></div>
+            <div><span>Input credit <span class="tone-muted text-body-md">(fertiliser, 2 bags)</span></span><span>− Ksh 1,200.00</span></div>
+            <div class="net text-title-lg"><span>Net paid</span><span>Ksh 16,412.75</span></div>
+          </div>
+          <p class="stmt-foot text-body-md tone-muted tabular">Paid 28 Oct 2026 by M-Pesa to 0712 345 678 · ref SKL4H7Q2XM</p>
+        </div>
+      </div>
+    </div>
+    <div class="note"><b>What to look for.</b> On the statement, the teal "Paid" chip should read as a status, and the green "New payout" button as an action. Switch to "Without teal" to see them collide. The bright logo green carries the member's headline figure; its text is dark, as large bold type only (4.57 : 1).</div>
+  </section>
+
+  <!-- ===================== Status tones ===================== -->
+  <section class="section" aria-labelledby="h-status">
+    <header>
+      <h2 class="text-title-lg" id="h-status">Statuses</h2>
+      <p class="text-body-md tone-muted">Every status in the signed-off apps, with its proposed tone. These become each feature's <code>display.ts</code>. Teal means done or in good standing, amber needs attention, blue is in progress, grey is over or inactive. Red is only for errors and refusals.</p>
+    </header>
+    <div class="card status-table">
+      <div><span class="what text-label-lg">Cooperative</span>
+        <span class="chip-status tone-info-c">Onboarding</span><span class="chip-status tone-success-c">Active</span><span class="chip-status tone-warning-c">On hold</span><span class="chip-status tone-neutral-c">Ended</span></div>
+      <div><span class="what text-label-lg">Member</span>
+        <span class="chip-status tone-success-c">Active</span><span class="chip-status tone-warning-c">Suspended</span><span class="chip-status tone-neutral-c">Exited</span></div>
+      <div><span class="what text-label-lg">Delivery</span>
+        <span class="text-body-md tone-muted">Recorded: no chip (the normal case)</span><span class="chip-status tone-neutral-c">Voided</span></div>
+      <div><span class="what text-label-lg">Delivery paid</span>
+        <span class="chip-status tone-neutral-c">Unpaid</span><span class="chip-status tone-warning-c">Part paid</span><span class="chip-status tone-success-c">Paid</span></div>
+      <div><span class="what text-label-lg">Payout</span>
+        <span class="chip-status tone-info-c">Draft</span><span class="chip-status tone-success-c">Paid</span><span class="chip-status tone-neutral-c">Cancelled</span></div>
+      <div><span class="what text-label-lg">Lists in Settings</span>
+        <span class="chip-status tone-success-c">Active</span><span class="chip-status tone-neutral-c">Archived</span></div>
+      <div><span class="what text-label-lg">Staff invitation</span>
+        <span class="chip-status tone-info-c">Invited</span><span class="chip-status tone-success-c">Accepted</span><span class="chip-status tone-warning-c">Expired</span></div>
+    </div>
+  </section>
+
+  <!-- ===================== Colour roles ===================== -->
+  <section class="section" aria-labelledby="h-colour">
+    <header>
+      <h2 class="text-title-lg" id="h-colour">Colour roles</h2>
+      <p class="text-body-md tone-muted">Generated from the logo green. Screens name these roles, never the hex values; the values shown update with the switches.</p>
+    </header>
+    <div class="grid" id="swatches"></div>
+    <p class="text-title-sm" style="margin: 24px 0 8px">Surfaces</p>
+    <div class="ramp" id="ramp"></div>
+  </section>
+
+  <!-- ===================== Logo ===================== -->
+  <section class="section" aria-labelledby="h-logo">
+    <header>
+      <h2 class="text-title-lg" id="h-logo">Logo (D1)</h2>
+      <p class="text-body-md tone-muted">Kept as it is. Still needed: a vector (SVG) copy and a square mark for the app icon (Q1).</p>
+    </header>
+    <div class="logos">
+      <div style="background: var(--surface-container-lowest); border: 1px solid var(--outline-variant)"><img src="../assets/brand/grofunder-wordmark.png" alt="GroFunder logo on the lightest surface"></div>
+      <div style="background: var(--surface)"><img src="../assets/brand/grofunder-wordmark.png" alt="GroFunder logo on the page surface"></div>
+      <div style="background: var(--inverse-surface)"><img src="../assets/brand/grofunder-wordmark.png" alt="GroFunder logo on a dark surface"></div>
+    </div>
+  </section>
+
+  <!-- ===================== Type ===================== -->
+  <section class="section" aria-labelledby="h-type">
+    <header>
+      <h2 class="text-title-lg" id="h-type">Type scale (D4, D5)</h2>
+      <p class="text-body-md tone-muted">The kit's sizes, with heavier weights for reading outdoors. Switch the font above to compare.</p>
+    </header>
+    <div id="typescale"></div>
+  </section>
+
+  <!-- ===================== Numbers ===================== -->
+  <section class="section" aria-labelledby="h-numbers">
+    <header>
+      <h2 class="text-title-lg" id="h-numbers">Numbers (D7)</h2>
+      <p class="text-body-md tone-muted">Tabular figures keep columns of amounts aligned. The left column is how the font draws figures by default.</p>
+    </header>
+    <div class="num-compare">
+      <div class="num-col"><p class="text-label-md tone-muted">Default figures</p>
+        <div>Ksh 1,111.11</div><div>Ksh 48,200.00</div><div>Ksh 7,019.50</div><div>Ksh 116,412.75</div></div>
+      <div class="num-col"><p class="text-label-md tone-muted">Tabular figures</p>
+        <div class="tabular">Ksh 1,111.11</div><div class="tabular">Ksh 48,200.00</div><div class="tabular">Ksh 7,019.50</div><div class="tabular">Ksh 116,412.75</div></div>
+    </div>
+    <div class="card fmt" style="margin-top: 16px">
+      <table>
+        <thead><tr><th>What</th><th>Shown as</th></tr></thead>
+        <tbody class="text-body-md">
+          <tr><td>Money</td><td class="tabular">Ksh 1,250.50 · headline figures may drop cents: Ksh 48,200</td></tr>
+          <tr><td>Deduction</td><td class="tabular">− Ksh 300.00</td></tr>
+          <tr><td>Quantity</td><td class="tabular">180 kg · 18.5 L · 1,204.25 kg</td></tr>
+          <tr><td>Entered in another unit</td><td class="tabular">2 bags (180 kg)</td></tr>
+          <tr><td>Price</td><td class="tabular">Ksh 52.50 / litre · Ksh 4,725 / bag (Ksh 52.50 / kg)</td></tr>
+          <tr><td>Dates</td><td class="tabular">12 Oct 2026 · 12 Oct · 2 days ago</td></tr>
+          <tr><td>Phone</td><td class="tabular">0712 345 678</td></tr>
+          <tr><td>IDs and receipts</td><td class="tabular">ID 23456789 · M-0142 · R-4471 · SKL4H7Q2XM</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== Components ===================== -->
+  <section class="section" aria-labelledby="h-components">
+    <header>
+      <h2 class="text-title-lg" id="h-components">Buttons and shapes (D6)</h2>
+      <p class="text-body-md tone-muted">The kit's Material 3 defaults, unchanged. Phase 2 specifies every component in every state.</p>
+    </header>
+    <div class="card" style="display:flex; flex-wrap:wrap; gap:12px; align-items:center">
+      <button class="btn btn-filled" type="button">Record delivery</button>
+      <button class="btn btn-tonal" type="button">Add member</button>
+      <button class="btn btn-outlined" type="button">Import CSV</button>
+      <button class="btn btn-text" type="button">Cancel</button>
+      <button class="btn btn-destructive" type="button">Void delivery</button>
+      <span class="chip-filter" aria-selected="true">Raw milk</span>
+      <span class="chip-filter">Coffee cherry</span>
+    </div>
+  </section>
+
+  <!-- ===================== Icons ===================== -->
+  <section class="section" aria-labelledby="h-icons">
+    <header>
+      <h2 class="text-title-lg" id="h-icons">Icons (D8)</h2>
+      <p class="text-body-md tone-muted">Material Design Icons, by the same names the app uses.</p>
+    </header>
+    <div class="icons" id="icons"></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var store = {
+    get: function (k) { try { return localStorage.getItem("gf.specimen." + k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem("gf.specimen." + k, v); } catch (e) {} }
+  };
+  var defaults = { scheme: "proposed", font: "Figtree", theme: "system" };
+  var notes = {
+    proposed: "<b>Proposed (D2).</b> Fidelity scheme from the logo green: deep green buttons, the logo green itself for highlights, teal for success. Needs a small kit change (F7).",
+    tonalspot: "<b>Kit standard.</b> What the kit generates today with no change: a muted olive green, and success on the same hue as primary.",
+    fidelity: "<b>Without teal (rejected).</b> The right greens, but success collides with primary: compare the Paid chip and the New payout button."
+  };
+
+  function apply(control, value) {
+    if (control === "scheme") {
+      if (value === "proposed") root.removeAttribute("data-scheme"); else root.setAttribute("data-scheme", value);
+      document.getElementById("scheme-note").innerHTML = notes[value];
+    }
+    if (control === "font") root.style.setProperty("--font-sans", '"' + value + '"');
+    if (control === "theme") {
+      if (value === "system") root.removeAttribute("data-theme"); else root.setAttribute("data-theme", value);
+    }
+    document.querySelectorAll('[data-control="' + control + '"] button').forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-value") === value));
+    });
+    store.set(control, value);
+    requestAnimationFrame(fillHexes);
+  }
+
+  document.querySelectorAll("[data-control]").forEach(function (group) {
+    var control = group.getAttribute("data-control");
+    group.addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (b) apply(control, b.getAttribute("data-value"));
+    });
+  });
+
+  // Colour swatches: role pairs, then the surface ramp.
+  var pairs = [
+    ["primary", "on-primary", "Filled buttons, links, selection"],
+    ["primary-container", "on-primary-container", "Highlights (large text only)"],
+    ["secondary-container", "on-secondary-container", "Tonal buttons, nav indicator"],
+    ["success-container", "on-success-container", "Paid, active"],
+    ["warning-container", "on-warning-container", "Needs attention"],
+    ["info-container", "on-info-container", "In progress, draft"],
+    ["error-container", "on-error-container", "Errors, refusals"],
+    ["inverse-surface", "inverse-on-surface", "Snackbars, selected chips"],
+    ["tertiary-container", "on-tertiary-container", "Not used (D3)"]
+  ];
+  var ramp = ["surface-container-lowest", "surface", "surface-container-low", "surface-container", "surface-container-high", "surface-container-highest", "surface-dim", "outline-variant", "outline"];
+  var sw = document.getElementById("swatches");
+  sw.innerHTML = pairs.map(function (p) {
+    return '<div class="swatch"><div style="background:var(--' + p[0] + ');color:var(--' + p[1] + ')">' +
+      '<span class="text-title-sm">' + p[0] + '</span><span class="text-body-sm">' + p[2] + '</span>' +
+      '<code data-hex="' + p[0] + '"></code></div></div>';
+  }).join("");
+  document.getElementById("ramp").innerHTML = ramp.map(function (r) {
+    var onDark = r === "outline";
+    return '<div style="background:var(--' + r + ');' + (onDark ? "color:var(--surface)" : "") + '"><span class="text-label-md">' + r + '</span><code class="text-body-sm tabular" data-hex="' + r + '"></code></div>';
+  }).join("");
+
+  function fillHexes() {
+    var cs = getComputedStyle(root);
+    document.querySelectorAll("[data-hex]").forEach(function (el) {
+      el.textContent = cs.getPropertyValue("--" + el.getAttribute("data-hex")).trim();
+    });
+  }
+
+  // Type scale
+  var steps = [
+    ["display-sm", "36 / 44 · 700", "Ksh 25,922"],
+    ["headline-md", "28 / 36 · 700", "October 2026 – Milk"],
+    ["headline-sm", "24 / 32 · 700", "Kijani Valley Dairy"],
+    ["title-lg", "22 / 28 · 600", "Record delivery"],
+    ["title-md", "16 / 24 · 600", "Recent deliveries"],
+    ["title-sm", "14 / 20 · 600", "Gathiru cluster"],
+    ["body-lg", "16 / 24 · 400", "Your milk was received at the Gathiru centre. Maziwa yako yamepokelewa."],
+    ["body-md", "14 / 20 · 400", "Deliveries up to 23 Oct that still have a balance are offered for payment."],
+    ["body-sm", "12 / 16 · 400", "1 bag = 90 kg · Il1 O0 rn m"],
+    ["label-lg", "14 / 20 · 600", "Record delivery"],
+    ["label-md", "12 / 16 · 500", "Paid · Suspended · On hold"]
+  ];
+  document.getElementById("typescale").innerHTML = steps.map(function (s) {
+    return '<div class="type-row"><div><p class="text-label-lg">' + s[0] + '</p><p class="text-body-sm tone-muted">' + s[1] + '</p></div>' +
+      '<p class="sample text-' + s[0] + '">' + s[2] + '</p></div>';
+  }).join("");
+
+  // Icons
+  var icons = ["home-variant", "basket-outline", "cash-multiple", "account-group", "account-circle-outline", "sprout", "cow", "water-outline", "coffee-outline", "corn", "scale-balance", "truck-outline", "map-marker-outline", "calendar-clock", "receipt-text-outline", "file-upload-outline", "cellphone-message", "shield-account-outline", "cog-outline", "office-building-outline"];
+  document.getElementById("icons").innerHTML = icons.map(function (n) {
+    return '<div><span class="mdi mdi-' + n + '" aria-hidden="true"></span><code>' + n + '</code></div>';
+  }).join("");
+
+  ["scheme", "font", "theme"].forEach(function (c) { apply(c, store.get(c) || defaults[c]); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fillHexes);
+})();
+</script>
+</body>
+</html>

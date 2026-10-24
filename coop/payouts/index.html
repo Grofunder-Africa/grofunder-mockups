@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Payouts · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/payouts.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Payouts" data-dest="payouts" data-wide
+     data-action='{"label":"Start a payout","icon":"cash-plus","roles":"admin manager accountant","write":true,"on":"Payouts.start()"}'
+     data-menu='[{"label":"Download as CSV","icon":"download","on":"Proto.snack(&apos;Downloading the payouts shown&apos;)"}]'>
+
+  <p class="proto-note"><b>C16 · From note 08 (UI-31).</b> Every payout the cooperative has prepared: drafts waiting to be paid, paid ones, and cancelled ones. A draft opens on its page to finish it; a paid or cancelled one opens its statement. The band adds up what the filters show.</p>
+  <p class="proto-note"><b>One member at a time (08, v1).</b> "Start a payout" asks for a member and a date (C17), then opens the draft. Pay runs for many members come later and reuse the same payout record ("Building on top").</p>
+  <p class="proto-note"><b>Who sees what (09).</b> Accountant, Manager and Administrator start and finish payouts (<code>payouts.record</code>); a Viewer reads them; a Clerk has no Payouts in the navigation.</p>
+
+  <div class="banner banner-info" data-coop="on_hold">
+    <span class="mdi mdi-information-outline" aria-hidden="true"></span>
+    <div class="grow"><span class="text-title-sm">Kijani Valley Dairy is on hold</span>
+      <span class="text-body-md">Paying members carries on: they are owed for deliveries already made (08).</span></div>
+  </div>
+
+  <div data-state="loaded" class="col gap-4">
+    <div class="section">
+      <div class="section-toolbar">
+        <div class="field search">
+          <div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>
+            <input class="field-input" id="q" type="search" placeholder="Member, number or reference" aria-label="Search payouts"></div>
+        </div>
+        <div class="chip-row" data-choice role="radiogroup" aria-label="Status" id="f-status">
+          <button class="chip" type="button" role="radio" aria-checked="true" data-s="">All</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="DRAFT">Drafts</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="PAID">Paid</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="CANCELLED">Cancelled</button>
+        </div>
+        <select class="field-input" id="f-period" aria-label="Period" style="width:auto">
+          <option value="2026-10">October 2026</option><option value="2026-09">September 2026</option><option value="2026-08">August 2026</option><option value="">All time</option></select>
+        <select class="field-input" id="f-method" aria-label="Method" style="width:auto">
+          <option value="">Any method</option><option value="MPESA">M-Pesa</option><option value="BANK">Bank</option><option value="CASH">Cash</option></select>
+      </div>
+      <div class="section-band">
+        <div class="section-figure lg"><span class="k">Net paid</span><span class="v" id="f-net"></span></div>
+        <div class="section-figure"><span class="k">Paid</span><span class="v" id="f-paid"></span></div>
+        <div class="section-figure"><span class="k">Drafts</span><span class="v" id="f-drafts"></span></div>
+        <div class="section-figure"><span class="k">Still owed to members</span><span class="v" id="f-owed"></span></div>
+        <span class="note" id="f-note"></span>
+      </div>
+      <div class="table-wrap only-wide">
+        <table class="table">
+          <thead><tr><th>Member</th><th>Payout</th><th class="num">For deliveries</th><th class="num">Additions</th><th class="num">Deductions</th><th class="num">Net</th><th>Paid</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="rowcards only-compact" id="cards"></div>
+      <div class="section-body row between wrap gap-3" id="more-row"><span class="text-body-md tone-muted" id="shown"></span>
+        <button class="btn btn-text btn-sm" type="button" id="more" onclick="limit += 25; draw()">Show 25 more</button></div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4">
+    <div class="skeleton" style="height:40px"></div>
+    <div class="skeleton-card"></div>
+    <div class="col"><div class="skeleton-row"><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:50%"></div><div class="skeleton skeleton-line" style="width:30%"></div></div></div>
+      <div class="skeleton-row"><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:60%"></div><div class="skeleton skeleton-line" style="width:25%"></div></div></div>
+      <div class="skeleton-row"><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:45%"></div><div class="skeleton skeleton-line" style="width:35%"></div></div></div></div>
+  </div>
+
+  <div data-state="empty" class="empty">
+    <span class="mdi mdi-cash-multiple" aria-hidden="true"></span>
+    <span class="text-headline-sm">No payouts yet</span>
+    <span class="text-body-md">Start one from here or from a member: pick the member and a date, and the deliveries with a balance are offered.</span>
+    <button class="btn btn-filled" type="button" data-roles="admin manager accountant" data-write onclick="Payouts.start()"><span class="mdi mdi-cash-plus" aria-hidden="true"></span>Start a payout</button>
+  </div>
+
+  <div data-state="error" class="error-state">
+    <span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load payouts</span>
+    <span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loading');setTimeout(function(){Proto.go('loaded')},800)">Try again</button>
+  </div>
+</div>
+
+<script>
+var q = GF.q, f = GF.fmt, P = Payouts, K = (function () { var c = new URLSearchParams(location.search).get("c"); if (c !== "co-mawingu" && c !== "co-kijani") { try { c = localStorage.getItem("gf.portalCoop"); } catch (e) { c = null; } } return c === "co-mawingu" ? c : GF.who.kijani; })(), /* ?c=, else the account switcher's pick (gf.portalCoop) */ status = "", limit = 25;
+document.querySelector("[data-screen]").setAttribute("data-sub", GF.get(K).profile.short_name);
+var ALL = q.payouts({ cooperative: K }).slice().sort(function (a, b) {
+  var r = function (p) { return p.status === "DRAFT" ? 0 : 1; };
+  return r(a) - r(b) || ((b.paid_at || b.created_at) > (a.paid_at || a.created_at) ? 1 : -1);
+});
+var href = function (p) { return p.status === "DRAFT" ? "draft.html?p=" + p.id : "statement.html?p=" + p.id; };
+var signed = function (c, sign) { return c ? sign + " " + f.money(c) : "–"; };
+function draw() {
+  var t = document.getElementById("q").value.trim().toLowerCase(), per = document.getElementById("f-period").value, meth = document.getElementById("f-method").value;
+  var inPeriod = function (p) { return !per || (p.paid_at || p.created_at).slice(0, 7) === per; };
+  var list = ALL.filter(function (p) {
+    var m = GF.get(p.member);
+    return (!status || p.status === status) && (p.status === "DRAFT" || inPeriod(p)) && (!meth || p.method === meth) &&
+      (!t || (m.full_name + " " + m.member_no + " " + p.payment_ref).toLowerCase().indexOf(t) > -1);
+  });
+  var paid = list.filter(function (p) { return p.status === "PAID"; });
+  var total = list.length; list = list.slice(0, limit);
+  document.getElementById("shown").textContent = total ? "Showing " + list.length + " of " + total : "";
+  document.getElementById("more").classList.toggle("hidden", total <= list.length);
+  document.getElementById("f-net").textContent = f.money(q.sum(paid, function (p) { return p.net_cents; }), { whole: true });
+  document.getElementById("f-paid").textContent = paid.length;
+  document.getElementById("f-drafts").textContent = ALL.filter(function (p) { return p.status === "DRAFT"; }).length;
+  document.getElementById("f-owed").textContent = f.money(q.balance(q.deliveries({ cooperative: K })), { whole: true });
+  document.getElementById("f-note").textContent = "Drafts are listed whatever the period, first. Cancelled payouts paid nothing.";
+  document.getElementById("rows").innerHTML = list.map(function (p) {
+    var m = GF.get(p.member);
+    return '<tr data-href="' + href(p) + '" onclick="location.href=\'' + href(p) + '\'"><td class="primary-cell">' + P.esc(m.full_name) + '<span class="cell-sub tabular">' + m.member_no + "</span></td>" +
+      "<td>" + P.esc(p.details.label) + '<span class="cell-sub tabular">Up to ' + f.date(p.period_end) + "</span></td>" +
+      '<td class="num">' + f.money(p.gross_cents) + '</td><td class="num">' + signed(p.additions_cents, "+") + '</td><td class="num">' + signed(p.deductions_cents, "−") + "</td>" +
+      '<td class="num text-title-sm">' + f.money(p.net_cents) + "</td>" +
+      "<td>" + (p.paid_at ? '<span class="tabular">' + f.date(p.paid_at, "short") + '</span><span class="cell-sub">' + P.METHOD[p.method] + (p.payment_ref ? " · " + p.payment_ref : "") + "</span>" : "–") + "</td>" +
+      "<td>" + P.chip(p.status) + "</td></tr>";
+  }).join("");
+  document.getElementById("cards").innerHTML = list.map(function (p) {
+    var m = GF.get(p.member);
+    return '<a class="rowcard" href="' + href(p) + '"><span class="grow"><span class="text-body-lg">' + P.esc(m.full_name) + '</span><span class="text-body-md tone-muted tabular">' +
+      m.member_no + " · " + (p.paid_at ? f.date(p.paid_at, "short") + " · " + P.METHOD[p.method] : "Up to " + f.date(p.period_end, "short")) + "</span></span>" +
+      '<span class="trail"><span class="text-title-md tabular">' + f.money(p.net_cents) + "</span>" + P.chip(p.status) + "</span></a>";
+  }).join("") ;
+  if (!list.length) {
+    var none = '<div class="section-body"><span class="text-body-md tone-muted">No payouts match these filters.</span></div>';
+    document.getElementById("rows").innerHTML = '<tr><td colspan="8" class="tone-muted">No payouts match these filters.</td></tr>';
+    document.getElementById("cards").innerHTML = none;
+  }
+}
+document.querySelectorAll("#f-status .chip").forEach(function (c) { c.addEventListener("click", function () { status = c.getAttribute("data-s"); limit = 25; draw(); }); });
+["q", "f-period", "f-method"].forEach(function (id) { document.getElementById(id).addEventListener(id === "q" ? "input" : "change", function () { limit = 25; draw(); }); });
+draw();
+/* ?start=1 opens Start a payout (C17); ?start=1&m=<member> picks the member. */
+var qs = new URLSearchParams(location.search);
+if (qs.get("start")) document.addEventListener("DOMContentLoaded", function () { setTimeout(function () { if (P.canRecord()) P.start({ member: qs.get("m") || undefined }); }, 0); });
+</script>
+</body>
+</html>

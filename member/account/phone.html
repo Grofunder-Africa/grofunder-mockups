@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Change phone · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Change phone" data-flow data-back="index.html" data-compact>
+
+  <p class="proto-note"><b>M16 · Change phone (note 06).</b> The kit's phone change: a code goes to the new number, which must not belong to another login (one phone per login). The kit ends other sessions. Afterwards GroFunder copies the number to every linked record (05 lets members update their own phone) and sends an SMS to the old number, so a stolen phone can't quietly move the login.</p>
+  <p class="proto-note"><b>Try it:</b> another member's number is refused; any other mobile number goes on to the code. The SMS sign-in code follows the new number with no extra step, because the factor reads the current phone (06).</p>
+
+  <div data-roles="out" class="empty">
+    <span class="mdi mdi-account-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">You're signed out</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a>
+  </div>
+
+  <!-- Step 1: the new number -->
+  <form class="col gap-4" data-state="loaded" data-roles="in" id="f-number" novalidate>
+    <div class="col gap-1"><h1 class="text-headline-sm">Your new phone number</h1>
+      <p class="text-body-md tone-muted">Now <span class="tabular" id="old"></span>. We'll send a code to the new number to check it's yours.</p></div>
+    <div class="field"><label class="field-label" for="np">New phone number</label>
+      <input class="field-input tabular" id="np" type="tel" inputmode="tel" autocomplete="tel" placeholder="07xx xxx xxx" aria-describedby="np-e">
+      <span class="field-error hidden" id="np-e"></span></div>
+    <button class="btn btn-filled btn-block" type="submit">Send code</button>
+  </form>
+
+  <!-- Step 2: the code -->
+  <form class="col gap-4" data-state="code" data-roles="in" id="f-code" novalidate>
+    <div class="col gap-1"><h1 class="text-headline-sm">Enter the code we sent</h1>
+      <p class="text-body-md tone-muted">A 6-digit code went to <span class="tabular" id="to">the new number</span>. It works for 5 minutes.</p></div>
+    <div class="otp" role="group" aria-label="6-digit code" id="otp">
+      <input inputmode="numeric" maxlength="1" aria-label="Digit 1"><input inputmode="numeric" maxlength="1" aria-label="Digit 2"><input inputmode="numeric" maxlength="1" aria-label="Digit 3">
+      <input inputmode="numeric" maxlength="1" aria-label="Digit 4"><input inputmode="numeric" maxlength="1" aria-label="Digit 5"><input inputmode="numeric" maxlength="1" aria-label="Digit 6">
+    </div>
+    <p class="text-body-md tone-error hidden" style="text-align:center" role="alert" id="code-e">Enter all 6 digits of the code.</p>
+    <button class="btn btn-filled btn-block" type="submit">Change number</button>
+    <div class="col center gap-1">
+      <span class="text-body-md tone-muted">No SMS? You can ask for another in 0:42.</span>
+      <button class="btn btn-text" type="button" onclick="Proto.go('loaded')">Use a different number</button>
+    </div>
+  </form>
+
+  <div data-state="done" class="empty" data-roles="in">
+    <span class="mdi mdi-check-circle-outline tone-primary" aria-hidden="true"></span>
+    <span class="text-headline-sm">Your number is changed</span>
+    <span class="text-body-md" id="done-msg"></span>
+    <a class="btn btn-filled" href="index.html">Back to your account</a>
+  </div>
+
+  <div data-state="loading" class="empty" data-roles="in"><span class="spinner" aria-hidden="true"></span><span class="text-body-md">Sending the code…</span></div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't send the code</span><span class="text-body-md">Your number is as it was. Check your connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var A = MemberApp, f = GF.fmt, login = A.login, next = "";
+document.getElementById("old").textContent = f.phone(login.phone);
+/* Kenyan mobile numbers as typed (07…, 01…, +254…) to E.164. */
+function e164(raw) {
+  var d = raw.replace(/[\s-]/g, "");
+  if (/^\+254[17]\d{8}$/.test(d)) return d;
+  if (/^254[17]\d{8}$/.test(d)) return "+" + d;
+  if (/^0[17]\d{8}$/.test(d)) return "+254" + d.slice(1);
+  return "";
+}
+function err(id, msg) { var e = document.getElementById(id); e.textContent = msg; e.classList.toggle("hidden", !msg); }
+document.getElementById("f-number").addEventListener("submit", function (e) {
+  e.preventDefault();
+  var input = document.getElementById("np"), n = e164(input.value);
+  input.removeAttribute("aria-invalid");
+  if (!n) { input.setAttribute("aria-invalid", "true"); return err("np-e", "Enter a Kenyan mobile number, like 0712 345 678."); }
+  if (n === login.phone) { input.setAttribute("aria-invalid", "true"); return err("np-e", "That's the number you have now."); }
+  /* 06: one phone per login. */
+  if (GF.logins.some(function (u) { return u.id !== login.id && u.phone === n; })) {
+    input.setAttribute("aria-invalid", "true");
+    return err("np-e", "This number already has a GroFunder login. Each person needs their own number.");
+  }
+  err("np-e", ""); next = n;
+  document.getElementById("to").textContent = f.phone(n);
+  Proto.go("code");
+});
+document.getElementById("otp").addEventListener("input", function (e) {
+  if (e.target.value && e.target.nextElementSibling) e.target.nextElementSibling.focus();
+});
+document.getElementById("f-code").addEventListener("submit", function (e) {
+  e.preventDefault();
+  var code = [].map.call(document.querySelectorAll("#otp input"), function (i) { return i.value; }).join("");
+  if (!/^\d{6}$/.test(code)) return err("code-e", "Enter all 6 digits of the code.");
+  err("code-e", "");
+  var names = A.records.map(function (m) { return A.coopName(m); });
+  document.getElementById("done-msg").textContent = "We've sent an SMS to your old number, " + f.phone(login.phone) + ". Your records at " +
+    names.join(" and ") + " now have " + f.phone(next || login.phone) + ", and sign-in codes go there. If GroFunder was open on another phone, it has been signed out there.";
+  Proto.go("done");
+});
+</script>
+</body>
+</html>

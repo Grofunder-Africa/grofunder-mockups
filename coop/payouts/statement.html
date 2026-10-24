@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Payout statement · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/payouts.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Statement" data-sub="" data-dest="payouts" data-back="index.html" data-wide id="screen"
+     data-action='{"label":"Start next payout","icon":"cash-plus","roles":"admin manager accountant","write":true,"on":"Payouts.start({member:S.member})","variant":"tonal"}'
+     data-menu='[{"label":"Print","icon":"printer-outline","on":"window.print()"}]'>
+
+  <p class="proto-note"><b>C20 · From note 08 (UI-31).</b> What was paid against which deliveries, grouped by product, grade and price as the member's statement shows them (<code>details.breakdown</code>): the value, what was paid before, what was paid now, and what is still owed. Then the additions, deductions, net, where the money went, and who did what (<code>PayoutStatusChange</code>).</p>
+  <p class="proto-note"><b>Fixed once paid (08).</b> A paid payout is never edited or cancelled, so this page has nothing to change. A mistake is corrected on the member's next payout, as an addition or a deduction with a note: hence "Start next payout". A page of its own (UI-13), because it is shared and printed.</p>
+  <p class="proto-note"><b>Try:</b> <a href="statement.html?p=po-3">Wanjiku, 23 Oct, part paid</a> · <a href="statement.html?p=po-267">Mawingu maize, in bags</a> · <a href="statement.html?p=po-196">a cancelled draft</a>.</p>
+
+  <div class="banner banner-warning hidden" id="b-owed"><span class="mdi mdi-progress-clock" aria-hidden="true"></span>
+    <div class="grow"><span class="text-body-md" id="b-owed-t"></span></div></div>
+  <div class="banner banner-info hidden" id="b-cancel"><span class="mdi mdi-close-circle-outline" aria-hidden="true"></span>
+    <div class="grow"><span class="text-title-sm">Cancelled: nothing was paid</span><span class="text-body-md">Nothing was fixed. The deliveries it would have paid were offered again on the next payout, and its additions and deductions were dropped (08).</span></div></div>
+
+  <div data-state="loaded" class="col gap-4">
+    <div class="card card-outlined card-lg" id="head"></div>
+
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg" id="bd-title">Deliveries paid</span>
+        <span class="text-body-md tone-muted" id="bd-sub"></span></div></div>
+      <div class="table-wrap only-wide">
+        <table class="table">
+          <thead><tr><th>Product</th><th class="num">Quantity</th><th class="num">Value</th><th class="num">Paid before</th><th class="num" id="th-now">Paid now</th><th class="num">Still owed</th></tr></thead>
+          <tbody id="bd-rows"></tbody>
+          <tfoot id="bd-foot"></tfoot>
+        </table>
+      </div>
+      <div class="rowcards only-compact" id="bd-cards"></div>
+      <div class="disclosure"><div class="disclosure-item">
+        <button class="disclosure-trigger" type="button" aria-expanded="false" id="dl-t">Each delivery</button>
+        <div class="disclosure-panel" hidden><div class="rowcards" id="dl"></div></div>
+      </div></div>
+    </div>
+
+    <div class="two-col">
+      <div class="card card-outlined">
+        <div class="card-header"><div class="card-header-text"><span class="card-title">Totals</span></div></div>
+        <div class="totals" id="totals"></div>
+        <p class="text-body-md tone-muted hidden" id="note"></p>
+      </div>
+      <div class="card card-outlined">
+        <div class="card-header"><div class="card-header-text"><span class="card-title">History</span></div></div>
+        <div class="rowcards" id="hist"></div>
+      </div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4">
+    <div class="skeleton-card" style="height:180px"></div><div class="skeleton-card" style="height:240px"></div><div class="skeleton-card" style="height:200px"></div>
+  </div>
+  <div data-state="error" class="error-state">
+    <span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the statement</span>
+    <span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button>
+  </div>
+  <div data-state="empty" class="empty">
+    <span class="mdi mdi-file-question-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No such payout</span>
+    <span class="text-body-md">It may be in another cooperative. Payouts lists this cooperative's.</span>
+    <a class="btn btn-tonal" href="index.html">Payouts</a>
+  </div>
+</div>
+
+<script>
+var q = GF.q, f = GF.fmt, P = Payouts, esc = P.esc, qs = new URLSearchParams(location.search);
+var S = GF.get(qs.get("p") || "po-3");
+if (S && S.status === "DRAFT" && !qs.get("preview")) location.replace("draft.html?p=" + S.id);
+/* ?preview=paid: the draft just marked paid (C19), as it would read now. */
+if (S && qs.get("preview") === "paid") {
+  S = Object.assign({}, S, { status: "PAID", method: qs.get("method") || "MPESA", paid_at: GF.NOW, payment_ref: "",
+    history: S.history.concat([{ from_status: "DRAFT", to_status: "PAID", changed_at: GF.NOW, changed_by: "Grace Wambui", details: { reason: "" } }]) });
+  S.details = Object.assign({}, S.details, { pay_to: S.details.pay_to && S.details.pay_to.phone ? S.details.pay_to : { phone: GF.get(S.member).phone } });
+}
+var M = S && GF.get(S.member);
+if (M) document.getElementById("screen").setAttribute("data-sub", M.full_name + " · " + S.details.label);
+
+function unitOf(cp) { return GF.get(GF.get(cp).product).unit; }
+/* Quantity as the member knows it: in bags when the cooperative records in bags (07). */
+function qtyOf(g) {
+  var cp = GF.get(g.product), unit = unitOf(g.product), qn = g.quantity_milli / 1000;
+  var base = f.qty(qn, unit, { digits: unit === "LITRE" ? 1 : 0 });
+  if (!cp.recording_unit) return base;
+  var n = qn / cp.unit_factor;
+  return n + " " + (n === 1 ? GF.UNITS[cp.recording_unit][0] : GF.UNITS[cp.recording_unit][1]) + " (" + base + ")";
+}
+function priceOf(g) {
+  var cp = GF.get(g.product), u = GF.UNITS[unitOf(g.product)][0];
+  return f.money(g.price_cents) + " a " + u + (cp.recording_unit ? " (" + f.money(g.price_cents * cp.unit_factor) + " a " + GF.UNITS[cp.recording_unit][0] + ")" : "");
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  if (!S) { Proto.go("empty"); return; }
+  var c = GF.get(S.cooperative), paid = S.status === "PAID", bd = S.details.breakdown;
+  var owed = q.sum(bd, function (g) { return g.balance_cents; });
+  document.getElementById("head").innerHTML =
+    '<div class="row-top gap-4 wrap"><div class="col gap-1 grow"><div class="row gap-3 wrap"><span class="text-headline-sm">' + esc(S.details.label) + "</span>" + P.chip(S.status) + "</div>" +
+    '<span class="text-body-md tone-muted tabular">' + esc(M.full_name) + " · " + P.memberLine(M) + " · " + esc(c.profile.short_name) + "</span></div>" +
+    '<div class="col end"><span class="text-body-sm tone-muted">' + (paid ? "Net paid" : "Net") + '</span><span class="text-headline-md tabular">' + f.money(S.net_cents) + "</span></div></div>" +
+    '<dl class="facts">' +
+      "<dt>Deliveries up to</dt><dd class=\"tabular\">" + f.date(S.period_end) + (S.product ? " · " + f.productName(S.product) : "") + "</dd>" +
+      (paid ? "<dt>Paid on</dt><dd class=\"tabular\">" + f.date(S.paid_at) + "</dd><dt>By</dt><dd>" + P.METHOD[S.method] + (S.method === "CASH" ? "" : ", to " + P.payTo(S)) + "</dd>" +
+        "<dt>" + (S.method === "BANK" ? "Bank reference" : "M-Pesa receipt") + '</dt><dd class="tabular">' + (S.method === "CASH" ? "None for cash" : S.payment_ref || "Not entered") + "</dd>" : "") +
+    "</dl>";
+  document.getElementById("b-cancel").classList.toggle("hidden", S.status !== "CANCELLED");
+  if (paid && owed > 0) {
+    document.getElementById("b-owed").classList.remove("hidden");
+    document.getElementById("b-owed-t").textContent = f.money(owed) + " is still owed on these deliveries. It stays as their balance and is offered on " + M.full_name.split(" ")[0] + "'s next payout.";
+  }
+
+  /* Breakdown, grouped by product, grade and price (08: details.breakdown). */
+  var period = function (g) { return g.first === g.last ? f.date(g.first, "short") : f.date(g.first, "short") + " – " + f.date(g.last, "short"); };
+  if (!paid) document.getElementById("th-now").textContent = "Would have paid";
+  if (!paid) document.getElementById("bd-title").textContent = "Deliveries it would have paid";
+  document.getElementById("bd-sub").textContent = q.sum(bd, function (g) { return g.count; }) + " deliveries, grouped by product, grade and price.";
+  document.getElementById("bd-rows").innerHTML = bd.map(function (g) {
+    return '<tr><td class="primary-cell">' + f.productName(g.product, g.grade) + '<span class="cell-sub tabular">' + period(g) + " · " + g.count + " deliveries</span></td>" +
+      '<td class="num">' + qtyOf(g) + '<span class="cell-sub">at ' + priceOf(g) + '</span></td><td class="num">' + f.money(g.value_cents) + '</td><td class="num">' + (g.paid_before_cents ? f.money(g.paid_before_cents) : "–") + "</td>" +
+      '<td class="num">' + f.money(g.paid_now_cents) + '</td><td class="num' + (g.balance_cents ? "" : " tone-muted") + '">' + f.money(g.balance_cents) + "</td></tr>";
+  }).join("");
+  document.getElementById("bd-foot").innerHTML = bd.length > 1 ? '<tr><td colspan="2">Total</td><td class="num">' + f.money(q.sum(bd, function (g) { return g.value_cents; })) + '</td><td class="num">' + f.money(q.sum(bd, function (g) { return g.paid_before_cents; })) +
+    '</td><td class="num">' + f.money(S.gross_cents) + '</td><td class="num">' + f.money(owed) + "</td></tr>" : "";
+  document.getElementById("bd-cards").innerHTML = bd.map(function (g) {
+    return '<div class="rowcard" style="align-items:flex-start"><div class="grow col gap-2"><span class="text-body-lg">' + f.productName(g.product, g.grade) + '</span><span class="text-body-sm tone-muted tabular">' + period(g) + " · " + g.count + " deliveries · " + qtyOf(g) + "</span>" +
+      '<div class="totals" style="width:100%"><div><span>Value at ' + f.money(g.price_cents) + "</span><span>" + f.money(g.value_cents) + "</span></div>" +
+      (g.paid_before_cents ? "<div><span>Paid before</span><span>" + f.money(g.paid_before_cents) + "</span></div>" : "") +
+      "<div><span>" + (paid ? "Paid now" : "Would have paid") + "</span><span>" + f.money(g.paid_now_cents) + "</span></div><div><span>Still owed</span><span>" + f.money(g.balance_cents) + "</span></div></div></div></div>";
+  }).join("");
+
+  /* Each delivery and what this payout paid against it (DeliveryPayment); each opens in Produce. */
+  document.getElementById("dl-t").textContent = "Each delivery (" + S.lines.length + ")";
+  document.getElementById("dl").innerHTML = S.lines.map(function (l) {
+    var d = GF.get(l.delivery);
+    return '<a class="rowcard" href="../produce/index.html?d=' + d.id + '"><span class="grow"><span class="text-body-lg tabular">' + f.date(d.delivered_on, "short") + " · " + f.delivery(d) + '</span><span class="text-body-sm tone-muted tabular">' +
+      [(GF.get(d.round) || {}).name, d.receipt_no].filter(Boolean).join(" · ") + "</span></span>" +
+      '<span class="trail"><span class="text-title-md tabular">' + f.money(l.amount_cents) + "</span></span></a>";
+  }).join("");
+
+  var rows = '<div><span>For deliveries</span><span>' + f.money(S.gross_cents) + "</span></div>";
+  S.items.forEach(function (it) {
+    var ty = GF.get(it.type), add = ty.direction === "ADDITION";
+    rows += "<div><span>" + esc(ty.name) + (it.details.note ? ' <span class="sub">' + esc(it.details.note) + "</span>" : "") + "</span><span>" + (add ? "+ " : "− ") + f.money(it.amount_cents) + "</span></div>";
+  });
+  rows += '<div class="net"><span>' + (paid ? "Net paid" : "Net") + "</span><span>" + f.money(S.net_cents) + "</span></div>";
+  document.getElementById("totals").innerHTML = rows;
+  if (S.details.note) { var n = document.getElementById("note"); n.classList.remove("hidden"); n.textContent = "Note: " + S.details.note; }
+
+  var LBL = { DRAFT: "Prepared", PAID: "Marked paid", CANCELLED: "Cancelled" };
+  document.getElementById("hist").innerHTML = S.history.slice().reverse().map(function (h) {
+    return '<div class="rowcard"><span class="grow"><span class="text-body-lg">' + LBL[h.to_status] + " by " + esc(h.changed_by) + '</span><span class="text-body-sm tone-muted tabular">' + f.date(h.changed_at) + " · " + h.changed_at.slice(11, 16) + "</span></span></div>";
+  }).join("");
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Additions and deductions · Settings · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Settings" data-dest="settings" data-wide>
+  <div data-subnav="settings" data-current="pay-items" data-label="Settings"></div>
+
+  <p class="proto-note"><b>C27 · From note 08 (PayoutItemType).</b> The named kinds of extra amount on a payout: additions are anything more due to the member, deductions anything taken off. They give statements consistent names and totals per kind; in v1 staff type each amount. Editing needs <code>payouts.configure</code>: Administrator, Manager and Accountant, so this is the one Settings tab an accountant has.</p>
+  <p class="proto-note"><b>The rules on screen (08).</b> Names are unique in the cooperative. A kind's direction can't change once a payout has used it. Archiving takes it out of the pickers and keeps it on past statements.</p>
+  <p class="proto-note"><b>Page, panel, dialog (UI-13).</b> Four fields, so adding and editing are a dialog; the most frequent action, Add, is a visible button on each section.</p>
+
+  <div data-state="loaded" class="col gap-4" id="sections"></div>
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:200px"></div><div class="skeleton-card" style="height:200px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-plus-minus-variant" aria-hidden="true"></span>
+    <span class="text-headline-sm">No additions or deductions yet</span>
+    <span class="text-body-md">Name the extra amounts you add to or take from members' pay, such as a quality bonus or a transport levy. They appear on statements under these names.</span>
+    <button class="btn btn-filled" type="button" data-roles="admin manager accountant" data-write onclick="kindDialog(null, 'DEDUCTION')">Add a kind</button></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load additions and deductions</span><button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var esc = Portal.esc, K = Portal.COOP;
+var ROLE = (function () { try { return localStorage.getItem("gf.role.coop") || "admin"; } catch (e) { return "admin"; } })();
+var CAN = ["admin", "manager", "accountant"].indexOf(ROLE) > -1 && Portal.status !== "ended";
+Portal.mountBanner();
+
+var mine = GF.payoutItemTypes.filter(function (t) { return t.cooperative === K; });
+/* How many payout lines use each kind, which locks its direction (08). */
+var uses = {};
+GF.payouts.forEach(function (p) { (p.items || []).forEach(function (i) { uses[i.type] = (uses[i.type] || 0) + 1; }); });
+var DIR = { ADDITION: ["Additions", "Added to what the member is paid: bonuses, refunds, corrections of an underpayment."], DEDUCTION: ["Deductions", "Taken off what the member is paid: levies, input credit, corrections of an overpayment."] };
+var count = function (n) { return n ? "On " + n.toLocaleString("en-KE") + " payout" + (n === 1 ? "" : "s") : "Not used yet"; };
+
+function rowcard(t) {
+  return '<button class="rowcard" type="button" onclick="kindDialog(\'' + t.id + '\')"><span class="grow"><span class="text-body-lg">' + esc(t.name) + "</span>" +
+    '<span class="text-body-sm tone-muted">' + (t.details.name_sw ? esc(t.details.name_sw) + " · " : "") + count(uses[t.id]) + "</span></span>" +
+    (t.status === "ACTIVE" ? "" : '<span class="status status-neutral">Archived</span>') + '<span class="mdi mdi-chevron-right" aria-hidden="true"></span></button>';
+}
+function draw() {
+  document.getElementById("sections").innerHTML = ["ADDITION", "DEDUCTION"].map(function (d) {
+    var act = mine.filter(function (t) { return t.direction === d && t.status === "ACTIVE"; }), arch = mine.filter(function (t) { return t.direction === d && t.status !== "ACTIVE"; });
+    return '<div class="section" id="sec-' + d.toLowerCase() + '"><div class="section-header"><div class="grow"><span class="text-title-lg">' + DIR[d][0] + '</span><span class="text-body-md tone-muted">' + DIR[d][1] + "</span></div>" +
+      (CAN ? '<button class="btn btn-tonal btn-sm" type="button" onclick="kindDialog(null,\'' + d + '\')">Add ' + (d === "ADDITION" ? "an addition" : "a deduction") + "</button>" : "") + "</div>" +
+      '<div class="list rowcards">' + (act.map(rowcard).join("") || '<div class="rowcard"><span class="text-body-md tone-muted">None yet.</span></div>') + "</div>" +
+      (arch.length ? '<div class="disclosure"><button class="disclosure-trigger" type="button" aria-expanded="false">Archived (' + arch.length + ')</button><div class="disclosure-panel" hidden><div class="list rowcards">' + arch.map(rowcard).join("") + "</div></div></div>" : "") +
+      "</div>";
+  }).join("");
+}
+if (!mine.length) document.addEventListener("DOMContentLoaded", function () { setTimeout(function () { Proto.go("empty"); }, 0); });
+
+/* Add or edit a kind: a dialog of four fields (UI-13). */
+function kindDialog(id, dir) {
+  var t = id ? GF.get(id) : { name: "", direction: dir, status: "ACTIVE", details: { name_sw: "", description: "" } };
+  var n = uses[t.id] || 0, active = t.status === "ACTIVE";
+  if (!CAN || !active) {
+    return Proto.dialog({ title: esc(t.name), body: '<dl class="facts"><dt>Kind</dt><dd>' + (t.direction === "ADDITION" ? "Addition" : "Deduction") + "</dd><dt>In Swahili</dt><dd>" + (esc(t.details.name_sw) || "–") +
+      "</dd><dt>What it's for</dt><dd>" + (esc(t.details.description) || "–") + "</dd><dt>Used</dt><dd>" + count(n) + "</dd></dl>" +
+      (CAN && !active ? '<div class="actions"><button class="btn btn-tonal" type="button" onclick="Proto.close();Proto.snack(\'' + esc(t.name) + ' is back\')">Bring it back</button></div>' : "") });
+  }
+  var radio = function (v, label, sub) {
+    return '<label class="check"><input type="radio" name="kd" value="' + v + '"' + (t.direction === v ? " checked" : "") + (n ? " disabled" : "") + '><span class="grow"><span>' + label + '</span><span class="text-body-sm tone-muted">' + sub + "</span></span></label>";
+  };
+  var el = Proto.dialog({ title: id ? "Edit " + esc(t.name) : "Add " + (dir === "ADDITION" ? "an addition" : "a deduction"), body:
+    '<div class="field"><label class="field-label" for="kn">Name on statements</label><input class="field-input" id="kn" value="' + esc(t.name) + '"><span class="field-error" id="kn-e" hidden></span></div>' +
+    '<div class="field"><span class="field-label">It is</span><div class="col" role="radiogroup" aria-label="Direction">' + radio("ADDITION", "An addition", "Added to the member's pay") + radio("DEDUCTION", "A deduction", "Taken off the member's pay") + "</div>" +
+      (n ? '<span class="field-help" id="kd-h">Locked: ' + n.toLocaleString("en-KE") + " payout" + (n === 1 ? " has" : "s have") + " used it. Add a new kind for the other direction.</span>" : "") + "</div>" +
+    '<div class="field"><label class="field-label" for="ks">Name in Swahili <span class="optional">(optional)</span></label><input class="field-input" id="ks" value="' + esc(t.details.name_sw) + '"></div>' +
+    '<div class="field"><label class="field-label" for="kx">What it\'s for <span class="optional">(optional)</span></label><textarea class="field-input" id="kx">' + esc(t.details.description) + "</textarea></div>" +
+    (id ? '<div class="actions actions-start"><button class="btn btn-text" type="button" onclick="archiveKind(\'' + id + '\')">Archive</button></div>' : ""),
+    submit: id ? "Save" : "Add", onSubmit: function () { Proto.snack(id ? t.name + " saved" : "Added"); } });
+  var name = el.querySelector("#kn"), e = el.querySelector("#kn-e"), submit = el.querySelector("[data-submit]");
+  name.addEventListener("input", function () {
+    var hit = mine.find(function (x) { return x.id !== t.id && x.name.toLowerCase() === name.value.trim().toLowerCase(); });
+    e.hidden = !hit; name.setAttribute("aria-invalid", String(!!hit)); submit.disabled = !!hit;
+    if (hit) e.textContent = "There is already " + (hit.direction === "ADDITION" ? "an addition" : "a deduction") + " called " + hit.name + (hit.status === "ARCHIVED" ? " (archived: open it to bring it back)" : "") + ".";
+  });
+}
+function archiveKind(id) {
+  var t = GF.get(id);
+  Proto.confirm({ title: "Archive " + esc(t.name) + "?", message: "It leaves the list of kinds staff can add to a payout. Statements that already show it keep it.", confirm: "Archive",
+    onConfirm: function () { Proto.snack(t.name + " archived", "Undo"); } });
+}
+draw();
+</script>
+</body>
+</html>

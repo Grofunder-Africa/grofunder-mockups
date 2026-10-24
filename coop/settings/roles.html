@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Roles · Settings · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Settings" data-dest="settings" data-wide
+     data-action='{"label":"New role","icon":"plus","roles":"admin","on":"editRole()"}'>
+  <div data-subnav="settings" data-current="roles" data-label="Settings"></div>
+
+  <p class="proto-note"><b>C29 · The kit's roles page, from note 09.</b> The five standard roles every cooperative has are read-only, and each can be copied as a starting point. Below them are the cooperative's own roles, built from the codes a cooperative may use (the kit's <code>permissions/?account=</code>). Only the owners (the administrators) see this page.</p>
+  <p class="proto-note"><b>The kit's rules, shown before they bite.</b> A role must grant something (<code>REFUSE_EMPTY_ROLES</code>), and a role someone holds can't be deleted (<code>PROTECT_ROLES_IN_USE</code>): "Clerk who adds members" is held by Joseph Ndungu. A new or edited role opens as a panel (UI-13): a name and a flat list of what it can do, as the kit draws it.</p>
+
+  <div class="empty" data-roles="manager accountant clerk viewer">
+    <span class="mdi mdi-account-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">You don't manage this cooperative's roles</span>
+    <span class="text-body-md">Only the cooperative's owners, its administrators, can see and change roles.</span>
+  </div>
+
+  <div data-state="loaded" class="col gap-4" data-roles="admin">
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">This cooperative's roles</span>
+        <span class="text-body-md tone-muted">Your own mix of what someone can do, such as a clerk who can also add members.</span></div></div>
+      <div class="list rowcards" id="custom"></div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">Standard roles</span>
+        <span class="text-body-md tone-muted">Every cooperative has these. They can't be changed; copy one to make your own.</span></div></div>
+      <div class="list rowcards" id="standard"></div>
+    </div>
+  </div>
+  <div data-state="loading" class="col gap-4" data-roles="admin"><div class="skeleton-card" style="height:120px"></div><div class="skeleton-card" style="height:320px"></div></div>
+  <div data-state="empty" class="col gap-4" data-roles="admin">
+    <div class="empty">
+      <span class="mdi mdi-account-key-outline" aria-hidden="true"></span>
+      <span class="text-headline-sm">No roles of your own yet</span>
+      <span class="text-body-md">The standard roles cover most cooperatives. When someone needs a different mix, make a role for it, or copy a standard one and change it.</span>
+      <button class="btn btn-filled" type="button" data-write onclick="editRole()">New role</button>
+    </div>
+  </div>
+  <div data-state="error" class="error-state" data-roles="admin"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the roles</span><button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var esc = Portal.esc;
+var ENDED = Portal.status === "ended";
+Portal.mountBanner();
+if (ENDED) document.querySelector("[data-screen]").removeAttribute("data-action");
+
+var PERM = {}; GF.coopPermissions.forEach(function (p) { PERM[p.code] = p.name; });
+var custom = GF.customRoles.filter(function (r) { return r.account === Portal.COOP; });
+var team = Portal.staff();
+var holders = function (roleId) { return team.filter(function (u) { return u.memberships.some(function (m) { return m.account === Portal.COOP && m.roles.indexOf(roleId) > -1; }); }); };
+var canList = function (codes) { return codes.map(function (c) { return PERM[c]; }).join("; "); };
+var holdLine = function (id) { var h = holders(id); return h.length ? "Held by " + h.map(function (u) { return u.name; }).join(", ") : "Nobody holds it yet"; };
+
+function drawCustom() {
+  document.getElementById("custom").innerHTML = custom.map(function (r) {
+    var held = holders(r.id).length;
+    var items = "[{label:'Copy as a new role',icon:'content-copy',onSelect:'editRole(&quot;" + r.id + "&quot;,true)'}," +
+      (held ? "{label:'Delete (someone holds it)',icon:'delete-outline',onSelect:'refuseDelete(&quot;" + r.id + "&quot;)'}" : "{label:'Delete',icon:'delete-outline',destructive:true,onSelect:'deleteRole(&quot;" + r.id + "&quot;)'}") + "]";
+    return '<div class="rowcard" data-role-id="' + r.id + '"><span class="grow"><span class="text-body-lg">' + esc(r.name) + '</span><span class="text-body-md">' + canList(r.codes) + '</span>' +
+      '<span class="text-body-sm tone-muted">' + holdLine(r.id) + "</span></span>" +
+      '<span class="row" data-write><button class="btn btn-text btn-sm" type="button" onclick="editRole(\'' + r.id + '\')">Edit</button>' +
+      '<button class="icon-btn" type="button" aria-label="More for ' + esc(r.name) + '" onclick="Proto.menu(this,{heading:\'' + esc(r.name) + "',items:" + items + '})"><span class="mdi mdi-dots-vertical" aria-hidden="true"></span></button></span></div>';
+  }).join("") || '<div class="rowcard"><span class="grow"><span class="text-body-lg">None yet</span><span class="text-body-md tone-muted">The standard roles cover most cooperatives. Copy one below to start your own.</span></span>' +
+    '<button class="btn btn-tonal btn-sm" type="button" data-write onclick="editRole()">New role</button></div>';
+}
+drawCustom();
+document.getElementById("standard").innerHTML = GF.standardRoles.map(function (r) {
+  return '<div class="rowcard"><span class="grow"><span class="text-body-lg">' + esc(r.name) + '</span><span class="text-body-md tone-muted">' + esc(r.about) + "</span>" +
+    '<span class="text-body-sm">' + (r.codes.length === GF.coopPermissions.length ? "Everything a cooperative can do" : canList(r.codes)) + "</span>" +
+    '<span class="text-body-sm tone-muted">' + holdLine(r.id) + "</span></span>" +
+    '<button class="btn btn-text btn-sm" type="button" data-write onclick="editRole(\'' + r.id + '\',true)">Copy</button></div>';
+}).join("");
+
+/* New, edit or copy: a name and what it can do, in a panel (UI-13). */
+function editRole(id, copy) {
+  var src = id ? GF.get(id) : null;
+  var codes = src ? src.codes : [];
+  var name = src ? (copy ? src.name + " (copy)" : src.name) : "";
+  var title = !src ? "New role" : copy ? "Copy " + esc(src.name) : "Edit " + esc(src.name);
+  var held = src && !copy ? holders(src.id) : [];
+  var el = Proto.sheet({ wide: true, title: title, body:
+    '<div class="field"><label class="field-label" for="rn">Name</label><input class="field-input" id="rn" value="' + esc(name) + '" placeholder="For example: Clerk who adds members">' +
+      '<span class="field-error hidden" id="rn-err">Name the role.</span></div>' +
+    (held.length ? '<p class="text-body-sm tone-muted">' + held.length + (held.length === 1 ? " person holds" : " people hold") + " it. A change applies to them on their next step; they don't need to sign in again.</p>" : "") +
+    '<div class="col gap-1"><span class="text-title-md">What it can do</span><div class="col" role="group" aria-label="What it can do" id="perms">' +
+      GF.coopPermissions.map(function (p) {
+        return '<label class="check"><input type="checkbox" value="' + p.code + '"' + (codes.indexOf(p.code) > -1 ? " checked" : "") + '><span class="grow"><span class="text-body-lg">' + esc(p.name) + "</span></span></label>";
+      }).join("") + '</div><span class="field-error hidden" id="perm-err">Choose at least one thing this role can do. A role that grants nothing can\'t be saved.</span></div>',
+    footer: '<button class="btn btn-text" type="button" onclick="Proto.close()">Cancel</button><button class="btn btn-filled" type="button" id="rs">' + (src && !copy ? "Save" : "Create role") + "</button>"
+  });
+  el.querySelector("#rs").addEventListener("click", function () {
+    var n = el.querySelector("#rn").value.trim(), any = el.querySelector("#perms input:checked");
+    el.querySelector("#rn-err").classList.toggle("hidden", !!n);
+    el.querySelector("#perm-err").classList.toggle("hidden", !!any);
+    if (!n || !any) return;
+    Proto.close(); Proto.snack(src && !copy ? "Role saved" : "Role created");
+  });
+}
+function refuseDelete(id) {
+  var r = GF.get(id), h = holders(id);
+  Proto.dialog({ title: "Can't delete " + esc(r.name), body: '<p class="text-body-md" id="refused">' + h.map(function (u) { return esc(u.name); }).join(", ") + (h.length === 1 ? " holds" : " hold") +
+    " this role. Give them another role in Team first; then it can be deleted.</p>", submit: "OK" });
+}
+function deleteRole(id) {
+  var r = GF.get(id);
+  Proto.confirm({ title: "Delete " + esc(r.name) + "?", message: "Nobody holds it, so nobody loses anything.", confirm: "Delete", destructive: true,
+    onConfirm: function () { custom = custom.filter(function (x) { return x.id !== id; }); drawCustom(); Proto.snack("Role deleted"); } });
+}
+</script>
+</body>
+</html>

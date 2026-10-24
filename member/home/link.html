@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Link a membership · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Link a membership" data-flow data-back="index.html" data-compact>
+
+  <p class="proto-note"><b>M7 · Link another membership (note 06, flow 6).</b> Offered when a cooperative has added a record with the member's ID. If the record has the login's phone, the member confirms with their PIN; if not, a code goes to the phone on the record, which proves they hold it. A cooperative never links records itself.</p>
+  <p class="proto-note">Gatundu's record has an older number, so this walks the code path; the <i>same phone</i> state shows the PIN path. <b>Not me:</b> a wrong ID on a record is fixed by the cooperative (06, concern 3: flagging a mistake from the app is deferred).</p>
+
+  <div data-state="loaded" class="col gap-4" data-roles="in">
+    <div class="col gap-1"><h1 class="text-headline-sm" id="l-title"></h1>
+      <p class="text-body-md tone-muted">It has your ID number. Link it to see its deliveries and payments here with your other cooperatives.</p></div>
+    <div class="card card-outlined"><dl class="facts" id="l-facts"></dl></div>
+    <p class="text-body-md" id="l-how"></p>
+    <div class="actions"><button class="btn btn-text" type="button" onclick="notMe()">This isn't me</button><button class="btn btn-filled" type="button" onclick="Proto.go('code')" id="l-send">Send the code</button></div>
+  </div>
+
+  <div data-state="same" class="col gap-4" data-roles="in">
+    <div class="col gap-1 center" style="text-align:center"><h1 class="text-headline-sm">Enter your PIN to link it</h1>
+      <p class="text-body-md tone-muted" id="s-sub"></p></div>
+    <div class="pin-dots" aria-label="1 of 4 digits entered"><span class="on"></span><span></span><span></span><span></span></div>
+    <div class="pinpad" role="group" aria-label="PIN keypad">
+      <button type="button">1</button><button type="button">2</button><button type="button">3</button>
+      <button type="button">4</button><button type="button">5</button><button type="button">6</button>
+      <button type="button">7</button><button type="button">8</button><button type="button">9</button>
+      <span></span><button type="button" onclick="done()">0</button>
+      <button type="button" class="key-plain" aria-label="Delete the last digit"><span class="mdi mdi-backspace-outline" aria-hidden="true"></span></button>
+    </div>
+  </div>
+
+  <form class="col gap-4" data-state="code wrong" data-roles="in" onsubmit="done();return false">
+    <div class="col gap-1"><h1 class="text-headline-sm">Enter the code we sent</h1>
+      <p class="text-body-md tone-muted tabular" id="c-sub"></p></div>
+    <div class="otp" role="group" aria-label="6-digit code">
+      <input inputmode="numeric" maxlength="1" value="2" aria-label="Digit 1"><input inputmode="numeric" maxlength="1" value="9" aria-label="Digit 2"><input inputmode="numeric" maxlength="1" value="0" aria-label="Digit 3">
+      <input inputmode="numeric" maxlength="1" value="4" aria-label="Digit 4"><input inputmode="numeric" maxlength="1" value="7" aria-label="Digit 5"><input inputmode="numeric" maxlength="1" value="1" aria-label="Digit 6">
+    </div>
+    <p class="text-body-md tone-error" role="alert" data-state="wrong">That code isn't right. You have 3 more tries.</p>
+    <button class="btn btn-filled btn-block" type="submit">Link it</button>
+    <p class="text-body-md tone-muted" style="text-align:center">No SMS? You can ask for another in 0:51. If you no longer have that phone, ask the cooperative to update the number on its record.</p>
+  </form>
+
+  <div data-state="linked" class="empty" data-roles="in">
+    <span class="mdi mdi-check-circle-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm" id="d-title"></span>
+    <span class="text-body-md">Switch to it from Home whenever you want to see it.</span>
+    <a class="btn btn-filled" href="index.html" id="d-open">Open it</a>
+  </div>
+
+  <div data-state="empty" class="empty" data-roles="in">
+    <span class="mdi mdi-link-variant-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">Nothing to link</span>
+    <span class="text-body-md">Every record with your ID is already linked to this login.</span>
+    <a class="btn btn-tonal" href="index.html">Back to Home</a>
+  </div>
+  <div data-state="loading" class="col gap-4" data-roles="in"><div class="skeleton" style="width:70%;height:28px"></div><div class="skeleton-card" style="height:140px"></div></div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Nothing was linked. Try again when you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var A = MemberApp, f = GF.fmt, esc = A.esc;
+var id = new URLSearchParams(location.search).get("m");
+var rec = (id && GF.get(id)) || A.pending[0];
+var set = function (k, t) { document.getElementById(k).textContent = t; };
+if (rec) {
+  var name = A.coopName(rec), same = rec.phone === A.login.phone;
+  set("l-title", "Link your membership of " + name + "?");
+  document.getElementById("l-facts").innerHTML = "<dt>Cooperative</dt><dd>" + esc(GF.get(rec.cooperative).name) + "</dd><dt>Member number</dt><dd class=\"tabular\">" + esc(rec.member_no) +
+    "</dd><dt>Name on the record</dt><dd>" + esc(rec.full_name) + "</dd><dt>Phone on the record</dt><dd class=\"tabular\">" + A.mask(rec.phone) + "</dd>";
+  set("l-how", same ? "It has the same phone as your login, so you confirm with your PIN." : "It has a different phone from your login (" + A.mask(A.login.phone) + "). We'll send a code to the phone on the record, " + A.mask(rec.phone) + ", to check it's yours.");
+  if (same) { set("l-send", "Continue"); document.getElementById("l-send").setAttribute("onclick", "Proto.go('same')"); }
+  set("s-sub", name + ", member number " + rec.member_no);
+  set("c-sub", "An SMS with a 6-digit code went to " + A.mask(rec.phone) + ", the phone on " + name + "'s record. It works for 5 minutes.");
+  set("d-title", name + " is linked");
+}
+function done() {
+  A.link(rec.id);
+  A.store.set("gf.memberCoop", rec.cooperative);
+  Proto.go("linked");
+}
+function notMe() {
+  Proto.confirm({ title: "Not your membership?", message: "We won't link it. If it has your ID by mistake, " + esc(A.coopName(rec)) + " can correct its record. Visit or call them.", confirm: "Don't link it", cancel: "Go back",
+    onConfirm: function () { A.store.set("gf.memberLinkLater", rec.id); location.href = "index.html"; } });
+}
+document.addEventListener("DOMContentLoaded", function () { if (!rec) setTimeout(function () { Proto.go("empty"); }, 0); });
+</script>
+</body>
+</html>

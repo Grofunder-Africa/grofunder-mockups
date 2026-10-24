@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Payments · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Payments" data-dest="payments" data-compact>
+
+  <p class="proto-note"><b>M11 · From note 08 (UI-18).</b> The member's PAID payouts in the cooperative shown, newest first: label, the day it was paid, how, and the net. Drafts and cancelled payouts are the cooperative's working papers and never reach the member (08: members see their own PAID payouts).</p>
+  <p class="proto-note"><b>A row opens the statement</b> (M12), a page of its own (UI-13), because a member keeps it or shows it to someone. What is still owed on their deliveries is on each delivery and on Home, not here.</p>
+
+  <div data-roles="out" class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span>
+    <div class="grow"><span class="text-body-md">Signed out, the member app shows only the sign-in screens.</span>
+      <div class="banner-actions"><a class="btn btn-text" href="../auth/sign-in.html">Open sign-in</a></div></div></div>
+
+  <div data-state="loaded" class="col gap-4" data-roles="in">
+    <div class="section-band text-body-md tabular" id="band"></div>
+    <div class="list rowcards" id="list"></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4" data-roles="in">
+    <div class="skeleton" style="width:55%;height:20px"></div>
+    <div class="col"><div class="skeleton-row"><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:50%"></div><div class="skeleton skeleton-line" style="width:35%"></div></div></div>
+      <div class="skeleton-row"><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:50%"></div><div class="skeleton skeleton-line" style="width:35%"></div></div></div></div>
+  </div>
+  <div data-state="empty" class="empty" data-roles="in">
+    <span class="mdi mdi-cash-clock" aria-hidden="true"></span>
+    <span class="text-headline-sm">Nothing paid yet</span>
+    <span class="text-body-md">When the cooperative pays you for your deliveries, the payment and its statement appear here.</span>
+    <a class="btn btn-tonal" href="../deliveries/index.html">Your deliveries</a>
+  </div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Your payments show again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var q = GF.q, f = GF.fmt, A = MemberApp, esc = A.esc, me = A.current;
+A.title();
+var METHOD = { MPESA: "M-Pesa", BANK: "Bank", CASH: "Cash" };
+/* 08: only PAID payouts reach the member. Newest first. */
+var paid = q.payouts({ member: me.id, status: "PAID" }).slice().sort(function (a, b) { return a.paid_at < b.paid_at ? 1 : -1; });
+document.addEventListener("DOMContentLoaded", function () {
+  if (!paid.length) { Proto.go("empty"); return; }
+  var year = GF.TODAY.slice(0, 4), thisYear = paid.filter(function (p) { return p.paid_at.slice(0, 4) === year; });
+  document.getElementById("band").textContent = "Paid in " + year + ": " + f.money(q.sum(thisYear, function (p) { return p.net_cents; })) + " in " + thisYear.length + " payment" + (thisYear.length === 1 ? "" : "s");
+  document.getElementById("list").innerHTML = paid.map(function (p) {
+    return '<a class="rowcard" href="statement.html?p=' + p.id + '" data-p="' + p.id + '"><span class="grow"><span class="text-body-lg">' + esc(p.details.label) + "</span>" +
+      '<span class="text-body-md tone-muted tabular">Paid ' + f.date(p.paid_at) + " · " + METHOD[p.method] + "</span></span>" +
+      '<span class="trail"><span class="text-title-md tabular">' + f.money(p.net_cents) + '</span><span class="status status-success">Paid</span></span></a>';
+  }).join("");
+});
+</script>
+</body>
+</html>

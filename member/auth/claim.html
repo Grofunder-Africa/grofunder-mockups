@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Find your membership · member app · GroFunder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+<script src="auth.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Find your membership" data-auth="sm">
+  <p class="proto-note"><b>M3 · Find your membership: sign up (notes 06, 05).</b> A member proves they are the person on a cooperative's record: they know the ID number, and they hold the phone on file. Then the terms and a PIN. Every unlinked record with that ID and phone, in any cooperative, is linked in one go. The member drawn is <span id="who-note"></span>, who has no login yet.</p>
+  <p class="proto-note"><b>The same answer either way</b> (06): after the first step the screen says "if your details match… we've sent a code", whether or not anything matched, so nobody learns who is a member. Failures count towards the lockout on that ID.</p>
+  <p class="proto-note"><b>PIN rule</b> (06): exactly 4 digits; not one digit four times, not a run like 1234 or 9876, not a repeated pair like 1212. Try them on the keypad.</p>
+  <p class="proto-note"><b>Room for the pending amendment</b> (UI-18): if members may later apply without a record, the step after the code is where "pick a cooperative and apply" would go. The steps before it stay as they are.</p>
+  <p class="proto-note proto-gap"><b>F1 and F4.</b> No kit screens for this (F1); the keypad and code boxes are the F4 proposals.</p>
+
+  <div class="brand-lockup"><img src="../../assets/brand/grofunder-wordmark.png" alt="GroFunder"></div>
+
+  <!-- Step 1: ID and phone -->
+  <form class="col gap-4" data-state="loaded" id="details" novalidate>
+    <div class="col gap-1"><h1 class="text-headline-sm">Find your membership</h1>
+      <p class="text-body-md tone-muted">Enter your ID and the phone number your cooperative has for you.</p></div>
+    <div class="field">
+      <span class="field-label" id="idt">ID type</span>
+      <div class="chip-row" data-choice role="radiogroup" aria-labelledby="idt">
+        <button class="chip" type="button" role="radio" aria-checked="true">National ID</button>
+        <button class="chip" type="button" role="radio" aria-checked="false">Passport</button>
+        <button class="chip" type="button" role="radio" aria-checked="false">Alien ID</button>
+      </div>
+    </div>
+    <div class="field"><label class="field-label" for="c-id">ID number</label>
+      <input class="field-input tabular" id="c-id" inputmode="numeric" autocomplete="off"></div>
+    <div class="field"><label class="field-label" for="c-phone">Phone number</label>
+      <input class="field-input tabular" id="c-phone" inputmode="tel" autocomplete="tel">
+      <span class="field-help">We'll send a code to this number.</span>
+      <span class="field-error hidden" id="c-err">Enter your ID number and phone number.</span></div>
+    <button class="btn btn-filled btn-lg btn-block" type="submit">Send me a code</button>
+    <a class="btn btn-text" href="sign-in.html">Already signed up? Sign in</a>
+  </form>
+
+  <!-- Step 2: the code (the same message whether or not a record matched) -->
+  <div class="col gap-4" data-state="code" id="code-step">
+    <div class="col gap-1"><h1 class="text-headline-sm">Enter the code</h1>
+      <p class="text-body-md tone-muted">If your details match a cooperative's record, we've sent a 6-digit code to <span class="tabular" id="sent-to"></span>. It works for 5 minutes.</p></div>
+    <div id="code-boxes"></div>
+    <p class="text-body-md tone-muted" style="text-align:center" id="resend"><button class="btn btn-text" type="button" onclick="Proto.snack('If your details match, a new code is on its way');MemberAuth.countdown(document.getElementById('resend'),60)">Send a new code</button><span data-left></span></p>
+    <div class="card card-outlined">
+      <span class="text-title-sm">No code?</span>
+      <span class="text-body-md tone-muted">Check that the ID and phone are the ones your cooperative has. If your cooperative has a different number for you, ask its office to update it, then try again.</span>
+      <div class="actions actions-start"><button class="btn btn-text" type="button" onclick="Proto.go('loaded')">Change my details</button></div>
+    </div>
+  </div>
+
+  <!-- The phone already belongs to another login (only the phone's holder sees this) -->
+  <div class="col gap-4" data-state="taken">
+    <div class="banner banner-warning"><span class="mdi mdi-cellphone-lock" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm">This phone number already has a GroFunder login</span>
+        <span class="text-body-md">Each person needs their own number. If the login is yours, sign in with it. If someone in your family uses this phone, ask your cooperative to put your own number on your record.</span></div></div>
+    <a class="btn btn-filled btn-lg btn-block" href="sign-in.html">Sign in instead</a>
+    <button class="btn btn-text" type="button" onclick="Proto.go('loaded')">Use another number</button>
+  </div>
+
+  <!-- Step 3: terms -->
+  <div class="col gap-4" data-state="terms">
+    <div class="col gap-1"><h1 class="text-headline-sm">Before you go on</h1>
+      <p class="text-body-md tone-muted">GroFunder shows you the records your cooperative keeps about you. Your cooperative sees any change you make to your details.</p></div>
+    <div class="card card-outlined">
+      <ul class="col gap-2 text-body-md" style="margin:0;padding-left:20px">
+        <li>Your cooperative keeps your record; GroFunder looks after the app.</li>
+        <li>Only you can see your deliveries and payments in the app.</li>
+        <li>Keep your PIN to yourself. Nobody from GroFunder or your cooperative will ask for it.</li>
+      </ul>
+      <div class="actions actions-start"><a class="btn btn-text" href="../account/terms.html">Read the terms and privacy notice</a></div>
+    </div>
+    <label class="check"><input type="checkbox" id="agree"> I accept the terms and privacy notice</label>
+    <button class="btn btn-filled btn-lg btn-block" type="button" id="agree-go" disabled onclick="Proto.go('pin')">Continue</button>
+  </div>
+
+  <!-- Step 4: a new PIN, twice -->
+  <div class="col gap-4" data-state="pin weak mismatch" id="pin-step">
+    <div class="col gap-1" style="text-align:center"><h1 class="text-headline-sm">Choose a 4-digit PIN</h1>
+      <p class="text-body-md tone-muted">You'll use it every time you sign in.</p></div>
+    <p class="text-body-md tone-error" style="text-align:center" role="alert" data-state="weak" id="weak-msg">Don't use digits in a row, like 1234 or 9876.</p>
+    <p class="text-body-md tone-error" style="text-align:center" role="alert" data-state="mismatch">The two PINs didn't match. Choose your PIN again.</p>
+    <div id="pin-pad"></div>
+  </div>
+  <div class="col gap-4" data-state="confirm" id="confirm-step">
+    <div class="col gap-1" style="text-align:center"><h1 class="text-headline-sm">Enter the PIN again</h1>
+      <p class="text-body-md tone-muted">So we know it's the one you meant.</p></div>
+    <div id="confirm-pad"></div>
+  </div>
+
+  <!-- Done -->
+  <div class="col gap-4" data-state="done">
+    <div class="col gap-1"><h1 class="text-headline-sm">You're signed up</h1>
+      <p class="text-body-md tone-muted">We found your membership and linked it to your login.</p></div>
+    <div class="list rowcards card card-outlined card-flush" id="linked"></div>
+    <p class="text-body-sm tone-muted">Next time, sign in with your ID number or phone and your PIN. We'll text you a code each time.</p>
+    <button class="btn btn-filled btn-lg btn-block" type="button" onclick="MemberAuth.finish()">Open the app</button>
+  </div>
+
+  <div class="col gap-4" data-state="loading"><div class="skeleton" style="height:32px;width:60%"></div><div class="skeleton" style="height:48px"></div><div class="skeleton" style="height:48px"></div></div>
+  <div class="error-state" data-state="error"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Signing up needs a connection. Your details aren't lost: try again when you have signal.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+/* A Kijani member with a phone on file and no login yet, the same one every time. */
+var CLAIMER = GF.members.find(function (m) { return m.cooperative === "co-kijani" && m.status === "ACTIVE" && m.phone && !m.user && m.id_type === "NATIONAL_ID" &&
+  !GF.staff.some(function (s) { return s.name === m.full_name; }) && !GF.memberPositions.some(function (p) { return p.member === m.id; }); });
+/* 06: every unlinked ACTIVE or SUSPENDED record with that ID and that phone. */
+var MATCHES = GF.members.filter(function (m) { return !m.user && m.id_type === CLAIMER.id_type && m.id_number === CLAIMER.id_number && m.phone === CLAIMER.phone && (m.status === "ACTIVE" || m.status === "SUSPENDED"); });
+document.getElementById("who-note").textContent = CLAIMER.full_name + " (" + CLAIMER.member_no + ", ID " + CLAIMER.id_number + ")";
+document.addEventListener("DOMContentLoaded", function () {
+  var f = GF.fmt, id = document.getElementById("c-id"), ph = document.getElementById("c-phone"), err = document.getElementById("c-err");
+  id.value = CLAIMER.id_number; ph.value = f.phone(CLAIMER.phone);
+  document.getElementById("details").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var empty = !id.value.trim() || !ph.value.trim();
+    err.classList.toggle("hidden", !empty);
+    if (empty) return;
+    document.getElementById("sent-to").textContent = ph.value.trim();
+    Proto.go("code"); MemberAuth.countdown(document.getElementById("resend"), 60);
+  });
+  document.getElementById("code-boxes").innerHTML = MemberAuth.otpHtml();
+  MemberAuth.otp(document.getElementById("code-step"), function () { Proto.go("terms"); });
+  var agree = document.getElementById("agree");
+  agree.addEventListener("change", function () { document.getElementById("agree-go").disabled = !agree.checked; });
+
+  var first = "";
+  document.getElementById("pin-pad").innerHTML = MemberAuth.padHtml();
+  document.getElementById("confirm-pad").innerHTML = MemberAuth.padHtml();
+  MemberAuth.keypad(document.getElementById("pin-step"), { done: function (pin) {
+    var why = MemberAuth.weak(pin);
+    if (why) { document.getElementById("weak-msg").textContent = why; Proto.go("weak"); return; }
+    first = pin; Proto.go("confirm");
+  } });
+  MemberAuth.keypad(document.getElementById("confirm-step"), { done: function (pin) {
+    if (pin !== first) { first = ""; Proto.go("mismatch"); return; }
+    Proto.go("done");
+  } });
+  document.getElementById("linked").innerHTML = MATCHES.map(function (m) {
+    var c = GF.get(m.cooperative);
+    return '<div class="rowcard"><span class="mark-sq lg">' + f.initials(c.profile.short_name) + '</span><span class="grow"><span class="text-body-lg">' + c.profile.short_name + "</span>" +
+      '<span class="text-body-md tone-muted tabular">Member ' + m.member_no + (m.status === "SUSPENDED" ? " · Suspended" : "") + "</span></span>" +
+      '<span class="mdi mdi-link-variant tone-primary" aria-hidden="true"></span></div>';
+  }).join("");
+});
+</script>
+</body>
+</html>

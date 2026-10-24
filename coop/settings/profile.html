@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Profile · Settings · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Settings" data-dest="settings" data-wide>
+  <div data-subnav="settings" data-current="profile" data-label="Settings"></div>
+
+  <p class="proto-note"><b>C22 · From note 01, with note 04 as amended (UI-14).</b> The profile's keys (short name, description, registered on, declared member count, default language, address, contact) are edited here, each card saving on its own (settings pattern). Needs <code>cooperatives.edit_profile</code>: administrators and managers.</p>
+  <p class="proto-note"><b>Registration is GroFunder's</b> (01, G1 closed): the registered name and number are shown as facts, never as disabled fields.</p>
+  <p class="proto-note"><b>Place (04, amended).</b> County, then sub-county, then a ward from the ones GroFunder has added under that sub-county. Where none are added yet, the ward is typed, as the address detail allows "only while that ward isn't an area yet".</p>
+  <p class="proto-note"><b>Logo and documents (01).</b> Purposes: logo, registration certificate, by-laws, agreement, other. One logo, public; a new one replaces it. The rest are private and download through the cooperative. Removing asks first.</p>
+
+  <div data-state="loaded" class="col gap-4" data-roles="admin manager" id="cards"></div>
+  <div data-state="loading" class="col gap-4" data-roles="admin manager"><div class="skeleton-card" style="height:160px"></div><div class="skeleton-card" style="height:320px"></div><div class="skeleton-card" style="height:240px"></div></div>
+  <div data-state="empty" class="col gap-4" data-roles="admin manager" id="cards-empty"></div>
+  <div data-state="error" class="error-state" data-roles="admin manager"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the profile</span><span class="text-body-md">Check the connection, then try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+  <div class="empty" data-roles="accountant clerk viewer"><span class="mdi mdi-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">The profile is for administrators and managers</span>
+    <span class="text-body-md">Ask one of them if something about the cooperative needs changing.</span></div>
+</div>
+
+<script>
+var q = GF.q, f = GF.fmt, esc = Portal.esc, c = Portal.coop(), p = c.profile, RO = Portal.status === "ended";
+Portal.mountBanner();
+var STATUS = { ONBOARDING: ["info", "Onboarding"], ACTIVE: ["success", "Active"], ON_HOLD: ["warning", "On hold"], ENDED: ["neutral", "Ended"] };
+var LANG = { en: "English", sw: "Swahili" };
+var PURPOSE = { LOGO: "Logo", REGISTRATION_CERTIFICATE: "Registration certificate", BY_LAWS: "By-laws", AGREEMENT: "Agreement", OTHER: "Other" };
+
+var field = function (id, label, value, o) {
+  o = o || {};
+  if (RO) return "";
+  return '<div class="field' + (o.wide ? " field-wide" : "") + '"><label class="field-label" for="' + id + '">' + label + (o.optional ? ' <span class="optional">(optional)</span>' : "") + "</label>" +
+    (o.textarea ? '<textarea class="field-input" id="' + id + '">' + esc(value) + "</textarea>"
+      : o.select ? '<select class="field-input" id="' + id + '">' + o.select + "</select>"
+      : '<input class="field-input' + (o.tabular ? " tabular" : "") + '" id="' + id + '" value="' + esc(value) + '"' + (o.mode ? ' inputmode="' + o.mode + '"' : "") + ">") +
+    (o.help ? '<span class="field-help" id="' + id + '-h">' + o.help + "</span>" : "") + "</div>";
+};
+/* An editable card, or (ended: read only) the same card as facts. */
+var card = function (title, desc, body, facts, saved) {
+  return '<div class="card card-outlined"><div class="card-header"><div class="card-header-text"><span class="card-title">' + title + "</span>" + (desc ? '<span class="card-description">' + desc + "</span>" : "") + "</div></div>" +
+    (RO ? '<dl class="facts">' + facts + "</dl>" : '<div class="form-grid">' + body + '</div><div class="actions" data-write><button class="btn btn-filled" type="button" data-save="' + saved + '" disabled>Save</button></div>') + "</div>";
+};
+
+var a = GF.get(c.area), countyId = a.county || a.id, subId = a.level === "SUB_COUNTY" ? a.id : a.level === "WARD" ? a.parent : "";
+var counties = GF.areas.filter(function (x) { return x.level === "COUNTY" && x.status === "ACTIVE"; }).sort(function (x, y) { return x.name < y.name ? -1 : 1; });
+var opt = function (v, t, sel) { return '<option value="' + v + '"' + (sel ? " selected" : "") + ">" + esc(t) + "</option>"; };
+var subsOf = function (cid, cur) { return opt("", "Not sure", !cur) + GF.areas.filter(function (x) { return x.parent === cid && x.level === "SUB_COUNTY" && x.status === "ACTIVE"; }).map(function (x) { return opt(x.id, x.name, x.id === cur); }).join(""); };
+var wardsIn = function (sid) { return GF.areas.filter(function (x) { return x.parent === sid && x.level === "WARD" && x.status === "ACTIVE"; }); };
+/* A picker where GroFunder has added wards; otherwise the ward is typed (04). */
+function wardField(sid) {
+  var ws = wardsIn(sid);
+  if (ws.length) return field("w", "Ward", "", { optional: true, select: opt("", "Not sure", !p.address.ward) + ws.map(function (x) { return opt(x.id, x.name, x.name === p.address.ward); }).join(""),
+    help: "The wards GroFunder has added under " + esc(GF.get(sid).name) + ". Missing one? Ask GroFunder to add it." });
+  return field("w", "Ward", p.address.ward, { optional: true, help: sid ? "GroFunder hasn't added this sub-county's wards yet, so type it." : "Choose the sub-county first, or type the ward." });
+}
+var placeName = [p.address.ward ? p.address.ward + " ward" : "", subId ? GF.get(subId).name : "", GF.get(countyId).name].filter(Boolean).join(", ");
+
+function docsCard() {
+  var docs = q.documentsOf(c.id), logo = docs.find(function (d) { return d.purpose === "LOGO"; });
+  var row = function (d) {
+    return '<div class="rowcard"><span class="mdi mdi-' + (d.purpose === "LOGO" ? "image-outline" : "file-document-outline") + '" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">' + PURPOSE[d.purpose] +
+      '</span><span class="text-body-sm tone-muted">' + esc(d.file_name) + " · " + Math.round(d.size / 1024).toLocaleString("en-KE") + " KB · added " + f.date(d.uploaded_at) + " by " + esc(d.uploaded_by) + "</span></span>" +
+      '<button class="icon-btn" type="button" aria-label="Download ' + PURPOSE[d.purpose] + '" onclick="Proto.snack(\'Downloading ' + esc(d.file_name) + '\')"><span class="mdi mdi-download" aria-hidden="true"></span></button>' +
+      '<button class="icon-btn" type="button" data-write aria-label="Remove ' + PURPOSE[d.purpose] + '" onclick="removeDoc(\'' + d.id + '\')"><span class="mdi mdi-delete-outline" aria-hidden="true"></span></button></div>';
+  };
+  return '<div class="card card-outlined" id="docs"><div class="card-header"><div class="card-header-text"><span class="card-title">Logo and documents</span>' +
+    '<span class="card-description">The logo shows in the member app and on statements. Other documents are seen only by the cooperative\'s staff and GroFunder.</span></div>' +
+    '<button class="btn btn-tonal btn-sm" type="button" data-write onclick="upload()"><span class="mdi mdi-upload" aria-hidden="true"></span>Upload</button></div>' +
+    '<div class="list rowcards">' + (logo ? "" : '<div class="rowcard"><span class="mdi mdi-image-off-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">No logo yet</span><span class="text-body-sm tone-muted">The member app shows the short name until there is one.</span></span></div>') +
+    docs.map(row).join("") + (docs.length ? "" : '<div class="rowcard"><span class="text-body-md tone-muted">No documents yet. GroFunder usually adds the registration certificate when it adds the cooperative.</span></div>') + "</div></div>";
+}
+
+function draw() {
+  var html =
+    '<div class="card card-outlined"><div class="card-header"><div class="card-header-text"><span class="card-title">Registration</span>' +
+    '<span class="card-description">GroFunder changes these. If they are wrong, tell GroFunder.</span></div></div><dl class="facts">' +
+    "<dt>Registered name</dt><dd>" + esc(c.name) + '</dd><dt>Registration number</dt><dd class="tabular">' + (esc(c.registration_no) || "–") +
+    '</dd><dt>Status</dt><dd><span class="status status-' + STATUS[c.status][0] + '">' + STATUS[c.status][1] + '</span></dd><dt>On GroFunder since</dt><dd class="tabular">' + f.date(c.created_at) + "</dd></dl></div>" +
+
+    card("About the cooperative", "",
+      field("short", "Short name", p.short_name, { help: "What members call it; used in the member app and in SMS." }) +
+      field("regon", "Registered on", p.registered_on ? f.date(p.registered_on) : "", { optional: true, tabular: true }) +
+      field("count", "Members, as the cooperative counts them", p.declared_member_count, { optional: true, tabular: true, mode: "numeric", help: q.members(c.id).length.toLocaleString("en-KE") + " are in the register so far." }) +
+      field("lang", "Language for members who haven't chosen one", "", { select: opt("sw", "Swahili", p.default_language === "sw") + opt("en", "English", p.default_language === "en") }) +
+      field("desc", "What the cooperative does", p.description, { optional: true, textarea: true, wide: true }),
+      "<dt>Short name</dt><dd>" + esc(p.short_name) + '</dd><dt>Registered on</dt><dd class="tabular">' + (p.registered_on ? f.date(p.registered_on) : "–") + '</dd><dt>Members it counts</dt><dd class="tabular">' + p.declared_member_count.toLocaleString("en-KE") +
+      "</dd><dt>Members' default language</dt><dd>" + LANG[p.default_language] + "</dd><dt>What it does</dt><dd>" + (esc(p.description) || "–") + "</dd>", "Saved") +
+
+    card("Place and address", "The head office, as precisely as you know it.",
+      field("co", "County", "", { select: counties.map(function (x) { return opt(x.id, x.name, x.id === countyId); }).join("") }) +
+      field("sc", "Sub-county", "", { optional: true, select: subsOf(countyId, subId) }) +
+      '<div id="w-slot">' + wardField(subId) + "</div>" +
+      field("vil", "Village or estate", p.address.village, { optional: true }) +
+      field("st", "Street, building or landmark", p.address.street, { optional: true }) +
+      field("po", "Postal address", p.address.postal_address, { optional: true }),
+      "<dt>Place</dt><dd>" + esc(placeName) + "</dd><dt>Address</dt><dd>" + (esc([p.address.street, p.address.village].filter(Boolean).join(", ")) || "–") + "</dd><dt>Postal address</dt><dd>" + (esc(p.address.postal_address) || "–") + "</dd>", "Place saved") +
+
+    card("Contact person", "Who GroFunder calls about the cooperative. They don't need a login.",
+      field("cn", "Name", p.contact.name) + field("cr", "Role", p.contact.role) +
+      field("cp", "Phone", f.phone(p.contact.phone), { tabular: true, mode: "tel" }) + field("ce", "Email", p.contact.email, { optional: true }),
+      "<dt>Name</dt><dd>" + esc(p.contact.name) + " (" + esc(p.contact.role) + ')</dd><dt>Phone</dt><dd class="tabular">' + f.phone(p.contact.phone) + "</dd><dt>Email</dt><dd>" + (esc(p.contact.email) || "–") + "</dd>", "Contact saved") +
+
+    docsCard();
+  document.getElementById("cards").innerHTML = html;
+  /* Empty: a profile always exists, so "empty" is a cooperative GroFunder has only just added. */
+  document.getElementById("cards-empty").innerHTML = '<div class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Only the basics so far</span>' +
+    '<span class="text-body-md">GroFunder filled in the name, place and contact when it added the cooperative. Add what members will see: the short name, a description and the logo.</span></div></div>';
+
+  var co = document.getElementById("co"), sc = document.getElementById("sc");
+  if (co) co.addEventListener("change", function () { sc.innerHTML = subsOf(co.value, ""); document.getElementById("w-slot").innerHTML = wardField(""); });
+  if (sc) sc.addEventListener("change", function () { document.getElementById("w-slot").innerHTML = wardField(sc.value); });
+  /* The phone is checked as typed, as the kit's forms do. */
+  var ph = document.getElementById("cp");
+  if (ph) ph.addEventListener("input", function () {
+    var ok = /^(0[17]\d{8}|\+254[17]\d{8})$/.test(ph.value.replace(/\s+/g, ""));
+    ph.setAttribute("aria-invalid", String(!ok));
+    var h = ph.parentElement.querySelector(".field-error");
+    if (!ok && !h) { h = document.createElement("span"); h.className = "field-error"; h.textContent = "Enter a Kenyan mobile number, like 0712 345 678."; ph.parentElement.appendChild(h); }
+    if (ok && h) h.remove();
+  });
+}
+
+function upload() {
+  var hasLogo = q.documentsOf(c.id).some(function (d) { return d.purpose === "LOGO"; });
+  var el = Proto.dialog({ title: "Upload a document",
+    body: '<div class="field"><label class="field-label" for="uf">File</label><input class="field-input" id="uf" type="file" accept=".pdf,.jpg,.jpeg,.png"><span class="field-help">A PDF or a photo, up to 10 MB.</span></div>' +
+      '<div class="field"><label class="field-label" for="up">What it is</label><select class="field-input" id="up">' +
+      Object.keys(PURPOSE).map(function (k) { return opt(k, PURPOSE[k], k === "BY_LAWS"); }).join("") + '</select><span class="field-help" id="up-h"></span></div>',
+    submit: "Upload", onSubmit: function (d) { var v = d.querySelector("#up").value; Proto.snack(v === "LOGO" && hasLogo ? "Logo replaced" : PURPOSE[v] + " uploaded"); } });
+  var sel = el.querySelector("#up"), help = el.querySelector("#up-h");
+  var hint = function () { help.textContent = sel.value === "LOGO" ? (hasLogo ? "It replaces the current logo, and anyone can see it." : "Anyone can see the logo: it shows in the member app.") : "Only the cooperative's staff and GroFunder can open it."; };
+  sel.addEventListener("change", hint); hint();
+}
+function removeDoc(id) {
+  var d = GF.get(id);
+  Proto.confirm({ title: "Remove the " + PURPOSE[d.purpose].toLowerCase() + "?", message: esc(d.file_name) + " is removed from the cooperative." + (d.purpose === "LOGO" ? " The member app shows the short name instead." : ""),
+    confirm: "Remove", destructive: true, onConfirm: function () { Proto.snack(PURPOSE[d.purpose] + " removed", "Undo"); } });
+}
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Products · Settings · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Settings" data-dest="settings" data-wide>
+  <div data-subnav="settings" data-current="products" data-label="Settings"></div>
+
+  <p class="proto-note"><b>C23 · From notes 01 and 02.</b> The products the cooperative handles, chosen from GroFunder's catalog. Its value chains follow from them; nothing else sets them. Needs <code>cooperatives.edit_profile</code>: administrators and managers.</p>
+  <p class="proto-note"><b>Page, panel or dialog (UI-13).</b> Add is a dialog (three fields). A product opens as a panel: its recording unit, factor and local name, with Archive or Reactivate.</p>
+  <p class="proto-note"><b>Rules (01).</b> Only active catalog products can be added; adding one the cooperative archived brings it back. A recording unit and its factor come together, and the factor is more than 0; choosing the catalog unit stores none. A new factor applies only to deliveries recorded after it. Reactivating needs the catalog product to be active.</p>
+
+  <div data-state="loaded" class="col gap-4" data-roles="admin manager">
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">Products</span><span class="text-body-md tone-muted" id="chains"></span></div>
+        <button class="btn btn-tonal btn-sm" type="button" data-write onclick="addProduct()"><span class="mdi mdi-plus" aria-hidden="true"></span>Add product</button></div>
+      <div id="list"></div>
+    </div>
+  </div>
+  <div data-state="loading" class="col gap-4" data-roles="admin manager"><div class="skeleton" style="height:40px"></div><div class="skeleton-card" style="height:220px"></div></div>
+  <div data-state="empty" class="empty" data-roles="admin manager"><span class="mdi mdi-basket-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No products yet</span>
+    <span class="text-body-md">Add what the cooperative collects from its members, from GroFunder's catalog. Clerks record deliveries in them, and prices are set for them.</span>
+    <button class="btn btn-filled" type="button" data-write onclick="addProduct()">Add product</button></div>
+  <div data-state="error" class="error-state" data-roles="admin manager"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the products</span><span class="text-body-md">Check the connection, then try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+  <div class="empty" data-roles="accountant clerk viewer"><span class="mdi mdi-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Products are set up by administrators and managers</span></div>
+</div>
+
+<script>
+var q = GF.q, f = GF.fmt, esc = Portal.esc, c = Portal.coop(), RO = Portal.status === "ended", U = GF.UNITS;
+Portal.mountBanner();
+var stat = function (s) { return s === "ACTIVE" ? '<span class="status status-success">Active</span>' : '<span class="status status-neutral">Archived</span>'; };
+var mine = function () { return GF.coopProducts.filter(function (cp) { return cp.cooperative === c.id; }); };
+/* "Bags of 90 kg", or the catalog unit itself. */
+function recorded(cp) {
+  var pr = GF.get(cp.product);
+  return cp.recording_unit ? U[cp.recording_unit][1].replace(/^./, function (x) { return x.toUpperCase(); }) + " of " + f.qty(cp.unit_factor, pr.unit, { digits: 0 }) : U[pr.unit][1].replace(/^./, function (x) { return x.toUpperCase(); }) + ", the catalog unit";
+}
+function draw() {
+  var cps = mine(), vcs = q.valueChainsOf(c.id).map(function (v) { return v.name; });
+  document.getElementById("chains").textContent = vcs.length ? "Works in " + vcs.join(" and ") + ", from its active products." : "Its value chains follow from the products you add.";
+  var used = function (cp) { return GF.deliveries.filter(function (d) { return d.product === cp.id; }).length; };
+  document.getElementById("list").innerHTML = cps.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Product</th><th>What members call it</th><th>Recorded in</th><th class="num">Deliveries</th><th>Status</th></tr></thead><tbody>' +
+    cps.map(function (cp) {
+      var pr = GF.get(cp.product);
+      return '<tr data-href="#" onclick="panel(\'' + cp.id + '\')"><td class="primary-cell">' + esc(pr.name) + '<span class="cell-sub">' + esc(GF.get(pr.value_chain).name) + "</span></td><td>" + (esc(cp.details.local_name) || "–") +
+        "</td><td>" + recorded(cp) + '</td><td class="num">' + (used(cp).toLocaleString("en-KE") || "–") + "</td><td>" + stat(cp.status) + "</td></tr>";
+    }).join("") + "</tbody></table></div>"
+    : '<div class="empty"><span class="mdi mdi-basket-outline" aria-hidden="true"></span><span class="text-title-lg">No products yet</span><span class="text-body-md">Add what the cooperative collects, from GroFunder\'s catalog.</span></div>';
+}
+
+var opt = function (v, t, sel) { return '<option value="' + v + '"' + (sel ? " selected" : "") + ">" + esc(t) + "</option>"; };
+/* The unit pair: a recording unit other than the catalog's needs its factor (01). */
+function unitFields(catalogUnit, cp) {
+  return '<div class="form-grid"><div class="field"><label class="field-label" for="ru">Clerks record it in</label><select class="field-input" id="ru">' +
+    opt("", U[catalogUnit][1] + " (the catalog unit)", !cp || !cp.recording_unit) +
+    Object.keys(U).filter(function (k) { return k !== catalogUnit; }).map(function (k) { return opt(k, U[k][1], cp && cp.recording_unit === k); }).join("") + "</select></div>" +
+    '<div class="field' + (cp && cp.recording_unit ? "" : " hidden") + '" id="uf-f"><label class="field-label" for="uf" id="uf-l">' + U[catalogUnit][1] + " in one</label>" +
+    '<input class="field-input tabular" id="uf" inputmode="decimal" value="' + (cp && cp.unit_factor ? cp.unit_factor : "") + '" aria-describedby="uf-e">' +
+    '<span class="field-error hidden" id="uf-e"></span></div></div>';
+}
+function wireUnits(el, catalogUnit, cp, onFactor) {
+  var ru = el.querySelector("#ru"), uf = el.querySelector("#uf"), box = el.querySelector("#uf-f"), err = el.querySelector("#uf-e"), lab = el.querySelector("#uf-l");
+  var Cap = function (t) { return t.charAt(0).toUpperCase() + t.slice(1); };
+  /* An empty factor is flagged only once it is used or the form is sent. */
+  var check = function (strict) {
+    var need = !!ru.value, v = parseFloat(uf.value), bad = need && !(v > 0) && (strict !== false || uf.value.trim() !== "");
+    box.classList.toggle("hidden", !need);
+    if (need) lab.textContent = Cap(U[catalogUnit][1]) + " in one " + U[ru.value][0];
+    err.classList.toggle("hidden", !bad); uf.setAttribute("aria-invalid", String(bad));
+    err.textContent = uf.value.trim() ? "The factor must be more than 0." : "Say how many " + U[catalogUnit][1] + " one " + (need ? U[ru.value][0] : "") + " holds.";
+    if (onFactor) onFactor();
+    return !bad;
+  };
+  ru.addEventListener("change", function () { if (!ru.value) uf.value = ""; check(false); });
+  uf.addEventListener("input", check);
+  return check;
+}
+
+/* Add: a dialog (UI-13). Only active catalog products; ones already active here are left out. */
+function addProduct() {
+  var here = {}; mine().forEach(function (cp) { here[cp.product] = cp; });
+  var groups = GF.valueChains.filter(function (v) { return v.status === "ACTIVE"; }).map(function (v) {
+    var ps = q.productsOf(v.id).filter(function (pr) { return pr.status === "ACTIVE" && !(here[pr.id] && here[pr.id].status === "ACTIVE"); });
+    return ps.length ? '<optgroup label="' + esc(v.name) + '">' + ps.map(function (pr) { return opt(pr.id, pr.name + (here[pr.id] ? " (archived here)" : "")); }).join("") + "</optgroup>" : "";
+  }).join("");
+  var first = GF.products.find(function (pr) { return pr.status === "ACTIVE" && !(here[pr.id] && here[pr.id].status === "ACTIVE"); });
+  var el = Proto.dialog({ title: "Add a product",
+    body: '<div class="field"><label class="field-label" for="ap">Product</label><select class="field-input" id="ap">' + groups + '</select><span class="field-help" id="ap-h"></span></div>' +
+      '<div id="units">' + unitFields(first.unit) + "</div>" +
+      '<div class="field"><label class="field-label" for="ln">What members call it <span class="optional">(optional)</span></label><input class="field-input" id="ln"></div>',
+    submit: "Add product", onSubmit: function (d) {
+      var pr = GF.get(d.querySelector("#ap").value);
+      Proto.snack(here[pr.id] ? pr.name + " is back" : pr.name + " added");
+    } });
+  var ap = el.querySelector("#ap"), help = el.querySelector("#ap-h"), check;
+  var sync = function () {
+    var pr = GF.get(ap.value);
+    help.textContent = here[pr.id] ? "The cooperative had it before. Adding it reactivates it, with its old deliveries and prices." : "Measured in " + U[pr.unit][1] + " in the catalog." + (q.gradesOf(pr.id).length ? " Graded: " + q.gradesOf(pr.id).map(function (g) { return g.name; }).join(", ") + "." : "");
+    el.querySelector("#units").innerHTML = unitFields(pr.unit, here[pr.id]);
+    check = wireUnits(el, pr.unit);
+  };
+  ap.addEventListener("change", sync); sync();
+  /* A missing factor stops the dialog before it closes. */
+  el.querySelector("[data-submit]").addEventListener("click", function (e) { if (!check()) { e.stopImmediatePropagation(); el.querySelector("#uf").focus(); } }, true);
+}
+
+/* One product: a panel with its unit, factor and local name (UI-13). */
+function panel(id) {
+  var cp = GF.get(id), pr = GF.get(cp.product), active = cp.status === "ACTIVE", catalogOk = pr.status === "ACTIVE";
+  var n = GF.deliveries.filter(function (d) { return d.product === id; }).length, gs = q.gradesOf(pr.id);
+  var facts = '<dl class="facts"><dt>Catalog product</dt><dd>' + esc(pr.name) + " · " + esc(GF.get(pr.value_chain).name) + "</dd><dt>Catalog unit</dt><dd>" + U[pr.unit][1] +
+    "</dd><dt>Grades</dt><dd>" + (gs.length ? gs.map(function (g) { return esc(g.name); }).join(", ") + '<br><span class="text-body-sm tone-muted">Set by GroFunder in the catalog.</span>' : "Not graded") +
+    '</dd><dt>Deliveries</dt><dd class="tabular">' + (n ? n.toLocaleString("en-KE") + " recorded" : "None yet") + "</dd></dl>";
+  var editable = !RO && active;
+  var form = editable ? '<div class="col gap-4">' + unitFields(pr.unit, cp) +
+    '<div class="banner banner-info hidden" id="fwarn"><span class="mdi mdi-information-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">The new factor applies to deliveries recorded from now on. The ' +
+    n.toLocaleString("en-KE") + " already recorded " + (cp.unit_factor ? "keep " + f.qty(cp.unit_factor, pr.unit, { digits: 0 }) + " a " + U[cp.recording_unit][0] : "stay as they were entered, in " + U[pr.unit][1]) + ".</span></div></div>" +
+    '<div class="field"><label class="field-label" for="ln">What members call it <span class="optional">(optional)</span></label><input class="field-input" id="ln" value="' + esc(cp.details.local_name) + '"><span class="field-help">Shown beside the catalog name in the portal and the member app.</span></div></div>'
+    : '<dl class="facts"><dt>Recorded in</dt><dd>' + recorded(cp) + "</dd><dt>What members call it</dt><dd>" + (esc(cp.details.local_name) || "–") + "</dd></dl>";
+  var el = Proto.sheet({ title: esc(pr.name), body: '<div class="row gap-2 wrap">' + stat(cp.status) + (active ? "" : '<span class="text-body-md tone-muted">Not in the pickers. Past deliveries keep it.</span>') + "</div>" + form + facts,
+    footer: RO ? "" : '<span class="row gap-1 grow" data-write>' + (active
+      ? '<button class="btn btn-text" type="button" onclick="archive(\'' + id + '\')">Archive</button><span class="spacer"></span><button class="btn btn-text" type="button" onclick="Proto.close()">Cancel</button><button class="btn btn-filled" type="button" id="save">Save</button>'
+      : '<span class="spacer"></span><button class="btn btn-filled" type="button" onclick="' + (catalogOk ? "Proto.close();Proto.snack('" + esc(pr.name) + " reactivated')" : "Proto.snack('GroFunder has archived " + esc(pr.name) + " in the catalog, so it can\\'t come back for now')") + '">Reactivate</button>') + "</span>" });
+  if (!editable) return;
+  var uf = el.querySelector("#uf"), ru = el.querySelector("#ru"), warn = el.querySelector("#fwarn");
+  var check = wireUnits(el, pr.unit, cp, function () {
+    var v = parseFloat(uf.value), changed = (ru.value || null) !== cp.recording_unit || (ru.value && v !== cp.unit_factor);
+    warn.classList.toggle("hidden", !(changed && n > 0));
+  });
+  el.querySelector("#save").addEventListener("click", function () { if (!check()) return uf.focus(); Proto.close(); Proto.snack(pr.name + " saved"); });
+}
+function archive(id) {
+  var cp = GF.get(id), pr = GF.get(cp.product);
+  Proto.confirm({ title: "Archive " + esc(pr.name) + "?", message: "It leaves the pickers, so clerks can't record it and no price can be set. Its past deliveries, prices and payouts stay as they are.",
+    confirm: "Archive", onConfirm: function () { Proto.close(); Proto.snack(pr.name + " archived", "Undo"); } });
+}
+draw();
+var pid = new URLSearchParams(location.search).get("p");
+if (pid && GF.get(pid)) document.addEventListener("DOMContentLoaded", function () { setTimeout(function () { panel(pid); }, 0); });
+</script>
+</body>
+</html>

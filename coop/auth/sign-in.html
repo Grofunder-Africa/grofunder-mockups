@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Sign in" data-auth="sm">
+  <p class="proto-note"><b>S1 · The kit's sign-in screen</b> (<code>SignInScreen</code>), shared by the portal and the console: one staff login (notes 09 and 06). People are invited, so there's no "Create an account". The steps are the page's states: <b>loaded</b> (email and password), <b>code</b> (two-step verification, for people who turned it on), <b>error</b>, <b>loading</b> (the button is busy; the kit has no loading screen) and <b>notice</b> (the banner the kit shows after a password reset).</p>
+  <p class="proto-note"><b>Where it lands.</b> Staff in one account land on its home. Staff in two (Grace: Kijani and Mawingu) land on the last one they used and switch from the account sheet (S4).</p>
+
+  <div class="brand-lockup"><img src="../../assets/brand/grofunder-wordmark.png" alt="GroFunder"></div>
+
+  <form class="col gap-4" data-state="loaded error loading notice" onsubmit="Proto.go('code');return false">
+    <div class="banner banner-success" role="status" data-state="notice"><span class="mdi mdi-check-circle-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-body-md">Your password has been reset. You can now sign in.</span></div></div>
+    <div class="col gap-1"><h1 class="text-headline-sm">Sign in</h1><p class="text-body-md tone-muted">For cooperative and GroFunder staff. Members sign in on the GroFunder app.</p></div>
+    <div class="field"><label class="field-label" for="who">Email, phone or username</label>
+      <input class="field-input" id="who" autocomplete="username" value="grace@kijanidairy.example"></div>
+    <div class="field"><label class="field-label" for="pw">Password</label>
+      <div class="field-box"><input class="field-input" id="pw" type="password" autocomplete="current-password" value="secretsecret" style="padding-right:52px">
+        <button class="icon-btn" type="button" aria-label="Show what you typed"><span class="mdi mdi-eye-outline" aria-hidden="true"></span></button></div></div>
+    <a class="btn btn-text btn-sm" href="forgot.html" style="align-self:flex-end">Forgot password?</a>
+    <div class="banner banner-error" role="alert" data-state="error"><span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-body-md">Those details don't match a login. Check them, or reset your password.</span></div></div>
+    <button class="btn btn-filled btn-lg btn-block" type="submit" data-state="loaded error notice">Sign in</button>
+    <button class="btn btn-filled btn-lg btn-block" type="button" aria-disabled="true" data-state="loading"><span class="spinner" aria-hidden="true"></span>Signing in…</button>
+  </form>
+
+  <form class="col gap-4" data-state="code" onsubmit="location.href='../home/index.html';return false">
+    <div class="col gap-1"><h1 class="text-headline-sm">Two-step verification</h1><p class="text-body-md tone-muted">Enter the code from your authenticator app.</p></div>
+    <div class="field"><label class="field-label" for="code">Verification code</label>
+      <input class="field-input tabular" id="code" inputmode="numeric" autocomplete="one-time-code" placeholder="123 456">
+      <span class="field-help">From your authenticator app, or one of your recovery codes.</span></div>
+    <button class="btn btn-filled btn-lg btn-block" type="submit">Verify</button>
+    <button class="btn btn-text" type="button" style="align-self:center" onclick="Proto.go('loaded')">Use a different account</button>
+  </form>
+</div>
+</body>
+</html>

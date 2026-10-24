@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cooperatives · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/console.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Cooperatives" data-dest="cooperatives" data-wide
+     data-action='{"label":"Add cooperative","icon":"plus","roles":"owner full ops","href":"new.html"}'
+     data-menu='[{"label":"Download as CSV","icon":"download","on":"Proto.snack(&apos;Downloading the list as shown&apos;)"}]'>
+
+  <p class="proto-note"><b>G3 · From note 01:</b> find and compare cooperatives by status, county or sub-county, value chain and product; search by name or registration number. A county includes its sub-counties. View only can read everything here; adding a cooperative needs <code>cooperatives.onboard</code> (Operations and up).</p>
+  <p class="proto-note"><b>Members</b> is the active members on the register against the number the cooperative says it has (<code>declared_member_count</code>), so a half-loaded register shows at a glance.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div class="section">
+      <div class="section-toolbar stack">
+        <div class="row gap-3 wrap">
+          <div class="field search"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>
+            <input class="field-input" id="q" type="search" placeholder="Name or registration number" aria-label="Search cooperatives"></div></div>
+          <select class="field-input" id="f-county" aria-label="County" style="width:auto"><option value="">All counties</option></select>
+          <select class="field-input" id="f-vc" aria-label="Value chain" style="width:auto"><option value="">All value chains</option></select>
+          <select class="field-input" id="f-product" aria-label="Product" style="width:auto"><option value="">All products</option></select>
+        </div>
+        <div class="chip-row scroll" data-choice role="radiogroup" aria-label="Status" id="f-status">
+          <button class="chip" type="button" role="radio" aria-checked="true" data-s="">All</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="ONBOARDING">Onboarding</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="ACTIVE">Active</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="ON_HOLD">On hold</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="ENDED">Ended</button>
+        </div>
+      </div>
+      <div class="section-band">
+        <div class="section-figure lg"><span class="k">Shown</span><span class="v" id="b-shown"></span></div>
+        <div class="section-figure"><span class="k">Active members</span><span class="v" id="b-members"></span></div>
+        <div class="section-figure"><span class="k">Declared</span><span class="v" id="b-declared"></span></div>
+      </div>
+      <div class="table-wrap only-wide">
+        <table class="table">
+          <thead><tr><th>Cooperative</th><th>County</th><th>Value chains</th><th class="num">Members</th><th>Status</th><th>Since</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="rowcards only-compact" id="cards"></div>
+      <div class="empty hidden" id="none"><span class="mdi mdi-filter-off-outline" aria-hidden="true"></span><span class="text-title-lg">No cooperative matches</span>
+        <span class="text-body-md">Try another status, or clear the filters.</span><button class="btn btn-tonal" type="button" onclick="clearFilters()">Clear filters</button></div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:40px"></div><div class="skeleton-card"></div><div class="skeleton-card" style="height:300px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-office-building-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No cooperatives yet</span><span class="text-body-md">Add the first one. Its first administrator gets an email invitation and sets up the rest.</span>
+    <a class="btn btn-filled" href="new.html" data-roles="owner full ops"><span class="mdi mdi-plus" aria-hidden="true"></span>Add cooperative</a></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load cooperatives</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var q = GF.q, f = GF.fmt, C = Console;
+var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+var rows = GF.cooperatives.map(function (c) {
+  var a = GF.get(c.area), county = a.county ? GF.get(a.county) : a;
+  return { c: c, county: county, vcs: q.valueChainsOf(c.id), products: GF.coopProducts.filter(function (cp) { return cp.cooperative === c.id && cp.status === "ACTIVE"; }).map(function (cp) { return cp.product; }), active: q.activeCount(c.id) };
+});
+var opt = function (v, t) { return '<option value="' + v + '">' + t + "</option>"; };
+document.getElementById("f-county").insertAdjacentHTML("beforeend", GF.areas.filter(function (a) { return a.level === "COUNTY"; }).map(function (a) { return opt(a.id, a.name); }).join(""));
+document.getElementById("f-vc").insertAdjacentHTML("beforeend", GF.valueChains.filter(function (v) { return v.status === "ACTIVE"; }).map(function (v) { return opt(v.id, v.name); }).join(""));
+document.getElementById("f-product").insertAdjacentHTML("beforeend", GF.products.filter(function (p) { return p.status === "ACTIVE"; }).map(function (p) { return opt(p.id, p.name); }).join(""));
+var status = "";
+function draw() {
+  var term = document.getElementById("q").value.trim().toLowerCase(), county = document.getElementById("f-county").value,
+      vc = document.getElementById("f-vc").value, product = document.getElementById("f-product").value;
+  var list = rows.filter(function (r) {
+    return (!status || r.c.status === status) && (!county || r.county.id === county) && (!vc || r.vcs.some(function (v) { return v.id === vc; })) &&
+      (!product || r.products.indexOf(product) > -1) && (!term || (r.c.name + r.c.registration_no).toLowerCase().indexOf(term) > -1);
+  });
+  var n = function (x) { return x.toLocaleString("en-KE"); };
+  document.getElementById("b-shown").textContent = list.length;
+  document.getElementById("b-members").textContent = n(list.reduce(function (s, r) { return s + r.active; }, 0));
+  document.getElementById("b-declared").textContent = n(list.reduce(function (s, r) { return s + r.c.profile.declared_member_count; }, 0));
+  var since = function (c) { var d = new Date(c.created_at); return MON[d.getMonth()] + " " + d.getFullYear(); };
+  document.getElementById("rows").innerHTML = list.map(function (r) {
+    var c = r.c;
+    return '<tr data-href="' + C.coopUrl(c.id) + '" onclick="location.href=this.getAttribute(\'data-href\')"><td class="primary-cell"><a href="' + C.coopUrl(c.id) + '" style="color:inherit;text-decoration:none">' + C.esc(c.profile.short_name) + '</a><span class="cell-sub tabular">' +
+      (c.registration_no || "No registration number yet") + "</span></td><td>" + r.county.name + "</td><td>" + (r.vcs.map(function (v) { return v.name; }).join(", ") || "–") +
+      '</td><td class="num">' + n(r.active) + " of " + n(c.profile.declared_member_count) + "</td><td>" + C.chip(C.STATUS, c.status) + "</td><td>" + since(c) + "</td></tr>";
+  }).join("");
+  document.getElementById("cards").innerHTML = list.map(function (r) {
+    var c = r.c;
+    return '<a class="rowcard" href="' + C.coopUrl(c.id) + '"><span class="grow"><span class="text-body-lg">' + C.esc(c.profile.short_name) + '</span><span class="text-body-md tone-muted">' + r.county.name + " · " +
+      (r.vcs.map(function (v) { return v.name; }).join(", ") || "No products yet") + '</span></span><span class="trail">' + C.chip(C.STATUS, c.status) +
+      '<span class="text-body-sm tone-muted tabular">' + n(r.active) + " of " + n(c.profile.declared_member_count) + "</span></span></a>";
+  }).join("");
+  document.getElementById("none").classList.toggle("hidden", list.length > 0);
+}
+function clearFilters() {
+  ["q", "f-county", "f-vc", "f-product"].forEach(function (id) { document.getElementById(id).value = ""; });
+  status = ""; document.querySelectorAll("#f-status .chip").forEach(function (c, i) { c.setAttribute("aria-checked", String(i === 0)); }); draw();
+}
+document.querySelectorAll("#f-status .chip").forEach(function (chip) { chip.addEventListener("click", function () { status = chip.getAttribute("data-s"); draw(); }); });
+["f-county", "f-vc", "f-product"].forEach(function (id) { document.getElementById(id).addEventListener("change", draw); });
+document.getElementById("q").addEventListener("input", draw);
+draw();
+</script>
+</body>
+</html>

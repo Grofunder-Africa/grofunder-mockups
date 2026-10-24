@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Payout draft · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/payouts.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Payout draft" data-sub="" data-flow data-back="index.html" data-wide id="screen"
+     data-menu='[{"label":"Recalculate","icon":"refresh","roles":"admin manager accountant","write":true,"on":"recalculate()"},{"label":"Cancel draft","icon":"close-circle-outline","roles":"admin manager accountant","write":true,"destructive":true,"sep":true,"on":"Payouts.cancel({member:D.member})"}]'>
+
+  <p class="proto-note"><b>C18 · From note 08 (UI-31).</b> Every recorded delivery up to the date with a balance is offered, each set to its full balance. Staff lower any amount, or untick a delivery to leave it out; what's left stays as that delivery's balance for a later payout. A delivery paid in part before shows what was paid then, and keeps the price fixed at its first payment.</p>
+  <p class="proto-note"><b>Three ways to fill, one result</b> (08, recommendations for the screens). Full pays each selected delivery's balance; Percentage pays that share of each; Amount spreads a sum over the selected deliveries oldest first. All three only write per-delivery amounts, and any one amount can still be changed. Above its balance is a field error.</p>
+  <p class="proto-note"><b>A page, not a panel (UI-13):</b> it is long and has to survive a refresh. A draft is a record, so what is changed here is kept as it's typed; nothing is fixed until Mark as paid (C19). Open Wanjiku's new draft: <a href="draft.html?m=m-kij-0142&amp;to=2026-10-30">up to 30 Oct</a>, with half of 15–23 Oct paid before. Or an existing draft: <a href="draft.html?p=po-9">po-9</a>.</p>
+  <p class="proto-note"><b>Pay to (08):</b> M-Pesa defaults to the member's phone and can be changed for this payout; bank takes the bank and the account's last four digits. The method is chosen here beside where the money goes, so the Mark as paid dialog only asks for the reference and the date.</p>
+  <p class="proto-note proto-gap"><b>G35, G36.</b> Where a draft keeps its method and pay-to before it is paid (the model's <code>method</code> isn't nullable), and whether a saved draft's date or product can change, or it is cancelled and started again. Until answered, Change shows only before the draft is first saved.</p>
+  <p class="proto-note"><b>Who (09):</b> a Viewer reads the draft with nothing to change; Accountant, Manager and Administrator work on it.</p>
+
+  <div class="banner banner-info" data-coop="on_hold">
+    <span class="mdi mdi-information-outline" aria-hidden="true"></span>
+    <div class="grow"><span class="text-body-md">The cooperative is on hold. Paying members carries on (08).</span></div>
+  </div>
+  <div class="banner banner-error" role="alert" data-state="no-price">
+    <span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span>
+    <div class="grow"><span class="text-title-sm">One delivery has no price</span>
+      <span class="text-body-md" id="np-text">A delivery has no price for its date, so it can't be valued or paid (08). Add the price under Produce and recalculate, or leave the delivery out.</span></div>
+  </div>
+
+  <div data-state="loaded no-price" class="col gap-4">
+    <div class="card card-outlined" id="head"></div>
+
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">Deliveries</span>
+        <span class="text-body-md tone-muted" id="del-sub"></span></div></div>
+      <div class="section-toolbar" data-roles="admin manager accountant" data-write>
+        <div class="chip-row" data-choice role="radiogroup" aria-label="How to fill the amounts" id="fill">
+          <button class="chip" type="button" role="radio" aria-checked="true" data-mode="full">Full</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-mode="percent">Percentage</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-mode="amount">Amount, oldest first</button>
+        </div>
+        <div class="field hidden" id="fill-percent" style="width:140px">
+          <div class="field-box has-trail"><input class="field-input in-toolbar tabular" id="fill-p" inputmode="decimal" value="60" aria-label="Percentage of each balance"><span class="trail affix">%</span></div></div>
+        <div class="field money hidden" id="fill-amount" style="width:200px">
+          <div class="field-box"><span class="lead affix">Ksh</span><input class="field-input in-toolbar" id="fill-a" inputmode="decimal" value="8,000.00" aria-label="Amount to spread, oldest first" aria-describedby="fill-a-e"></div></div>
+        <span class="field-error hidden" id="fill-a-e"></span>
+      </div>
+      <div class="section-band">
+        <div class="section-figure lg"><span class="k">Pay now</span><span class="v" id="b-now"></span></div>
+        <div class="section-figure"><span class="k">Deliveries</span><span class="v" id="b-count"></span></div>
+        <div class="section-figure"><span class="k">Left owing after</span><span class="v" id="b-left"></span></div>
+      </div>
+      <div class="table-wrap only-wide">
+        <table class="table">
+          <thead><tr><th style="width:48px"><input type="checkbox" id="all" aria-label="Pay every delivery" checked></th><th>Delivered</th><th>Delivery</th><th class="num">Price</th><th class="num">Value</th>
+            <th class="num">Paid before</th><th class="num" style="width:180px">Pay now</th><th class="num">Left after</th></tr></thead>
+          <tbody id="rows"></tbody>
+          <tfoot><tr><td></td><td colspan="3">Total</td><td class="num" id="t-value"></td><td class="num" id="t-before"></td><td class="num" id="t-now"></td><td class="num" id="t-left"></td></tr></tfoot>
+        </table>
+      </div>
+      <div class="rowcards only-compact" id="cards"></div>
+    </div>
+
+    <div class="two-col">
+      <div class="card card-outlined">
+        <div class="card-header"><div class="card-header-text"><span class="card-title">Additions and deductions</span>
+          <span class="card-description">Typed for each payout, using the cooperative's types (Settings).</span></div>
+          <button class="btn btn-tonal btn-sm" type="button" data-roles="admin manager accountant" data-write onclick="editItem()"><span class="mdi mdi-plus" aria-hidden="true"></span>Add</button></div>
+        <div class="rowcards" id="items"></div>
+      </div>
+      <div class="card card-outlined">
+        <div class="card-header"><div class="card-header-text"><span class="card-title">Payment</span></div></div>
+        <div class="col gap-4" id="pay"></div>
+      </div>
+    </div>
+
+    <div class="card card-outlined">
+      <div class="card-header"><div class="card-header-text"><span class="card-title">Totals</span></div></div>
+      <div class="totals" id="totals"></div>
+      <div class="banner banner-error hidden" role="alert" id="neg"><span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span>
+        <div class="grow"><span class="text-body-md">Deductions are more than what is paid, so the net is below zero. Lower a deduction or pay more of the deliveries.</span></div></div>
+    </div>
+  </div>
+
+  <div data-state="empty" class="empty">
+    <span class="mdi mdi-check-all" aria-hidden="true"></span>
+    <span class="text-headline-sm">Nothing to pay</span>
+    <span class="text-body-md" id="empty-t">Every recorded delivery up to this date is paid in full.</span>
+    <a class="btn btn-tonal" href="index.html">Back to payouts</a>
+  </div>
+  <div data-state="loading" class="col gap-4">
+    <div class="skeleton-card" style="height:140px"></div><div class="skeleton" style="height:48px"></div><div class="skeleton-card" style="height:320px"></div>
+  </div>
+  <div data-state="error" class="error-state">
+    <span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the draft</span>
+    <span class="text-body-md">Check the connection and try again. What you changed is kept.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button>
+  </div>
+
+  <div data-footer data-state="loaded no-price">
+    <span class="col grow"><span class="text-body-sm tone-muted">Net to pay</span><span class="text-title-lg tabular" id="foot-net"></span></span>
+    <button class="btn btn-filled" type="button" data-roles="admin manager accountant" data-write onclick="markPaid()">Mark as paid</button>
+  </div>
+</div>
+
+<script>
+/* The draft: ?p=<payout> an existing DRAFT; ?m=<member>&to=<date>[&product=<cp>] a new one, worked out as the service would. */
+var q = GF.q, f = GF.fmt, P = Payouts, esc = P.esc;
+var qs = new URLSearchParams(location.search);
+var D = (function () {
+  var p = qs.get("p") && GF.get(qs.get("p"));
+  if (p && p.status !== "DRAFT") { location.replace("statement.html?p=" + p.id); return null; }
+  if (p) {
+    var lines = p.lines.map(function (l) { return P.line(GF.get(l.delivery), l.amount_cents); });
+    return { id: p.id, member: p.member, to: p.period_end, product: p.product, label: p.details.label, created: p.history[0], lines: lines,
+      items: p.items.map(function (i) { return { type: i.type, amount_cents: i.amount_cents, note: i.details.note }; }) };
+  }
+  var m = GF.get(qs.get("m") || GF.who.wanjiku), to = qs.get("to") || GF.TODAY, product = qs.get("product") || null;
+  var cp = GF.get(product || GF.coopProducts.find(function (c) { return c.cooperative === m.cooperative; }).id);
+  var MON = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  return { id: null, member: m.id, to: to, product: product, created: null, lines: P.offered(m.id, to, product), items: [],
+    label: MON[+to.slice(5, 7) - 1] + " " + to.slice(0, 4) + " – " + (product || P.productsOf(m.cooperative).length === 1 ? GF.get(cp.product).name.replace("Raw milk", "Milk") : "All products") };
+})();
+var M = D && GF.get(D.member);
+var multi = D && !D.product && P.productsOf(M.cooperative).length > 1;
+var PAY = { method: "MPESA", phone: M ? M.phone : "", bank: "", last4: "", note: "" };
+var mode = "full";
+if (M) document.getElementById("screen").setAttribute("data-sub", M.full_name + " · " + M.member_no);
+
+var money = function (c) { return f.money(c); };
+var toCents = function (s) { var n = parseFloat(String(s).replace(/[^0-9.]/g, "")); return isNaN(n) ? 0 : Math.round(n * 100); };
+var plain = function (c) { return (c / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","); };
+var editable = function () { return P.canRecord(); };
+var typeOf = function (id) { return GF.get(id); };
+var totals = function () {
+  var gross = q.sum(D.lines, function (l) { return l.selected ? l.amount_cents : 0; });
+  var add = q.sum(D.items, function (i) { return typeOf(i.type).direction === "ADDITION" ? i.amount_cents : 0; });
+  var ded = q.sum(D.items, function (i) { return typeOf(i.type).direction === "DEDUCTION" ? i.amount_cents : 0; });
+  return { gross: gross, add: add, ded: ded, net: gross + add - ded };
+};
+
+function head() {
+  var c = GF.get(M.cooperative);
+  document.getElementById("head").innerHTML =
+    '<div class="row-top gap-4 wrap"><span class="avatar" style="width:56px;height:56px;font-size:20px">' + f.initials(M.full_name) + '</span>' +
+    '<div class="col gap-1 grow"><div class="row gap-3 wrap"><span class="text-headline-sm">' + esc(M.full_name) + "</span>" + P.chip("DRAFT") + "</div>" +
+    '<span class="text-body-md tone-muted tabular">' + P.memberLine(M) + "</span>" +
+    '<span class="text-body-md">' + esc(D.label) + " · deliveries up to " + f.date(D.to) + "</span>" +
+    '<span class="text-body-sm tone-muted">' + (D.created ? "Prepared " + f.date(D.created.changed_at, "short") + " by " + D.created.changed_by + ". Deliveries recorded since aren't in it until you recalculate." : "New: nothing is fixed until it is marked paid.") + "</span></div>" +
+    (D.id ? "" : '<button class="btn btn-text btn-sm" type="button" data-roles="admin manager accountant" data-write onclick="changeStart()">Change</button>') + "</div>";
+}
+
+function rowHtml(l, i) {
+  var d = l.d, ro = !editable(), over = l.amount_cents > l.balance_cents, left = l.balance_cents - (l.selected ? l.amount_cents : 0);
+  var what = (multi ? f.productName(d.product, d.grade) + " · " : d.grade ? GF.get(d.grade).name + " · " : "") + f.delivery(d);
+  var sub = [(GF.get(d.round) || {}).name, d.receipt_no].filter(Boolean).join(" · ");
+  var input = '<div class="field money"><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input in-toolbar" data-i="' + i + '" inputmode="decimal" value="' + plain(l.selected ? l.amount_cents : 0) + '"' +
+    (ro || !l.selected || l.noPrice ? " disabled" : "") + (over ? ' aria-invalid="true"' : "") + ' aria-label="Pay now for ' + f.date(d.delivered_on) + '"></div>' +
+    (over ? '<span class="field-error">At most ' + money(l.balance_cents) + ", the balance.</span>" : "") + "</div>";
+  return { what: what, sub: sub, input: input, left: left, over: over };
+}
+function draw() {
+  var t = totals(), rows = "", cards = "";
+  D.lines.forEach(function (l, i) {
+    var r = rowHtml(l, i), d = l.d;
+    var check = '<input type="checkbox" data-c="' + i + '"' + (l.selected ? " checked" : "") + (editable() ? "" : " disabled") + ' aria-label="Pay the delivery of ' + f.date(d.delivered_on) + '">';
+    rows += "<tr" + (l.selected ? "" : ' class="tone-muted"') + "><td>" + check + '</td><td class="tabular">' + f.date(d.delivered_on, "short") + "</td><td>" + r.what + '<span class="cell-sub tabular">' + r.sub + "</span></td>" +
+      '<td class="num">' + (l.noPrice ? '<span class="status status-error">No price</span>' : money(l.price_cents)) + '</td><td class="num">' + (l.noPrice ? "–" : money(l.value_cents)) + "</td>" +
+      '<td class="num">' + (l.paid_before_cents ? money(l.paid_before_cents) : "–") + '</td><td class="num">' + r.input + '</td><td class="num">' + (l.noPrice ? "–" : money(r.left)) + "</td></tr>";
+    cards += '<div class="rowcard" style="align-items:flex-start">' + check + '<span class="grow"><span class="text-body-lg tabular">' + f.date(d.delivered_on, "short") + ((GF.get(d.round) || {}).name ? " " + GF.get(d.round).name.toLowerCase() : "") + " · " + r.what + "</span>" +
+      '<span class="text-body-sm tone-muted tabular">' + (l.noPrice ? "No price for this date" : "Balance " + money(l.balance_cents) + (l.paid_before_cents ? " · paid before " + money(l.paid_before_cents) : "")) + "</span></span>" +
+      '<span class="trail" style="width:140px">' + r.input + "</span></div>";
+  });
+  document.getElementById("rows").innerHTML = rows;
+  document.getElementById("cards").innerHTML = cards;
+  var sel = D.lines.filter(function (l) { return l.selected && l.amount_cents > 0; });
+  var left = q.sum(D.lines, function (l) { return l.balance_cents - (l.selected ? l.amount_cents : 0); });
+  document.getElementById("b-now").textContent = money(t.gross);
+  document.getElementById("b-count").textContent = sel.length + " of " + D.lines.length;
+  document.getElementById("b-left").textContent = money(left);
+  document.getElementById("t-value").textContent = money(q.sum(D.lines, function (l) { return l.value_cents; }));
+  document.getElementById("t-before").textContent = money(q.sum(D.lines, function (l) { return l.paid_before_cents; }));
+  document.getElementById("t-now").textContent = money(t.gross);
+  document.getElementById("t-left").textContent = money(left);
+  document.getElementById("all").checked = D.lines.every(function (l) { return l.selected; });
+  document.getElementById("all").disabled = !editable();
+  var parts = D.lines.filter(function (l) { return l.paid_before_cents > 0; }).length;
+  document.getElementById("del-sub").textContent = D.lines.length + " with a balance up to " + f.date(D.to) + (parts ? ", " + parts + " of them part paid before" : "") + ".";
+  drawItems(t); drawTotals(t);
+}
+function drawItems(t) {
+  var el = document.getElementById("items");
+  el.innerHTML = D.items.map(function (it, i) {
+    var ty = typeOf(it.type), add = ty.direction === "ADDITION";
+    return '<div class="rowcard"><span class="grow"><span class="text-body-lg">' + esc(ty.name) + '</span><span class="text-body-sm tone-muted">' + (add ? "Addition" : "Deduction") + (it.note ? " · " + esc(it.note) : "") + "</span></span>" +
+      '<span class="trail"><span class="text-title-md tabular">' + (add ? "+ " : "− ") + money(it.amount_cents) + "</span></span>" +
+      '<span class="row" data-roles="admin manager accountant" data-write><button class="btn btn-text btn-sm" type="button" onclick="editItem(' + i + ')">Edit</button>' +
+      '<button class="icon-btn" type="button" aria-label="Remove ' + esc(ty.name) + '" onclick="removeItem(' + i + ')"><span class="mdi mdi-close" aria-hidden="true"></span></button></span></div>';
+  }).join("") || '<div class="rowcard"><span class="text-body-md tone-muted">None on this payout.</span></div>';
+  Proto.applyRoles(el);
+}
+function drawTotals(t) {
+  var rows = '<div><span>For deliveries</span><span>' + money(t.gross) + "</span></div>";
+  D.items.forEach(function (it) {
+    var ty = typeOf(it.type), add = ty.direction === "ADDITION";
+    rows += "<div><span>" + esc(ty.name) + (it.note ? ' <span class="sub">' + esc(it.note) + "</span>" : "") + "</span><span>" + (add ? "+ " : "− ") + money(it.amount_cents) + "</span></div>";
+  });
+  rows += '<div class="net"><span>Net to pay</span><span' + (t.net < 0 ? ' class="tone-error"' : "") + ">" + money(t.net) + "</span></div>";
+  document.getElementById("totals").innerHTML = rows;
+  document.getElementById("neg").classList.toggle("hidden", t.net >= 0);
+  document.getElementById("foot-net").textContent = money(t.net);
+}
+function drawPay() {
+  var ro = editable() ? "" : " disabled";
+  var c = function (m, l) { return '<button class="chip" type="button" role="radio" aria-checked="' + (PAY.method === m) + '" data-m="' + m + '"' + ro + ">" + l + "</button>"; };
+  var dest = PAY.method === "MPESA"
+    ? '<div class="field"><label class="field-label" for="p-phone">M-Pesa number</label><input class="field-input tabular" id="p-phone" inputmode="tel" value="' + f.phone(PAY.phone) + '"' + ro + ">" +
+      '<span class="field-help">' + (PAY.phone === M.phone ? "The member's phone on the register." : "Changed for this payout only; the register keeps " + f.phone(M.phone) + ".") + "</span></div>"
+    : PAY.method === "BANK"
+    ? '<div class="form-grid"><div class="pair"><div class="field"><label class="field-label" for="p-bank">Bank</label><input class="field-input" id="p-bank" value="' + esc(PAY.bank) + '"' + ro + "></div>" +
+      '<div class="field"><label class="field-label" for="p-l4">Account, last 4 digits</label><input class="field-input tabular" id="p-l4" inputmode="numeric" maxlength="4" value="' + esc(PAY.last4) + '"' + ro + "></div></div></div>"
+    : '<p class="text-body-md tone-muted">Cash has no reference. The statement shows it was paid in cash.</p>';
+  document.getElementById("pay").innerHTML = '<div class="field"><span class="field-label" id="p-m-l">Paid by</span><div class="chip-row" data-choice role="radiogroup" aria-labelledby="p-m-l" id="p-method">' +
+    c("MPESA", "M-Pesa") + c("BANK", "Bank") + c("CASH", "Cash") + "</div></div>" + dest +
+    '<div class="field"><label class="field-label" for="p-note">Note <span class="optional">(optional)</span></label><textarea class="field-input" id="p-note"' + ro + ' placeholder="Shown on the statement">' + esc(PAY.note) + "</textarea></div>";
+  document.querySelectorAll("#p-method .chip").forEach(function (b) { b.addEventListener("click", function () { PAY.method = b.getAttribute("data-m"); drawPay(); }); });
+  var ph = document.getElementById("p-phone"); if (ph) ph.addEventListener("change", function () { PAY.phone = "+254" + ph.value.replace(/\D/g, "").replace(/^0/, ""); drawPay(); });
+  ["p-bank", "p-l4", "p-note"].forEach(function (id) { var e = document.getElementById(id); if (e) e.addEventListener("input", function () { PAY[{ "p-bank": "bank", "p-l4": "last4", "p-note": "note" }[id]] = e.value; }); });
+}
+
+function applyFill() {
+  var err = document.getElementById("fill-a-e"), a = document.getElementById("fill-a");
+  err.classList.add("hidden"); a.removeAttribute("aria-invalid");
+  if (mode === "percent") P.fill(D.lines, "percent", parseFloat(document.getElementById("fill-p").value) || 0);
+  else if (mode === "amount") {
+    var want = toCents(a.value), most = q.sum(D.lines, function (l) { return l.selected ? l.balance_cents : 0; });
+    if (want > most) { err.textContent = "At most " + money(most) + ", the balance on the selected deliveries."; err.classList.remove("hidden"); a.setAttribute("aria-invalid", "true"); }
+    P.fill(D.lines, "amount", Math.min(want, most));
+  } else P.fill(D.lines, "full");
+  draw();
+}
+
+/* Additions and deductions: a dialog of three fields (UI-13). A deduction that takes the net below zero is refused (08). */
+function editItem(i) {
+  var it = i === undefined ? { type: "", amount_cents: 0, note: "" } : D.items[i];
+  var types = GF.payoutItemTypes.filter(function (t) { return t.cooperative === M.cooperative && (t.status === "ACTIVE" || t.id === it.type); });
+  var opt = function (dir) { return types.filter(function (t) { return t.direction === dir; }).map(function (t) { return '<option value="' + t.id + '"' + (t.id === it.type ? " selected" : "") + ">" + esc(t.name) + "</option>"; }).join(""); };
+  var el = Proto.dialog({ title: i === undefined ? "Add an addition or deduction" : "Edit " + typeOf(it.type).name, body:
+    '<div class="field"><label class="field-label" for="it-t">Type</label><select class="field-input" id="it-t"><optgroup label="Additions: paid on top">' + opt("ADDITION") + '</optgroup><optgroup label="Deductions: taken off">' + opt("DEDUCTION") + "</optgroup></select></div>" +
+    '<div class="field money"><label class="field-label" for="it-a">Amount</label><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input" id="it-a" inputmode="decimal" value="' + (it.amount_cents ? plain(it.amount_cents) : "") + '" aria-describedby="it-e"></div>' +
+      '<span class="field-error hidden" id="it-e"></span></div>' +
+    '<div class="field"><label class="field-label" for="it-n">Note <span class="optional">(optional)</span></label><input class="field-input" id="it-n" value="' + esc(it.note) + '" placeholder="For example: fertiliser, 2 bags"><span class="field-help">Shown on the member\'s statement.</span></div>' +
+    '<div class="actions"><button class="btn btn-text" type="button" data-cancel>Cancel</button><button class="btn btn-filled" type="button" id="it-go">' + (i === undefined ? "Add" : "Save") + "</button></div>" });
+  el.querySelector("#it-go").addEventListener("click", function () {
+    var type = el.querySelector("#it-t").value, cents = toCents(el.querySelector("#it-a").value), e = el.querySelector("#it-e"), a = el.querySelector("#it-a");
+    var others = D.items.filter(function (x, k) { return k !== i; });
+    var t = totals(), base = t.gross + q.sum(others, function (x) { var d = typeOf(x.type).direction; return d === "ADDITION" ? x.amount_cents : -x.amount_cents; });
+    var bad = cents <= 0 ? "Enter an amount above 0." : typeOf(type).direction === "DEDUCTION" && cents > base ? "That takes the net below zero. At most " + money(Math.max(0, base)) + " can be deducted." : "";
+    e.classList.toggle("hidden", !bad); e.textContent = bad; a.setAttribute("aria-invalid", String(!!bad));
+    if (bad) return;
+    var row = { type: type, amount_cents: cents, note: el.querySelector("#it-n").value.trim() };
+    if (i === undefined) D.items.push(row); else D.items[i] = row;
+    Proto.close(); draw(); Proto.snack(typeOf(type).name + (i === undefined ? " added" : " saved"));
+  });
+}
+function removeItem(i) { var ty = typeOf(D.items[i].type); var old = D.items.splice(i, 1)[0]; draw(); Proto.snack(ty.name + " removed", "Undo", function () { D.items.splice(i, 0, old); draw(); }); }
+
+function recalculate() {
+  var have = D.lines.map(function (l) { return l.d.id; });
+  var fresh = P.offered(D.member, D.to, D.product).filter(function (l) { return have.indexOf(l.d.id) === -1; });
+  D.lines = D.lines.concat(fresh).sort(function (a, b) { return a.d.delivered_on < b.d.delivered_on ? -1 : 1; });
+  draw(); Proto.snack(fresh.length ? "Recalculated: " + fresh.length + " more deliveries offered" : "Recalculated: nothing new up to " + f.date(D.to, "short"));
+}
+function changeStart() { P.start({ member: D.member, to: D.to, product: D.product || undefined }); }
+function markPaid() {
+  var t = totals(), dest = PAY.method === "BANK" ? (PAY.bank || "Bank") + " ····" + (PAY.last4 || "????") : f.phone(PAY.phone);
+  if (D.lines.some(function (l) { return l.selected && l.amount_cents > l.balance_cents; })) return P.refuse("An amount is above its balance", "Lower the amounts marked in red. A delivery is never paid more than its value (08).");
+  P.markPaid({ id: D.id, member: D.member, lines: D.lines, gross_cents: t.gross, net_cents: t.net, method: PAY.method, pay_to: dest,
+    onLeaveOut: function () { D.lines.forEach(function (l) { if (l.noPrice) { l.selected = false; l.amount_cents = 0; } }); draw(); Proto.snack("Left out the delivery with no price"); } });
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  if (!D) return;
+  if (!D.lines.length) { document.getElementById("empty-t").textContent = M.full_name + " has no recorded deliveries up to " + f.date(D.to) + " with a balance."; Proto.go("empty"); }
+  head(); Proto.applyRoles(document.getElementById("head"));
+  draw(); drawPay();
+  document.getElementById("rows").parentNode.parentNode.parentNode.addEventListener("change", function (e) {
+    var c = e.target.getAttribute("data-c");
+    if (c !== null) { var l = D.lines[+c]; l.selected = e.target.checked; l.amount_cents = l.selected ? l.balance_cents : 0; if (mode !== "full") applyFill(); else draw(); return; }
+    var i = e.target.getAttribute("data-i");
+    if (i !== null) { D.lines[+i].amount_cents = toCents(e.target.value); draw(); }
+  });
+  document.getElementById("all").addEventListener("change", function (e) { D.lines.forEach(function (l) { l.selected = e.target.checked; }); applyFill(); });
+  document.querySelectorAll("#fill .chip").forEach(function (b) { b.addEventListener("click", function () {
+    mode = b.getAttribute("data-mode");
+    document.getElementById("fill-percent").classList.toggle("hidden", mode !== "percent"); document.getElementById("fill-amount").classList.toggle("hidden", mode !== "amount");
+    applyFill();
+  }); });
+  document.getElementById("fill-p").addEventListener("input", applyFill);
+  document.getElementById("fill-a").addEventListener("change", applyFill);
+  /* The no-price state: the last delivery as if its date had no price yet (08 refuses to pay it). */
+  document.addEventListener("proto:state", function (e) {
+    var last = D.lines[D.lines.length - 1];
+    if (!last) return;
+    if (e.detail === "no-price") { document.getElementById("np-text").textContent = f.productName(last.d.product) + " has no price for " + f.date(last.d.delivered_on) + ", so it can't be valued or paid (08). Add the price under Produce and recalculate, or leave the delivery out."; last.noPrice = true; last.price_cents = 0; last.value_cents = 0; last.balance_cents = 0; last.amount_cents = 0; }
+    else if (last.noPrice) D.lines[D.lines.length - 1] = P.line(last.d);
+    draw();
+  });
+});
+</script>
+</body>
+</html>

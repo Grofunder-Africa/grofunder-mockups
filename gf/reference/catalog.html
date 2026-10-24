@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Catalog · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/console.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Reference data" data-dest="reference" data-wide
+     data-action='{"label":"Add value chain","icon":"plus","roles":"owner full","on":"addValueChain()"}'>
+  <div data-subnav="reference" data-current="catalog" data-label="Reference data"></div>
+
+  <p class="proto-note"><b>G11–G13 · From note 02, on one page (UI-13).</b> Each value chain is a section with its products; Edit and Add product are visible on it. A product's row opens its panel, where its grades are added, edited and archived without leaving the catalog. Every GroFunder role reads it; editing needs <code>catalog.manage</code> (Full and Owner).</p>
+  <p class="proto-note"><b>Archived, not gone.</b> Archiving a value chain archives its products and their grades in one step, and the confirmation counts them. Reactivating doesn't cascade. An archived name typed again is offered back. Delete only works for something nothing uses; a product's unit locks once a cooperative records in it.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div class="row gap-3 wrap">
+      <div class="field search" style="flex:1 1 240px"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>
+        <input class="field-input in-toolbar" id="q" type="search" placeholder="Value chain, product or grade" aria-label="Search the catalog" style="padding-left:44px"></div></div>
+      <div class="chip-row" data-choice role="radiogroup" aria-label="Status" id="f-status">
+        <button class="chip" type="button" role="radio" aria-checked="true" data-s="ACTIVE">Active</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-s="ARCHIVED">Archived</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-s="">All</button>
+      </div>
+    </div>
+    <div class="col gap-4" id="chains"></div>
+  </div>
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:40px"></div><div class="skeleton-card" style="height:200px"></div><div class="skeleton-card" style="height:200px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-sprout-outline" aria-hidden="true"></span><span class="text-headline-sm">The catalog is empty</span>
+    <span class="text-body-md">Add the value chains GroFunder works in, then their products. Cooperatives choose their products from here.</span>
+    <button class="btn btn-filled" type="button" data-roles="owner full" onclick="addValueChain()">Add value chain</button></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span><span class="text-headline-sm">Couldn't load the catalog</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var q = GF.q, C = Console, esc = C.esc, status = "ACTIVE";
+var stat = function (s) { return s === "ACTIVE" ? '<span class="status status-success">Active</span>' : '<span class="status status-neutral">Archived</span>'; };
+var unitOpts = function (cur) { return Object.keys(GF.UNITS).map(function (u) { return '<option value="' + u + '"' + (u === cur ? " selected" : "") + ">" + GF.UNITS[u][1] + "</option>"; }).join(""); };
+var field = function (id, label, value, extra) { return '<div class="field"><label class="field-label" for="' + id + '">' + label + '</label><input class="field-input" id="' + id + '" value="' + esc(value || "") + '">' + (extra || "") + "</div>"; };
+var area = function (id, label, value) { return '<div class="field"><label class="field-label" for="' + id + '">' + label + ' <span class="optional">(optional)</span></label><textarea class="field-input" id="' + id + '">' + esc(value || "") + "</textarea></div>"; };
+
+function draw() {
+  var t = document.getElementById("q").value.trim().toLowerCase();
+  var list = GF.valueChains.filter(function (v) {
+    var words = v.name + " " + v.details.name_sw + " " + q.productsOf(v.id).map(function (p) { return p.name + " " + q.gradesOf(p.id).map(function (g) { return g.name; }).join(" "); }).join(" ");
+    return (!status || v.status === status) && (!t || words.toLowerCase().indexOf(t) > -1);
+  });
+  document.getElementById("chains").innerHTML = list.map(function (v) {
+    var ps = q.productsOf(v.id), active = v.status === "ACTIVE";
+    var menu = "[" + (active ? "{label:'Archive',icon:'archive-outline',onSelect:'archiveChain(&quot;" + v.id + "&quot;)'}" : "{label:'Reactivate',icon:'archive-arrow-up-outline',onSelect:'Proto.snack(&quot;" + v.name + " is back. Its products stay archived until you bring them back.&quot;)'}") +
+      (ps.length ? "" : ",{label:'Delete',icon:'delete-outline',destructive:true,onSelect:'Proto.confirm({title:&quot;Delete " + v.name + "?&quot;,message:&quot;Nothing uses it, so it can go.&quot;,confirm:&quot;Delete&quot;,destructive:true,onConfirm:function(){Proto.snack(&quot;Deleted&quot;)}})'}") + "]";
+    return '<div class="section"><div class="section-header"><div class="grow"><div class="row gap-3 wrap"><span class="text-title-lg">' + v.name + "</span>" + stat(v.status) + "</div>" +
+      '<span class="text-body-md tone-muted">' + v.details.name_sw + (v.details.description ? " · " + esc(v.details.description) : "") + "</span></div>" +
+      '<span class="row gap-1" data-roles="owner full"><button class="btn btn-text btn-sm" type="button" onclick="editChain(\'' + v.id + '\')">Edit</button>' +
+      (active ? '<button class="btn btn-tonal btn-sm" type="button" onclick="addProduct(\'' + v.id + '\')">Add product</button>' : "") +
+      '<button class="icon-btn" type="button" aria-label="More for ' + v.name + '" onclick="Proto.menu(this,{heading:\'' + v.name + '\',items:' + menu + '})"><span class="mdi mdi-dots-vertical" aria-hidden="true"></span></button></span></div>' +
+      (ps.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Product</th><th>Unit</th><th>Grades</th><th class="num">Cooperatives</th><th>Status</th></tr></thead><tbody>' + ps.map(function (p) {
+        return '<tr data-href="#" onclick="productPanel(\'' + p.id + '\')"><td class="primary-cell">' + p.name + '<span class="cell-sub">' + p.details.name_sw + "</span></td><td>" + GF.UNITS[p.unit][1] + "</td><td>" +
+          (q.gradesOf(p.id).map(function (g) { return g.name; }).join(", ") || "–") + '</td><td class="num">' + q.coopsUsing(p.id).length + "</td><td>" + stat(p.status) + "</td></tr>";
+      }).join("") + "</tbody></table></div>" : '<div class="section-body"><span class="text-body-md tone-muted">No products yet.</span></div>') + "</div>";
+  }).join("") || '<div class="empty"><span class="mdi mdi-magnify" aria-hidden="true"></span><span class="text-title-lg">Nothing matches</span></div>';
+  if (window.Proto && Proto.applyRoles) Proto.applyRoles(document.getElementById("chains"));
+}
+
+/* Dialogs: up to four fields (UI-13). */
+function addValueChain() {
+  var el = Proto.dialog({ title: "Add a value chain", body: field("vn", "Name in English", "", '<span class="field-error" id="vn-e" hidden></span>') + field("vs", "Name in Swahili", "") + area("vd", "What it covers", "") +
+    '<p class="text-body-sm tone-muted">Try "Pyrethrum": an archived value chain is offered back rather than refused.</p>', submit: "Add value chain", onSubmit: function () { Proto.snack("Value chain added"); } });
+  var input = el.querySelector("#vn"), err = el.querySelector("#vn-e");
+  input.addEventListener("input", function () {
+    var hit = GF.valueChains.find(function (v) { return v.name.toLowerCase() === input.value.trim().toLowerCase(); });
+    err.hidden = !hit; input.setAttribute("aria-invalid", String(!!hit));
+    if (hit) err.innerHTML = hit.status === "ARCHIVED" ? hit.name + ' is archived. <a href="#" onclick="Proto.close();Proto.snack(\'' + hit.name + ' reactivated\');return false">Reactivate it</a> instead.' : hit.name + " is already in the catalog.";
+  });
+}
+function editChain(id) {
+  var v = GF.get(id);
+  Proto.dialog({ title: "Edit " + v.name, body: field("vn", "Name in English", v.name) + field("vs", "Name in Swahili", v.details.name_sw) + area("vd", "What it covers", v.details.description),
+    submit: "Save", onSubmit: function () { Proto.snack(v.name + " saved"); } });
+}
+function archiveChain(id) {
+  var v = GF.get(id), ps = q.productsOf(id), g = ps.reduce(function (n, p) { return n + q.gradesOf(p.id).filter(function (x) { return x.status === "ACTIVE"; }).length; }, 0);
+  Proto.confirm({ title: "Archive " + v.name + "?", message: "Its " + ps.length + " product" + (ps.length === 1 ? "" : "s") + " and " + g + " grade" + (g === 1 ? "" : "s") + " are archived too. They leave the pickers and stay on every record that uses them.",
+    confirm: "Archive " + (ps.length + g + 1) + " items", onConfirm: function () { Proto.snack("Archived " + (ps.length + g + 1) + " items", "Undo"); } });
+}
+function addProduct(vcId) {
+  Proto.dialog({ title: "Add a product to " + GF.get(vcId).name, body: field("pn", "Name in English", "") + field("ps", "Name in Swahili", "") +
+    '<div class="field"><label class="field-label" for="pu">Unit</label><select class="field-input" id="pu">' + unitOpts("KG") + '</select><span class="field-help">Every quantity is stored and added up in it, and it locks once a cooperative records in it.</span></div>' +
+    area("pd", "Exactly what counts as this product", ""), submit: "Add product", onSubmit: function () { Proto.snack("Product added"); } });
+}
+
+/* G13 as a panel: the product, its grades and who uses it. */
+function productPanel(id) {
+  var p = GF.get(id), v = GF.get(p.value_chain), used = q.inUse(id) > 0, gs = q.gradesOf(id), coops = q.coopsUsing(id), active = p.status === "ACTIVE";
+  Proto.sheet({ wide: true, title: p.name, body:
+    '<div class="row gap-2 wrap">' + stat(p.status) + '<span class="text-body-md tone-muted">' + v.name + "</span></div>" +
+    '<div class="card card-outlined"><div class="card-header"><div class="card-header-text"><span class="card-title">Details</span></div>' +
+    '<button class="btn btn-text btn-sm" type="button" data-roles="owner full" onclick="editProduct(\'' + id + '\')">Edit</button></div>' +
+    '<dl class="facts"><dt>In Swahili</dt><dd>' + p.details.name_sw + "</dd><dt>Unit</dt><dd>" + GF.UNITS[p.unit][1] + '<br><span class="text-body-sm tone-muted">' + (used ? "Locked: cooperatives record in it" : "Can still change: nobody uses it yet") +
+    "</span></dd><dt>What counts as it</dt><dd>" + (esc(p.details.description) || "–") + "</dd></dl></div>" +
+    '<div class="col gap-2"><div class="row between"><span class="text-title-md">Grades</span>' + (active ? '<button class="btn btn-tonal btn-sm" type="button" data-roles="owner full" onclick="editGrade(\'' + id + '\')">Add grade</button>' : "") + "</div>" +
+    '<span class="text-body-sm tone-muted">The same grade means the same thing in every cooperative. Most products aren\'t graded.</span>' +
+    '<div class="list rowcards">' + (gs.map(function (g) {
+      return '<div class="rowcard"><span class="grow"><span class="text-body-lg">' + g.name + " · " + g.details.name_sw + '</span><span class="text-body-sm tone-muted">' + esc(g.details.description || "") + "</span></span>" + stat(g.status) +
+        '<span class="row" data-roles="owner full"><button class="btn btn-text btn-sm" type="button" onclick="editGrade(\'' + id + "','" + g.id + '\')">Edit</button>' +
+        '<button class="icon-btn" type="button" aria-label="More for ' + g.name + '" onclick="Proto.menu(this,{heading:\'' + g.name + "',items:[{label:'Archive',icon:'archive-outline',onSelect:'Proto.confirm({title:&quot;Archive " + g.name +
+        "?&quot;,message:&quot;It leaves the pickers and stays on the deliveries and prices that use it.&quot;,confirm:&quot;Archive&quot;,onConfirm:function(){Proto.snack(&quot;Grade archived&quot;,&quot;Undo&quot;)}})'}" +
+        (q.inUse(g.id) ? "" : ",{label:'Delete',icon:'delete-outline',destructive:true,onSelect:'Proto.snack(&quot;Grade deleted&quot;)'}") + ']})"><span class="mdi mdi-dots-vertical" aria-hidden="true"></span></button></span></div>';
+    }).join("") || '<div class="rowcard"><span class="text-body-md tone-muted">Not graded.</span></div>') + "</div></div>" +
+    '<div class="col gap-2"><span class="text-title-md">Cooperatives using it</span><div class="list rowcards">' + (coops.map(function (c) {
+      var cp = GF.coopProducts.find(function (x) { return x.cooperative === c.id && x.product === id; });
+      return '<a class="rowcard" href="' + C.coopUrl(c.id) + '"><span class="grow"><span class="text-body-lg">' + c.profile.short_name + '</span><span class="text-body-sm tone-muted">' +
+        (cp.recording_unit ? "Records in " + GF.UNITS[cp.recording_unit][1] + " (1 = " + cp.unit_factor + " " + GF.UNITS[p.unit][0] + ")" : "Records in " + GF.UNITS[p.unit][1]) + "</span></span>" + C.chip(C.STATUS, c.status) + "</a>";
+    }).join("") || '<div class="rowcard"><span class="text-body-md tone-muted">No cooperative handles it yet.</span></div>') + "</div></div>",
+    footer: '<span data-roles="owner full" class="row gap-1">' + (active ? '<button class="btn btn-text" type="button" onclick="Proto.confirm({title:\'Archive ' + p.name + '?\',message:\'' + (gs.length ? "Its grades are archived too. " : "") + 'It leaves the pickers and stays on every record that uses it.\',confirm:\'Archive\',onConfirm:function(){Proto.close();Proto.snack(\'Archived\',\'Undo\')}})">Archive product</button>'
+      : '<button class="btn btn-text" type="button" onclick="' + (v.status === "ARCHIVED" ? "Proto.snack('Reactivate " + v.name + " first: its products can\\'t come back while it is archived')" : "Proto.close();Proto.snack('Reactivated')") + '">Reactivate</button>') +
+      (used ? "" : '<button class="btn btn-text tone-error" type="button" onclick="Proto.confirm({title:\'Delete ' + p.name + '?\',message:\'Nothing uses it, so it can go.\',confirm:\'Delete\',destructive:true,onConfirm:function(){Proto.close();Proto.snack(\'Deleted\')}})">Delete</button>') + "</span>"
+  });
+}
+function editProduct(id) {
+  var p = GF.get(id), used = q.inUse(id) > 0;
+  Proto.dialog({ title: "Edit " + p.name, body: field("pn", "Name in English", p.name) + field("ps", "Name in Swahili", p.details.name_sw) +
+    '<div class="field"><label class="field-label" for="pu">Unit</label><select class="field-input" id="pu"' + (used ? " disabled" : "") + ">" + unitOpts(p.unit) + "</select>" +
+    (used ? '<span class="field-help">Locked: cooperatives already record ' + p.name.toLowerCase() + " in it.</span>" : "") + "</div>" + area("pd", "Exactly what counts as this product", p.details.description),
+    submit: "Save", onSubmit: function () { Proto.snack(p.name + " saved"); } });
+}
+function editGrade(productId, gradeId) {
+  var g = gradeId ? GF.get(gradeId) : { name: "", details: { name_sw: "", description: "" } };
+  Proto.dialog({ title: gradeId ? "Edit " + g.name : "Add a grade to " + GF.get(productId).name, body:
+    field("gn", "Name", g.name, '<span class="field-help">Follow the national standard where there is one.</span>') + field("gs", "Name in Swahili", g.details.name_sw) + area("gd", "What the grade means", g.details.description),
+    submit: gradeId ? "Save" : "Add grade", onSubmit: function () { Proto.snack(gradeId ? "Grade saved" : "Grade added"); } });
+}
+
+document.querySelectorAll("#f-status .chip").forEach(function (c) { c.addEventListener("click", function () { status = c.getAttribute("data-s"); draw(); }); });
+document.getElementById("q").addEventListener("input", draw);
+draw();
+/* ?p= opens a product's panel (links from a cooperative's Products tab). */
+var pid = new URLSearchParams(location.search).get("p");
+if (pid && GF.get(pid)) document.addEventListener("DOMContentLoaded", function () { setTimeout(function () { productPanel(pid); }, 0); });
+</script>
+</body>
+</html>

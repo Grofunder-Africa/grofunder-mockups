@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Record delivery · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/produce.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Record delivery" data-flow data-back="index.html" data-compact id="screen">
+
+  <p class="proto-note"><b>C4 · From note 07 (UI-30), phone-first (UI-2).</b> Clerks record one delivery after another at the collection centre. The date, round and centre rarely change in a session, so they are set once at the top and kept. Each entry is then the member, the quantity and the receipt, with the grade where the product is graded. That makes it three fields and one tap.</p>
+  <p class="proto-note"><b>Hard rules are field errors:</b> an exited member, a quantity of 0, a receipt number already on a recorded delivery. <b>Soft checks warn and never block</b>, because late entries and one-off collections are normal: a day the round doesn't run, a round for another product or cluster, a second delivery in the same round. No price is needed to record.</p>
+  <p class="proto-note"><b>The recording unit.</b> At <a href="record.html?c=co-mawingu">Mawingu</a> maize is typed in bags and the stored kilograms show live beneath it (QuantityEntry, F6). The entry keeps the factor used, so a later change of factor doesn't rewrite it.</p>
+  <p class="proto-note"><b>After Record</b> the form clears the member, quantity and receipt, keeps the rest, and the member field takes focus again. The entry joins "Recorded here today" below, and its total is the figure clerks check against the cans or the scale.</p>
+  <p class="proto-note proto-gap"><b>F5 · offline.</b> Collection centres often have poor signal. The offline state shows entries queued on the phone. It needs a kit decision on offline writes. <b>G31 · quality readings:</b> note 07 keeps readings as <code>{reading: value}</code>, but nothing says which readings a product takes, so the form can't know which fields to offer. Density is shown here as an example.</p>
+
+  <div class="banner banner-info" data-coop="on_hold">
+    <span class="mdi mdi-information-outline" aria-hidden="true"></span>
+    <div class="grow"><span class="text-body-md">The cooperative is on hold. Recording deliveries carries on as usual.</span></div>
+  </div>
+
+  <!-- An ended cooperative is read only (01) -->
+  <div class="empty" data-coop="ended" data-state="loaded invalid offline">
+    <span class="mdi mdi-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">This cooperative has ended</span>
+    <span class="text-body-md">Its records are kept and can be read, but nothing new can be recorded.</span>
+    <a class="btn btn-tonal" href="index.html">See deliveries</a>
+  </div>
+
+  <!-- Staff who can't record (Accountant, Viewer) -->
+  <div class="empty" data-roles="accountant viewer" data-state="loaded invalid offline">
+    <span class="mdi mdi-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Your role can't record deliveries</span>
+    <span class="text-body-md">Clerks, managers and administrators record them. You can see every delivery in the list.</span>
+    <a class="btn btn-tonal" href="index.html">See deliveries</a>
+  </div>
+
+  <div class="col gap-4" data-roles="admin manager clerk" data-write data-state="loaded invalid offline">
+    <div class="banner banner-info" data-state="offline">
+      <span class="mdi mdi-cloud-off-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm">No connection</span>
+        <span class="text-body-md" id="queued">Deliveries you record are kept on this phone and sent when the connection is back.</span></div>
+    </div>
+
+    <!-- The session: set once, kept between entries -->
+    <div class="card card-outlined">
+      <div class="card-header">
+        <div class="card-header-text"><span class="card-title tabular" id="s-line"></span><span class="card-description" id="s-sub"></span></div>
+        <button class="btn btn-text btn-sm" type="button" id="s-change">Change</button>
+      </div>
+    </div>
+
+    <form class="col gap-4" id="form" onsubmit="return false" novalidate>
+      <div class="field combo" id="member-f">
+        <label class="field-label" for="member">Member</label>
+        <div class="field-box has-trail">
+          <input class="field-input" id="member" autocomplete="off" placeholder="Name, member number, ID or phone" role="combobox" aria-expanded="false" aria-controls="member-list" aria-describedby="member-h member-e">
+          <button class="icon-btn" type="button" aria-label="Clear member" id="member-x" hidden><span class="mdi mdi-close-circle-outline" aria-hidden="true"></span></button>
+        </div>
+        <div class="combo-list" id="member-list" role="listbox" hidden></div>
+        <span class="field-help tabular" id="member-h"></span>
+        <span class="field-error" id="member-e" hidden></span>
+      </div>
+
+      <div class="field hidden" id="product-f">
+        <span class="field-label" id="product-l">Product</span>
+        <div class="chip-row" data-choice role="radiogroup" aria-labelledby="product-l" id="product"></div>
+      </div>
+
+      <div class="field hidden" id="grade-f">
+        <span class="field-label" id="grade-l">Grade</span>
+        <div class="chip-row" data-choice role="radiogroup" aria-labelledby="grade-l" id="grade"></div>
+      </div>
+
+      <div class="field qty-entry">
+        <label class="field-label" for="qty">Quantity</label>
+        <div class="field-box has-trail">
+          <input class="field-input tabular" id="qty" inputmode="decimal" autocomplete="off" aria-describedby="qty-e">
+          <span class="trail affix" id="qty-u"></span>
+        </div>
+        <div class="converted hidden" id="qty-c"><span class="text-title-md tabular" id="qty-cv"></span><span class="text-body-sm tone-muted" id="qty-cf"></span></div>
+        <span class="field-error" id="qty-e" hidden></span>
+      </div>
+
+      <div class="field">
+        <label class="field-label" for="receipt">Receipt number <span class="optional">(optional)</span></label>
+        <input class="field-input tabular" id="receipt" autocomplete="off" aria-describedby="receipt-e">
+        <span class="field-error" id="receipt-e" hidden></span>
+      </div>
+
+      <div class="disclosure">
+        <div class="disclosure-item">
+          <button class="disclosure-trigger" type="button" aria-expanded="false">Turned away, quality readings and a note</button>
+          <div class="disclosure-panel" hidden>
+            <div class="form-grid">
+              <div class="field"><label class="field-label" for="rej">Turned away <span class="optional">(optional)</span></label>
+                <div class="field-box has-trail"><input class="field-input tabular" id="rej" inputmode="decimal"><span class="trail affix" id="rej-u"></span></div>
+                <span class="field-help">In the catalog unit, for quality follow-up.</span></div>
+              <div class="field" id="den-f"><label class="field-label" for="den">Density <span class="optional">(optional)</span></label>
+                <input class="field-input tabular" id="den" inputmode="decimal" placeholder="1.028"></div>
+              <div class="field field-wide"><label class="field-label" for="note">Note <span class="optional">(optional)</span></label>
+                <textarea class="field-input" id="note"></textarea></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col gap-2" id="warnings" role="status"></div>
+      <div class="banner banner-error hidden" role="alert" id="summary">
+        <span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span>
+        <div class="grow"><span class="text-title-sm" id="summary-t"></span><span class="text-body-md" id="summary-b"></span></div>
+      </div>
+    </form>
+
+    <!-- What this clerk has recorded here today -->
+    <div class="col gap-2">
+      <div class="row between gap-2"><span class="text-title-md">Recorded here today</span><a class="btn btn-text btn-sm" id="all-today" href="index.html">All of today's</a></div>
+      <span class="text-body-md tone-muted tabular" id="t-total"></span>
+      <div class="list rowcards" id="today"></div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div data-state="loading" class="col gap-4">
+    <div class="skeleton-card" style="height:64px"></div>
+    <div class="skeleton" style="height:48px"></div><div class="skeleton" style="height:48px"></div><div class="skeleton" style="height:48px"></div>
+  </div>
+
+  <!-- EMPTY: no members on the register yet -->
+  <div data-state="empty" class="empty">
+    <span class="mdi mdi-account-group-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No members to record for yet</span>
+    <span class="text-body-md">Deliveries are recorded against members on the register. Add them first, one by one or from a spreadsheet.</span>
+    <a class="btn btn-filled" href="../soon.html" data-roles="admin manager" data-write>Add members</a>
+  </div>
+
+  <!-- ERROR -->
+  <div data-state="error" class="error-state">
+    <span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the member list</span>
+    <span class="text-body-md">Check the connection and try again. Nothing you recorded is lost.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loading');setTimeout(function(){Proto.go('loaded')},800)">Try again</button>
+  </div>
+
+  <div data-footer data-roles="admin manager clerk" data-write>
+    <button class="btn btn-filled" type="button" id="record">Record</button>
+  </div>
+</div>
+
+<script>
+(function () { var s = document.getElementById("screen"), c = new URLSearchParams(location.search).get("c");
+  s.setAttribute("data-sub", Produce.coop().profile.short_name); if (c) s.setAttribute("data-back", "index.html?c=" + c); })();
+document.addEventListener("DOMContentLoaded", function () {
+  var q = GF.q, f = GF.fmt, get = GF.get, P = Produce, C = P.coop(), esc = P.esc;
+  var $ = function (id) { return document.getElementById(id); };
+  var PRODUCTS = P.products(C);
+  var ROUNDS = GF.rounds.filter(function (r) { return r.cooperative === C.id && r.status === "ACTIVE"; });
+  var CENTRES = GF.clusters.filter(function (x) { return x.cooperative === C.id && x.status === "ACTIVE"; });
+  var DAYS = { MON: "Mondays", TUE: "Tuesdays", WED: "Wednesdays", THU: "Thursdays", FRI: "Fridays", SAT: "Saturdays", SUN: "Sundays" };
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  var CLERK = C.id === GF.who.kijani ? "Grace Wambui" : "Ann Wangari";
+  $("all-today").href = P.url("index.html");
+
+  /* The session: today, the round running now (or last), the clerk's centre. */
+  var S = { date: GF.TODAY, round: ROUNDS[0] ? ROUNDS[0].id : "", centre: CENTRES[0].id };
+  var state = { member: null, product: PRODUCTS[0], grade: null, added: [] };
+
+  function drawSession() {
+    var r = get(S.round), d = new Date(S.date + "T00:00:00Z");
+    $("s-line").textContent = (S.date === GF.TODAY ? "Today, " : "") + ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getUTCDay()] + " " + f.date(S.date) + " · " + (r ? r.name + " round" : "No round");
+    $("s-sub").textContent = "Received at " + get(S.centre).name + (r ? " · " + r.schedule.start_time + "–" + r.schedule.end_time : "");
+    drawToday(); check();
+  }
+  $("s-change").addEventListener("click", function () {
+    var el = Proto.dialog({ title: "Date, round and centre", submit: "Use these", body:
+      '<p class="text-body-md tone-muted">Kept for every delivery you record until you change them.</p>' +
+      '<div class="field"><label class="field-label" for="sd">Date</label><input class="field-input tabular" id="sd" type="date" value="' + S.date + '" max="' + GF.TODAY + '"></div>' +
+      '<div class="field"><label class="field-label" for="sr">Round</label><select class="field-input" id="sr">' + ROUNDS.map(function (r) { return '<option value="' + r.id + '"' + (r.id === S.round ? " selected" : "") + ">" + r.name + "</option>"; }).join("") +
+        '<option value=""' + (S.round ? "" : " selected") + '>No round</option></select><span class="field-help">Rounds are set up in Settings.</span></div>' +
+      '<div class="field"><label class="field-label" for="sc">Received at</label><select class="field-input" id="sc">' + CENTRES.map(function (x) { return '<option value="' + x.id + '"' + (x.id === S.centre ? " selected" : "") + ">" + x.name + "</option>"; }).join("") + "</select></div>",
+      onSubmit: function (d) { S.date = d.querySelector("#sd").value || GF.TODAY; S.round = d.querySelector("#sr").value; S.centre = d.querySelector("#sc").value; drawSession(); } });
+  });
+
+  /* Member: a Combobox (name, number, ID or phone). */
+  var input = $("member"), list = $("member-list");
+  function pickMember(m) {
+    state.member = m; input.value = m ? m.full_name : ""; list.hidden = true; input.setAttribute("aria-expanded", "false");
+    $("member-x").hidden = !m;
+    $("member-h").textContent = m ? m.member_no + " · " + get(m.cluster).name + " cluster · ID " + m.id_number : "";
+    check();
+  }
+  input.addEventListener("input", function () {
+    state.member = null; $("member-h").textContent = ""; $("member-x").hidden = !input.value;
+    var hits = P.findMembers(C, input.value);
+    list.innerHTML = hits.map(function (m, i) {
+      return '<div class="combo-item" role="option" data-m="' + m.id + '" aria-selected="' + (i === 0) + '"><span class="grow col"><span class="text-body-lg">' + m.full_name + '</span><span class="text-body-sm tone-muted tabular">' +
+        m.member_no + " · " + get(m.cluster).name + (m.status !== "ACTIVE" ? " · " + (m.status === "EXITED" ? "Exited" : "Suspended") : "") + "</span></span></div>";
+    }).join("") || (input.value.trim() ? '<div class="combo-item"><span class="text-body-md tone-muted">No member matches "' + esc(input.value) + '"</span></div>' : "");
+    list.hidden = !input.value.trim(); input.setAttribute("aria-expanded", String(!list.hidden));
+    check();
+  });
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { var first = list.querySelector("[data-m]"); if (first && !list.hidden) { e.preventDefault(); pickMember(get(first.getAttribute("data-m"))); $("qty").focus(); } }
+    if (e.key === "Escape") { list.hidden = true; }
+  });
+  list.addEventListener("mousedown", function (e) { var it = e.target.closest("[data-m]"); if (it) { e.preventDefault(); pickMember(get(it.getAttribute("data-m"))); $("qty").focus(); } });
+  input.addEventListener("blur", function () { setTimeout(function () { list.hidden = true; }, 100); });
+  $("member-x").addEventListener("click", function () { pickMember(null); input.focus(); });
+
+  /* Product (only when the cooperative handles more than one) and grade (only when graded). */
+  function drawProduct() {
+    $("product-f").classList.toggle("hidden", PRODUCTS.length < 2);
+    $("product").innerHTML = PRODUCTS.map(function (p) { return '<button class="chip" type="button" role="radio" data-p="' + p.id + '" aria-checked="' + (p === state.product) + '">' + p.product.name + "</button>"; }).join("");
+    var p = state.product, gs = p.grades;
+    $("grade-f").classList.toggle("hidden", !gs.length);
+    if (gs.length && (!state.grade || gs.indexOf(state.grade) === -1) && state.grade !== "none") state.grade = gs[0];
+    if (!gs.length) state.grade = null;
+    $("grade").innerHTML = gs.map(function (g) { return '<button class="chip" type="button" role="radio" data-g="' + g.id + '" aria-checked="' + (g === state.grade) + '">' + g.name + "</button>"; }).join("") +
+      (gs.length ? '<button class="chip" type="button" role="radio" data-g="" aria-checked="' + (state.grade === "none") + '">Not graded</button>' : "");
+    var unit = p.cp.recording_unit || p.unit;
+    $("qty-u").textContent = GF.UNITS[unit][1];
+    $("rej-u").textContent = GF.UNITS[p.unit][1];
+    $("den-f").classList.toggle("hidden", p.unit !== "LITRE");
+    convert(); check();
+  }
+  $("product").addEventListener("click", function (e) { var c = e.target.closest("[data-p]"); if (!c) return; state.product = PRODUCTS.find(function (p) { return p.id === c.getAttribute("data-p"); }); state.grade = null; drawProduct(); });
+  $("grade").addEventListener("click", function (e) { var c = e.target.closest("[data-g]"); if (!c) return; state.grade = c.getAttribute("data-g") ? get(c.getAttribute("data-g")) : "none"; drawProduct(); });
+
+  /* QuantityEntry: the recording unit, converted live (F6). */
+  function qtyValue() { var v = $("qty").value.trim().replace(",", "."); return v === "" ? null : /^\d*\.?\d{0,3}$/.test(v) ? parseFloat(v) : NaN; }
+  function convert() {
+    var p = state.product, v = qtyValue(), ru = p.cp.recording_unit;
+    $("qty-c").classList.toggle("hidden", !ru);
+    if (ru) {
+      $("qty-cv").textContent = v > 0 ? "= " + f.qty(v * p.cp.unit_factor, p.unit, { digits: 0 }) : "= 0 " + GF.UNITS[p.unit][0];
+      $("qty-cf").textContent = "1 " + GF.UNITS[ru][0] + " = " + p.cp.unit_factor + " " + GF.UNITS[p.unit][0];
+    }
+  }
+  $("qty").addEventListener("input", function () { convert(); check(); });
+  $("receipt").addEventListener("input", function () { check(); });
+
+  /* Rules (07). `strict` shows hard errors; otherwise only ones already visible are refreshed. */
+  var shown = false;
+  function errors() {
+    var e = {}, m = state.member, v = qtyValue(), r = $("receipt").value.trim();
+    if (!m) e.member = input.value.trim() ? "Pick the member from the list." : "Choose who delivered.";
+    else if (m.status === "EXITED") {
+      var ex = q.statusHistory(m.id)[0];
+      e.member = m.full_name + " left the cooperative" + (ex ? " on " + f.date(ex.changed_at) : "") + ". Deliveries can't be recorded for an exited member.";
+    }
+    if (v === null) e.qty = "Enter the quantity.";
+    else if (isNaN(v)) e.qty = "Use a number with up to 3 decimals, such as 18.5.";
+    else if (!(v > 0)) e.qty = "Enter a quantity above 0.";
+    if (r) {
+      var dup = q.deliveries({ cooperative: C.id }).find(function (d) { return d.status === "RECORDED" && d.receipt_no && d.receipt_no.toLowerCase() === r.toLowerCase(); }) ||
+        state.added.find(function (a) { return a.receipt.toLowerCase() === r.toLowerCase(); });
+      if (dup) e.receipt = r.toUpperCase() + " is already on " + (dup.member.full_name || get(dup.member).full_name) + "'s delivery of " + f.date(dup.delivered_on || S.date) + ". Check the slip.";
+    }
+    return e;
+  }
+  function warnings() {
+    var w = [], m = state.member, r = get(S.round), p = state.product, d = new Date(S.date + "T00:00:00Z");
+    if (m && m.status === "SUSPENDED") { var h = q.statusHistory(m.id)[0]; w.push(m.full_name + " is suspended" + (h && h.details.reason ? " (" + h.details.reason.toLowerCase() + ")" : "") + ". Deliveries are still recorded."); }
+    if (r) {
+      var dw = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][d.getUTCDay()], mon = d.getUTCMonth() + 1, sc = r.schedule;
+      if (sc.days.indexOf(dw) === -1 || (sc.months.length && sc.months.indexOf(mon) === -1))
+        w.push("The " + r.name + " round runs on " + sc.days.map(function (x) { return DAYS[x]; }).join(" and ") + (sc.months.length ? ", " + MONTHS[sc.months[0] - 1] + " to " + MONTHS[sc.months[sc.months.length - 1] - 1] : "") +
+          ", not on " + f.date(S.date) + ". Record it anyway if it was a one-off collection.");
+      if (r.product && r.product !== p.id) w.push("The " + r.name + " round is for " + get(get(r.product).product).name.toLowerCase() + ", not " + p.product.name.toLowerCase() + ".");
+      if (r.cluster && r.cluster !== S.centre) w.push("The " + r.name + " round is for " + get(r.cluster).name + ", not " + get(S.centre).name + ".");
+    }
+    if (m && r) {
+      var before = q.deliveries({ member: m.id, on: S.date }).filter(function (x) { return x.status === "RECORDED" && x.product === p.id && x.round === r.id; })[0] ||
+        state.added.find(function (a) { return a.member === m && a.product === p && a.round === r; });
+      if (before) w.push(m.full_name.split(" ")[0] + " already has a delivery in the " + r.name.toLowerCase() + " round " + (S.date === GF.TODAY ? "today" : "on " + f.date(S.date)) + " (" +
+        (before.quantity_milli ? f.delivery(before) : before.text) + (before.receipt_no || before.receipt ? ", " + (before.receipt_no || before.receipt) : "") + "). Record this one too if it is a second delivery.");
+    }
+    return w;
+  }
+  function check(strict) {
+    if (strict) shown = true;
+    var e = errors(), keys = ["member", "qty", "receipt"];
+    keys.forEach(function (k) {
+      var show = !!e[k] && (shown || (k === "receipt") || (k === "member" && state.member && state.member.status === "EXITED"));
+      var el = $(k + "-e"); el.hidden = !show; el.textContent = e[k] || "";
+      $(k === "qty" ? "qty" : k).setAttribute("aria-invalid", String(show));
+    });
+    var n = keys.filter(function (k) { return e[k]; }).length;
+    $("summary").classList.toggle("hidden", !(shown && n));
+    $("summary-t").textContent = n === 1 ? "Check one thing" : "Check " + n + " things";
+    $("summary-b").textContent = keys.filter(function (k) { return e[k]; }).map(function (k) { return { member: "the member", qty: "the quantity", receipt: "the receipt number" }[k]; }).join(", ").replace(/^./, function (c) { return c.toUpperCase(); }) + ".";
+    $("warnings").innerHTML = warnings().map(function (t) {
+      return '<div class="banner banner-warning"><span class="mdi mdi-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">' + esc(t) + "</span></div></div>";
+    }).join("");
+    return n === 0;
+  }
+
+  /* Recorded here today: this centre and round on this date, newest first. */
+  function drawToday() {
+    /* This centre on this date: the session's round, plus products collected outside rounds (Mawingu's maize). */
+    var seeded = q.deliveries({ cooperative: C.id, on: S.date }).filter(function (d) { return d.cluster === S.centre && (!S.round || !d.round || d.round === S.round); }).slice().reverse();
+    var rec = seeded.filter(function (d) { return d.status === "RECORDED"; });
+    var added = state.added.filter(function (a) { return a.date === S.date && a.centre === S.centre; });
+    /* One total per product, never added across products (owner's review). */
+    var totals = PRODUCTS.map(function (p) {
+      var n = rec.filter(function (d) { return d.product === p.id; }), a = added.filter(function (x) { return x.product === p; });
+      var qty = q.quantity(n) + a.reduce(function (s, x) { return s + x.stored; }, 0);
+      return n.length + a.length ? (PRODUCTS.length > 1 ? p.product.name + " " : "") + f.qty(qty, p.unit, { digits: p.unit === "LITRE" ? 1 : 0 }) : "";
+    }).filter(Boolean);
+    $("t-total").textContent = (rec.length + added.length) + " deliveries · " + (totals.join(" · ") || "nothing yet") + " at " + get(S.centre).name + (S.round ? ", " + get(S.round).name.toLowerCase() + " round" : "");
+    $("today").innerHTML = added.slice().reverse().map(function (a) {
+      return '<div class="rowcard"><span class="grow"><span class="text-body-lg">' + a.member.full_name + '</span><span class="text-body-md tone-muted tabular">' + a.member.member_no + (PRODUCTS.length > 1 ? " · " + a.product.product.name : "") + (a.receipt ? " · " + esc(a.receipt) : "") + " · " + (a.queued ? "Waiting to send" : "Just now") + "</span></span>" +
+        '<span class="text-title-md tabular">' + a.text + "</span></div>";
+    }).join("") + seeded.slice(0, Math.max(0, 6 - added.length)).map(function (d) {
+      var m = get(d.member), v = d.status === "VOIDED";
+      return '<a class="rowcard" href="#" data-d="' + d.id + '"><span class="grow"><span class="text-body-lg">' + m.full_name + '</span><span class="text-body-md tone-muted tabular">' + m.member_no + (PRODUCTS.length > 1 ? " · " + get(get(d.product).product).name : "") + (d.receipt_no ? " · " + d.receipt_no : "") + "</span></span>" +
+        '<span class="col end gap-1"><span class="text-title-md tabular' + (v ? " struck tone-muted" : "") + '">' + f.delivery(d) + "</span>" + (v ? '<span class="status status-neutral">Voided</span>' : "") + "</span></a>";
+    }).join("") || '<div class="rowcard"><span class="text-body-md tone-muted">Nothing recorded here yet on this date.</span></div>';
+  }
+  $("today").addEventListener("click", function (e) { var r = e.target.closest("[data-d]"); if (r) { e.preventDefault(); P.delivery(r.getAttribute("data-d")); } });
+
+  var offline = false, queued = 3;
+  $("record").addEventListener("click", function () {
+    if (!check(true)) { var bad = document.querySelector('#form [aria-invalid="true"]'); if (bad) bad.focus(); return; }
+    var p = state.product, v = qtyValue(), ru = p.cp.recording_unit, stored = ru ? v * p.cp.unit_factor : v;
+    var base = f.qty(stored, p.unit, { digits: p.unit === "LITRE" ? 1 : 0 });
+    var text = ru ? v + " " + GF.UNITS[ru][v === 1 ? 0 : 1] + " (" + base + ")" : base;
+    var m = state.member;
+    state.added.push({ member: m, product: p, round: get(S.round), date: S.date, centre: S.centre, receipt: $("receipt").value.trim(), stored: stored, text: text, queued: offline });
+    if (offline) { queued++; $("queued").textContent = "Deliveries you record are kept on this phone and sent when the connection is back. " + queued + " waiting."; }
+    Proto.snack(offline ? "Kept on this phone: " + text + " for " + m.full_name : "Recorded " + text + " for " + m.full_name);
+    shown = false;
+    pickMember(null); $("qty").value = ""; $("receipt").value = ""; $("note").value = ""; $("rej").value = ""; $("den").value = "";
+    convert(); drawToday(); check(); input.focus();
+  });
+
+  /* Review states: "loaded" shows a filled entry that trips the second-delivery warning; "invalid" an exited member and a 0. */
+  function setUp(s) {
+    offline = s === "offline";
+    if (offline) $("queued").textContent = "Deliveries you record are kept on this phone and sent when the connection is back. " + queued + " waiting.";
+    shown = false;
+    if (C.id === GF.who.kijani) {
+      pickMember(s === "invalid" ? get("m-kij-0077") : get(GF.who.wanjiku));
+      $("qty").value = s === "invalid" ? "0" : "18.5"; $("receipt").value = s === "invalid" ? "R-4471" : "";
+    } else {
+      state.product = PRODUCTS.find(function (p) { return p.cp.recording_unit; }) || PRODUCTS[0];
+      pickMember(get("m-maw-0907")); $("qty").value = s === "invalid" ? "0" : "2";
+    }
+    drawProduct(); convert();
+    if (s === "invalid") check(true); else check();
+  }
+  document.addEventListener("proto:state", function (e) { if (["loaded", "invalid", "offline"].indexOf(e.detail) > -1) setUp(e.detail); });
+  drawProduct(); drawSession();
+  var cur = new URLSearchParams(location.search).get("state");
+  setUp(["invalid", "offline"].indexOf(cur) > -1 ? cur : "loaded");
+  /* ?m= arrives from a member's page: that member, and nothing else filled in. */
+  var pm = new URLSearchParams(location.search).get("m");
+  if (pm && GF.get(pm) && GF.get(pm).cooperative === C.id) { pickMember(GF.get(pm)); $("qty").value = ""; $("receipt").value = ""; convert(); check(); $("qty").focus(); }
+});
+</script>
+</body>
+</html>

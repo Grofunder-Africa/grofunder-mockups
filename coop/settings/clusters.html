@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clusters · Settings · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Settings" data-dest="settings" data-wide>
+  <div data-subnav="settings" data-current="clusters" data-label="Settings"></div>
+
+  <p class="proto-note"><b>C24 · From note 01.</b> Clusters group the cooperative's members: a collection centre, a zone or a village group, one level deep. Needs <code>cooperatives.manage_clusters</code>, which only a cooperative's own staff can hold: administrators and managers.</p>
+  <p class="proto-note"><b>Page, panel or dialog (UI-13).</b> Add is a dialog (three fields). A cluster opens as a panel: name, place, description and address, with Archive or Reactivate, and Delete for a cluster that never had members.</p>
+  <p class="proto-note"><b>Rules (01).</b> A name is used once in the cooperative, archived or not. Typing an archived cluster's name offers to reactivate it instead of refusing (try "Tinganga" at Kijani). Archived clusters leave the pickers and stay in members' history. Delete only works while nothing points at it.</p>
+
+  <div data-state="loaded" class="col gap-4" data-roles="admin manager">
+    <div class="row gap-3 wrap">
+      <div class="field search" style="flex:1 1 220px"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>
+        <input class="field-input in-toolbar" id="q" type="search" placeholder="Cluster name" aria-label="Search clusters" style="padding-left:44px"></div></div>
+      <div class="chip-row" data-choice role="radiogroup" aria-label="Status" id="f-status">
+        <button class="chip" type="button" role="radio" aria-checked="true" data-s="ACTIVE">Active</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-s="ARCHIVED">Archived</button>
+        <button class="chip" type="button" role="radio" aria-checked="false" data-s="">All</button>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">Clusters</span><span class="text-body-md tone-muted" id="band"></span></div>
+        <button class="btn btn-tonal btn-sm" type="button" data-write onclick="addCluster()"><span class="mdi mdi-plus" aria-hidden="true"></span>Add cluster</button></div>
+      <div id="list"></div>
+    </div>
+  </div>
+  <div data-state="loading" class="col gap-4" data-roles="admin manager"><div class="skeleton" style="height:40px"></div><div class="skeleton-card" style="height:240px"></div></div>
+  <div data-state="empty" class="empty" data-roles="admin manager"><span class="mdi mdi-map-marker-multiple-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No clusters yet</span>
+    <span class="text-body-md">Clusters are how the cooperative groups its members: by collection centre, zone or village. Members are put into one when they are added.</span>
+    <button class="btn btn-filled" type="button" data-write onclick="addCluster()">Add cluster</button></div>
+  <div data-state="error" class="error-state" data-roles="admin manager"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the clusters</span><span class="text-body-md">Check the connection, then try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+  <div class="empty" data-roles="accountant clerk viewer"><span class="mdi mdi-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Clusters are set up by administrators and managers</span></div>
+</div>
+
+<script>
+var q = GF.q, f = GF.fmt, esc = Portal.esc, c = Portal.coop(), RO = Portal.status === "ended", status = "ACTIVE";
+Portal.mountBanner();
+var stat = function (s) { return s === "ACTIVE" ? '<span class="status status-success">Active</span>' : '<span class="status status-neutral">Archived</span>'; };
+var mine = function () { return GF.clusters.filter(function (cl) { return cl.cooperative === c.id; }); };
+/* Members who have ever been in it decide delete versus archive (01: PROTECT). */
+var everIn = function (id) { return GF.members.filter(function (m) { return m.cluster === id; }).length; };
+var activeIn = function (id) { return GF.members.filter(function (m) { return m.cluster === id && m.status === "ACTIVE"; }).length; };
+var placeOf = function (id) { if (!id) return "–"; var a = GF.get(id); return a.level === "COUNTY" ? a.name : a.name + ", " + GF.get(a.county).name; };
+
+function draw() {
+  var t = document.getElementById("q").value.trim().toLowerCase(), all = mine();
+  var list = all.filter(function (cl) { return (!status || cl.status === status) && (!t || cl.name.toLowerCase().indexOf(t) > -1); }).sort(function (a, b) { return a.name < b.name ? -1 : 1; });
+  var act = all.filter(function (cl) { return cl.status === "ACTIVE"; });
+  document.getElementById("band").textContent = act.length + " active" + (all.length > act.length ? ", " + (all.length - act.length) + " archived" : "") + " · " +
+    act.reduce(function (s, cl) { return s + activeIn(cl.id); }, 0).toLocaleString("en-KE") + " active members in them";
+  document.getElementById("list").innerHTML = !all.length
+    ? '<div class="empty"><span class="mdi mdi-map-marker-multiple-outline" aria-hidden="true"></span><span class="text-title-lg">No clusters yet</span><span class="text-body-md">Add the collection centres, zones or village groups the cooperative uses. Members are put into one when they are added.</span></div>'
+    : list.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Cluster</th><th>Where</th><th class="num">Active members</th><th>Status</th></tr></thead><tbody>' + list.map(function (cl) {
+      return '<tr data-href="#" onclick="panel(\'' + cl.id + '\')"><td class="primary-cell">' + esc(cl.name) + (cl.details.description ? '<span class="cell-sub">' + esc(cl.details.description) + "</span>" : "") +
+        "</td><td>" + placeOf(cl.area) + '</td><td class="num">' + activeIn(cl.id).toLocaleString("en-KE") + "</td><td>" + stat(cl.status) + "</td></tr>";
+    }).join("") + "</tbody></table></div>"
+    : '<div class="empty"><span class="mdi mdi-magnify" aria-hidden="true"></span><span class="text-title-lg">Nothing matches</span></div>';
+}
+
+var opt = function (v, t, sel) { return '<option value="' + v + '"' + (sel ? " selected" : "") + ">" + esc(t) + "</option>"; };
+/* Places in the cooperative's county: the county, its sub-counties and their wards. */
+function placeOptions(cur) {
+  var county = GF.get(c.area).county || c.area, subs = GF.areas.filter(function (a) { return a.parent === county && a.level === "SUB_COUNTY" && a.status === "ACTIVE"; });
+  return opt("", "Not sure", !cur) + opt(county, GF.get(county).name + " (the whole county)", cur === county) + subs.map(function (s) {
+    var ws = GF.areas.filter(function (a) { return a.parent === s.id && a.level === "WARD" && a.status === "ACTIVE"; });
+    return '<optgroup label="' + esc(s.name) + '">' + opt(s.id, s.name + " sub-county", cur === s.id) + ws.map(function (w) { return opt(w.id, w.name + " ward", cur === w.id); }).join("") + "</optgroup>";
+  }).join("");
+}
+var field = function (id, label, value, o) {
+  o = o || {};
+  return '<div class="field"><label class="field-label" for="' + id + '">' + label + (o.optional ? ' <span class="optional">(optional)</span>' : "") + "</label>" +
+    (o.textarea ? '<textarea class="field-input" id="' + id + '">' + esc(value) + "</textarea>" : o.select ? '<select class="field-input" id="' + id + '">' + o.select + "</select>"
+      : '<input class="field-input" id="' + id + '" value="' + esc(value) + '" aria-describedby="' + id + '-e">') +
+    (o.help ? '<span class="field-help">' + o.help + "</span>" : "") + (o.err ? '<span class="field-error hidden" id="' + id + '-e"></span>' : "") + "</div>";
+};
+/* A name is unique in the cooperative, archived or not (01). An archived one is offered back. */
+function nameCheck(el, selfId) {
+  var input = el.querySelector("#cn"), err = el.querySelector("#cn-e");
+  var run = function () {
+    var v = input.value.trim().toLowerCase();
+    var hit = v && mine().find(function (cl) { return cl.id !== selfId && cl.name.toLowerCase() === v; });
+    err.classList.toggle("hidden", !hit); input.setAttribute("aria-invalid", String(!!hit));
+    if (hit) err.innerHTML = hit.status === "ARCHIVED"
+      ? esc(hit.name) + ' is archived. <button class="btn btn-text btn-sm" type="button" id="react" onclick="Proto.close();Proto.snack(\'' + esc(hit.name) + ' reactivated\')">Reactivate ' + esc(hit.name) + "</button> instead."
+      : "There's already a cluster called " + esc(hit.name) + ".";
+    return !hit && !!v;
+  };
+  input.addEventListener("input", run);
+  return run;
+}
+function addCluster() {
+  var el = Proto.dialog({ title: "Add a cluster",
+    body: field("cn", "Name", "", { err: true, help: "A collection centre, zone or village group." }) + field("ca", "Where it is", "", { optional: true, select: placeOptions(c.area) }) +
+      field("cd", "What it covers", "", { optional: true, textarea: true }),
+    submit: "Add cluster", onSubmit: function (d) { Proto.snack(d.querySelector("#cn").value.trim() + " added"); } });
+  var ok = nameCheck(el);
+  el.querySelector("[data-submit]").addEventListener("click", function (e) { if (!ok()) { e.stopImmediatePropagation(); el.querySelector("#cn").focus(); } }, true);
+}
+
+/* One cluster: a panel (UI-13). */
+function panel(id) {
+  var cl = GF.get(id), active = cl.status === "ACTIVE", ever = everIn(id), now = activeIn(id), ad = cl.details.address || {};
+  var editable = !RO && active;
+  var facts = '<dl class="facts"><dt>Active members</dt><dd class="tabular">' + now.toLocaleString("en-KE") + (ever > now ? '<br><span class="text-body-sm tone-muted">' + (ever - now).toLocaleString("en-KE") + " more have been in it</span>" : "") + "</dd></dl>";
+  var body = editable
+    ? '<div class="col gap-4">' + field("cn", "Name", cl.name, { err: true }) + field("ca", "Where it is", "", { optional: true, select: placeOptions(cl.area) }) +
+      field("cd", "What it covers", cl.details.description, { optional: true, textarea: true }) +
+      field("cv", "Village or estate", ad.village, { optional: true }) + field("cs", "Street, building or landmark", ad.street, { optional: true }) + "</div>" + facts
+    : '<dl class="facts"><dt>Where</dt><dd>' + placeOf(cl.area) + "</dd><dt>What it covers</dt><dd>" + (esc(cl.details.description) || "–") + "</dd></dl>" + facts;
+  var footer = RO ? "" : '<span class="row gap-1 grow" data-write>' + (active
+    ? '<button class="btn btn-text" type="button" onclick="archive(\'' + id + '\')">Archive</button>' + (ever ? "" : '<button class="btn btn-text tone-error" type="button" onclick="del(\'' + id + '\')">Delete</button>') +
+      '<span class="spacer"></span><button class="btn btn-text" type="button" onclick="Proto.close()">Cancel</button><button class="btn btn-filled" type="button" id="save">Save</button>'
+    : (ever ? "" : '<button class="btn btn-text tone-error" type="button" onclick="del(\'' + id + '\')">Delete</button>') + '<span class="spacer"></span><button class="btn btn-filled" type="button" onclick="Proto.close();Proto.snack(\'' + esc(cl.name) + ' reactivated\')">Reactivate</button>') + "</span>";
+  var el = Proto.sheet({ title: esc(cl.name), body: '<div class="row gap-2 wrap">' + stat(cl.status) + (active ? "" : '<span class="text-body-md tone-muted">Not in the pickers. Members keep it in their history.</span>') + "</div>" + body, footer: footer });
+  if (!editable) return;
+  var ok = nameCheck(el, id);
+  el.querySelector("#save").addEventListener("click", function () { if (!ok()) return el.querySelector("#cn").focus(); Proto.close(); Proto.snack(el.querySelector("#cn").value.trim() + " saved"); });
+}
+function archive(id) {
+  var cl = GF.get(id), now = activeIn(id);
+  Proto.confirm({ title: "Archive " + esc(cl.name) + "?", message: "It leaves the pickers, so no one new can be put in it, and it stays in members' history." + (now ? " " + now.toLocaleString("en-KE") + " active members are in it now." : ""),
+    confirm: "Archive", onConfirm: function () { Proto.close(); Proto.snack(cl.name + " archived", "Undo"); } });
+}
+function del(id) {
+  var cl = GF.get(id);
+  Proto.confirm({ title: "Delete " + esc(cl.name) + "?", message: "It has never had members, so it can go completely.", confirm: "Delete", destructive: true,
+    onConfirm: function () { Proto.close(); Proto.snack(cl.name + " deleted"); } });
+}
+document.querySelectorAll("#f-status .chip").forEach(function (b) { b.addEventListener("click", function () { status = b.getAttribute("data-s"); draw(); }); });
+document.getElementById("q").addEventListener("input", draw);
+draw();
+var cid = new URLSearchParams(location.search).get("cl");
+if (cid && GF.get(cid)) document.addEventListener("DOMContentLoaded", function () { setTimeout(function () { panel(cid); }, 0); });
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reset your password · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Reset your password" data-auth="sm">
+  <p class="proto-note"><b>S3 · The kit's reset screen</b> (<code>ForgotPasswordScreen</code>). The code goes to the email, or by SMS to the phone on the login. The kit's reset ends every session, so a stolen session stops working too (note 09). The steps are states: <b>loaded</b> (where to send the code), <b>code</b> (the code and a new password), <b>code-2fa</b> (the same for someone with two-step verification), <b>loading</b> and <b>error</b>.</p>
+  <p class="proto-note"><b>"If an account exists"</b> is the kit's wording on purpose: the screen never says whether an address has a login.</p>
+
+  <div class="brand-lockup"><img src="../../assets/brand/grofunder-wordmark.png" alt="GroFunder"></div>
+
+  <form class="col gap-4" data-state="loaded loading error" onsubmit="Proto.go('code');return false">
+    <div class="col gap-1"><h1 class="text-headline-sm">Reset your password</h1>
+      <p class="text-body-md tone-muted">We'll send a code to your email address or phone number, and you choose a new password.</p></div>
+    <div class="field"><label class="field-label" for="who">Email or phone number</label>
+      <input class="field-input" id="who" autocomplete="username" value="grace@kijanidairy.example">
+      <span class="field-help">A phone number gets its code by SMS.</span></div>
+    <div class="banner banner-error" role="alert" data-state="error"><span class="mdi mdi-alert-circle-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-body-md">Couldn't send the code. Check your connection and try again.</span></div></div>
+    <button class="btn btn-filled btn-lg btn-block" type="submit" data-state="loaded error">Send code</button>
+    <button class="btn btn-filled btn-lg btn-block" type="button" aria-disabled="true" data-state="loading"><span class="spinner" aria-hidden="true"></span>Sending…</button>
+    <a class="btn btn-text" href="sign-in.html" style="align-self:center">Back to sign in</a>
+  </form>
+
+  <form class="col gap-4" data-state="code code-2fa" onsubmit="location.href='sign-in.html?state=notice';return false">
+    <div class="col gap-1"><h1 class="text-headline-sm">Reset your password</h1>
+      <p class="text-body-md tone-muted">If an account exists for grace@kijanidairy.example, we've emailed it a code.</p></div>
+    <div class="banner banner-info" data-state="code-2fa"><span class="mdi mdi-shield-key-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-body-md">This account has two-step verification. Enter a code from your authenticator app, or a recovery code.</span></div></div>
+    <div class="field"><label class="field-label" for="rc">Reset code</label><input class="field-input tabular" id="rc" inputmode="numeric" autocomplete="one-time-code" value="604 218"></div>
+    <div class="field"><label class="field-label" for="np">New password</label><input class="field-input" id="np" type="password" autocomplete="new-password">
+      <span class="field-help">Use at least 8 characters.</span></div>
+    <div class="field"><label class="field-label" for="np2">Confirm new password</label><input class="field-input" id="np2" type="password" autocomplete="new-password"></div>
+    <div class="field" data-state="code-2fa"><label class="field-label" for="tf">Authenticator or recovery code</label><input class="field-input tabular" id="tf" inputmode="numeric" autocomplete="one-time-code"></div>
+    <button class="btn btn-filled btn-lg btn-block" type="submit">Reset password</button>
+    <div class="col center gap-1">
+      <button class="btn btn-text" type="button" onclick="Proto.snack('A new code has been sent.')">Send a new code</button>
+      <button class="btn btn-text" type="button" onclick="Proto.go('loaded')">Use a different email or number</button>
+    </div>
+  </form>
+</div>
+</body>
+</html>

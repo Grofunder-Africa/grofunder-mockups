@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Home · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Home" data-dest="home" data-compact>
+
+  <p class="proto-note"><b>M5 · Home (notes 05, 06, 07, 08; UI-18).</b> One cooperative at a time: the one in the app bar. This month's deliveries and their value, what's been paid and what's still owed, the next collection, today's prices (07: members see current prices), then the latest deliveries and payments.</p>
+  <p class="proto-note"><b>M6 · Switch</b> (F8) lists the member's own records, one per cooperative, from one login (06). A suspended record is listed but can't be opened: a member sees their ACTIVE records (05). <b>M8 · Collection times</b> opens as a panel: the rounds for the member's cluster (07).</p>
+  <p class="proto-note"><b>M7 · Link offer.</b> Gatundu Avocado Growers has added a record with Wanjiku's ID and an older phone number. Only she can link it (06: a cooperative never links records), so Home offers it until she does or says not now.</p>
+
+  <div data-roles="out" class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span>
+    <div class="grow"><span class="text-body-md">Signed out, the member app shows only the welcome and sign-in screens.</span>
+      <div class="banner-actions"><a class="btn btn-text" href="../auth/welcome.html">Open the welcome screen</a></div></div></div>
+
+  <div data-state="loaded" class="col gap-4" data-roles="in">
+    <div class="row between wrap gap-2">
+      <span class="text-title-md" id="hello"></span>
+      <button class="btn btn-tonal btn-sm" type="button" id="switch" onclick="switchSheet()"><span class="mdi mdi-swap-horizontal" aria-hidden="true"></span>Switch</button>
+    </div>
+
+    <div class="banner banner-info hidden" id="link-offer"><span class="mdi mdi-link-variant" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm" id="link-title"></span><span class="text-body-md" id="link-text"></span>
+        <div class="banner-actions"><button class="btn btn-text" type="button" onclick="notNow()">Not now</button><a class="btn btn-text" id="link-go">Link it</a></div></div></div>
+
+    <div class="card card-outlined">
+      <span class="text-label-lg" id="m-label"></span>
+      <span class="text-headline-md tabular" id="m-qty"></span>
+      <dl class="facts">
+        <dt>Worth</dt><dd class="tabular" id="m-worth"></dd>
+        <dt id="m-paid-l">Paid to you this month</dt><dd class="tabular" id="m-paid"></dd>
+        <dt>Still owed to you</dt><dd class="tabular" id="m-owed"></dd>
+      </dl>
+    </div>
+
+    <button class="rowcard card-outlined" type="button" onclick="roundsSheet()" id="next-row">
+      <span class="mdi mdi-clock-outline" aria-hidden="true"></span>
+      <span class="grow"><span class="text-body-lg" id="next"></span><span class="text-body-md tone-muted">All collection times</span></span>
+      <span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></button>
+
+    <div class="section">
+      <div class="section-header"><span class="text-title-md">Prices today</span></div>
+      <div class="list rowcards" id="prices"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><span class="text-title-md">Recent deliveries</span><a class="btn btn-text" href="../deliveries/index.html">See all</a></div>
+      <div class="list rowcards" id="h-deliveries"></div>
+    </div>
+    <div class="section">
+      <div class="section-header"><span class="text-title-md">Payments</span><a class="btn btn-text" href="../payments/index.html">See all</a></div>
+      <div class="list rowcards" id="h-payments"></div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4" data-roles="in">
+    <div class="skeleton" style="width:50%;height:24px"></div>
+    <div class="skeleton-card" style="height:168px"></div>
+    <div class="col"><div class="skeleton-row"><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:40%"></div><div class="skeleton skeleton-line" style="width:60%"></div></div></div>
+      <div class="skeleton-row"><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:40%"></div><div class="skeleton skeleton-line" style="width:60%"></div></div></div></div>
+  </div>
+  <div data-state="empty" class="empty" data-roles="in">
+    <span class="mdi mdi-basket-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Nothing delivered yet</span>
+    <span class="text-body-md" id="empty-next">Your deliveries appear here once the clerk records them at the collection centre.</span>
+    <button class="btn btn-tonal" type="button" onclick="roundsSheet()">Collection times</button>
+  </div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Your deliveries and payments show again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var q = GF.q, f = GF.fmt, A = MemberApp, M = A.current, esc = A.esc;
+A.title();
+var set = function (id, t) { document.getElementById(id).textContent = t; };
+var hour = +GF.NOW.slice(11, 13);
+set("hello", (hour < 12 ? "Good morning, " : hour < 17 ? "Good afternoon, " : "Good evening, ") + A.name());
+if (A.records.length < 2) document.getElementById("switch").classList.add("hidden");
+
+/* This month, per product, each in its own unit (07); never added across products. */
+var month = GF.TODAY.slice(0, 7), MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+var all = q.deliveries({ member: M.id });
+var mine = all.filter(function (d) { return d.delivered_on.slice(0, 7) === month; });
+var cps = GF.coopProducts.filter(function (cp) { return cp.cooperative === M.cooperative && cp.status === "ACTIVE"; });
+var perProduct = cps.map(function (cp) {
+  var ds = mine.filter(function (d) { return d.product === cp.id && d.status === "RECORDED"; }); if (!ds.length) return "";
+  var unit = GF.get(cp.product).unit, amount = q.quantity(ds), base = f.qty(amount, unit, { digits: unit === "LITRE" ? 1 : 0, long: true });
+  var shown = cp.recording_unit ? f.qty(amount / cp.unit_factor, cp.recording_unit, { digits: 0, long: true }) + " (" + f.qty(amount, unit, { digits: 0 }) + ")" : base;
+  return shown + (cps.length > 1 ? " " + GF.get(cp.product).name.toLowerCase() : "");
+}).filter(Boolean);
+set("m-label", MONTHS[+month.slice(5) - 1] + " so far");
+set("m-qty", perProduct.length ? perProduct.join(", ") : "Nothing yet");
+document.getElementById("m-qty").classList.toggle("text-title-lg", perProduct.length > 1);
+set("m-worth", f.money(q.value(mine)));
+var paid = q.payouts({ member: M.id, status: "PAID" }).filter(function (p) { return p.paid_at.slice(0, 7) === month; });
+set("m-paid", f.money(q.sum(paid, function (p) { return p.net_cents; })) + (paid.length ? " (" + paid.map(function (p) { return p.details.label.split(" – ")[0]; }).join(", ") + ")" : ""));
+set("m-paid-l", "Paid to you in " + MONTHS[+month.slice(5) - 1]);
+set("m-owed", f.money(q.balance(all)));
+
+var next = A.nextRound(M);
+set("next", next ? "Next collection: " + next.round.name + ", " + (next.inDays === 0 ? "today" : next.inDays === 1 ? "tomorrow" : "in " + next.inDays + " days") + " at " + next.round.schedule.start_time : "No collection round set");
+if (next) set("empty-next", "Your deliveries appear here once the clerk records them. The next collection is " + next.round.name.toLowerCase() + ", " + (next.inDays === 0 ? "today" : "in " + next.inDays + " days") + " at " + next.round.schedule.start_time + ".");
+
+document.getElementById("prices").innerHTML = A.prices(M).map(function (p) {
+  var u = GF.UNITS[p.product.unit][0], cp = p.cp;
+  var per = p.now ? f.money(p.now.price_cents) + " a " + (u === "L" ? "litre" : u) : "No price set yet";
+  var bag = p.now && cp.recording_unit ? " · " + f.money(Math.round(p.now.price_cents * cp.unit_factor)) + " a " + GF.UNITS[cp.recording_unit][0] : "";
+  return '<div class="rowcard"><span class="grow"><span class="text-body-lg">' + esc(p.product.name) + (cp.details.local_name ? ' <span class="tone-muted">(' + esc(cp.details.local_name) + ")</span>" : "") + "</span>" +
+    (p.next ? '<span class="text-body-md tone-muted tabular">' + f.money(p.next.price_cents) + " from " + f.date(p.next.effective_from, "short") + "</span>" : "") + "</span>" +
+    '<span class="text-title-md tabular">' + per + bag + "</span></div>";
+}).join("");
+
+document.getElementById("h-deliveries").innerHTML = all.slice().reverse().slice(0, 4).map(function (d) {
+  var v = d.status === "VOIDED", round = d.round ? GF.get(d.round).name + " round" : "";
+  return '<a class="rowcard" href="../deliveries/index.html?d=' + d.id + '"><span class="grow"><span class="text-body-lg">' + GF.get(GF.get(d.product).product).name + '</span><span class="text-body-md tone-muted">' +
+    f.date(d.delivered_on, "short") + (v ? " · Voided: " + esc(d.details.void_reason) : round ? " · " + round : "") + "</span></span>" +
+    '<span class="text-title-md tabular' + (v ? " struck tone-muted" : "") + '">' + f.delivery(d) + "</span></a>";
+}).join("") || '<p class="text-body-md tone-muted">No deliveries yet.</p>';
+var METHOD = { MPESA: "M-Pesa", BANK: "Bank", CASH: "Cash" };
+document.getElementById("h-payments").innerHTML = q.payouts({ member: M.id, status: "PAID" }).slice().sort(function (a, b) { return a.paid_at < b.paid_at ? 1 : -1; }).slice(0, 2).map(function (p) {
+  return '<a class="rowcard" href="../payments/statement.html?p=' + p.id + '"><span class="grow"><span class="text-body-lg">' + esc(p.details.label) + '</span><span class="text-body-md tone-muted">' +
+    f.date(p.paid_at, "short") + " · " + METHOD[p.method] + '</span></span><span class="text-title-md tabular">' + f.money(p.net_cents) + "</span></a>";
+}).join("") || '<p class="text-body-md tone-muted">Nothing paid yet.</p>';
+
+/* M7: the offer to link a record a cooperative has added with the member's ID. */
+var offer = A.pending[0];
+var dismissed = A.store.get("gf.memberLinkLater", "") === (offer && offer.id);
+if (offer && !dismissed) {
+  document.getElementById("link-offer").classList.remove("hidden");
+  set("link-title", A.coopName(offer) + " added a membership with your ID");
+  set("link-text", "Member number " + offer.member_no + ". Link it to see it here with your other cooperatives.");
+  document.getElementById("link-go").setAttribute("href", "link.html?m=" + offer.id);
+}
+function notNow() {
+  A.store.set("gf.memberLinkLater", offer.id);
+  document.getElementById("link-offer").classList.add("hidden");
+  Proto.snack("We'll ask again next time you sign in", "Undo", function () { A.store.set("gf.memberLinkLater", ""); document.getElementById("link-offer").classList.remove("hidden"); });
+}
+
+/* M6: the member's own records, one per cooperative (F8). */
+var STATUS = { ACTIVE: "Active", SUSPENDED: "Suspended", EXITED: "Exited" };
+function switchSheet() {
+  Proto.sheet({ title: "Your cooperatives", body: '<div class="list rowcards">' + A.records.map(function (m) {
+    var here = m.id === M.id, canOpen = m.status === "ACTIVE";
+    var inner = '<span class="mark-sq lg">' + A.coopName(m).split(/\s+/).map(function (w) { return w[0]; }).join("").slice(0, 2) + "</span>" +
+      '<span class="grow"><span class="text-body-lg">' + esc(A.coopName(m)) + '</span><span class="text-body-md tone-muted tabular">' + m.member_no + " · " + STATUS[m.status] +
+      (canOpen ? "" : ". Ask the cooperative about it.") + "</span></span>";
+    return here ? '<div class="rowcard" aria-current="true">' + inner + '<span class="mdi mdi-check tone-primary" aria-hidden="true"></span></div>'
+      : canOpen ? '<button class="rowcard" type="button" onclick="MemberApp.switchTo(\'' + m.cooperative + '\')">' + inner + "</button>" : '<div class="rowcard tone-muted">' + inner + "</div>";
+  }).join("") + "</div>" + (offer ? '<a class="btn btn-text" href="link.html?m=' + offer.id + '">Link another membership</a>' : "") });
+}
+
+/* M8: collection times for the member's cluster. */
+function roundsSheet() {
+  var list = A.rounds(M), cl = GF.get(M.cluster);
+  Proto.sheet({ title: "Collection times", body:
+    '<p class="text-body-md tone-muted">' + esc(A.coopName(M)) + (cl ? ", " + esc(cl.name) : "") + ". Deliver during these times so the clerk records them in the right round.</p>" +
+    (list.length ? '<div class="list rowcards">' + list.map(function (r) {
+      var cp = r.product ? GF.get(r.product) : null;
+      return '<div class="rowcard"><span class="grow"><span class="text-body-lg">' + esc(r.name) + '</span><span class="text-body-md tone-muted">' + A.when(r) +
+        (cp ? " · " + GF.get(cp.product).name : "") + (r.cluster ? " · " + GF.get(r.cluster).name + " only" : "") + "</span></span></div>";
+    }).join("") + "</div>" : '<div class="empty"><span class="text-title-md">No set times</span><span class="text-body-md">' + esc(A.coopName(M)) + " hasn't set collection times. Ask your clerk when to deliver.</span></div>") });
+}
+
+var show = new URLSearchParams(location.search).get("show");
+document.addEventListener("DOMContentLoaded", function () { setTimeout(function () { if (show === "rounds") roundsSheet(); if (show === "switch") switchSheet(); }, 0); });
+</script>
+</body>
+</html>

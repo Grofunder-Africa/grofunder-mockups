@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Notifications · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Notifications" data-back="../home/index.html">
+  <p class="proto-note"><b>S6 · The kit's inbox</b> (<code>InboxScreen</code>): the signed-in person's in-app notices. A row is New or Read; opening one shows all of it and marks it read; "Mark all as read" appears while any are new. Reached from the bell in the app bar.</p>
+  <p class="proto-note"><b>What arrives here so far</b> are the cooperative's status notices (note 01): made active, put on hold, the hold lifted, ended. Each goes to the staff who hold its code. Put on hold and ended are mandatory. Later apps add their own. The list follows the review bar's status, the same way the banner does. While Onboarding (Rose at Mumbi) nothing has arrived yet, so it is empty.</p>
+  <p class="proto-note proto-gap"><b>Personal notification settings.</b> The kit's inbox can link to the person's own settings (<code>/notifications/preferences/</code>, note 01), but the inventory has no screen for them. The cooperative-wide settings are C30. Left out here; raised for the inventory.</p>
+
+  <div class="col gap-4" data-state="loaded">
+    <div class="actions" id="readall"><button class="btn btn-text btn-sm" type="button" onclick="readAll()"><span class="mdi mdi-check-all" aria-hidden="true"></span>Mark all as read</button></div>
+    <div class="list rowcards" id="inbox"></div>
+  </div>
+
+  <div class="empty" data-state="empty"><span class="mdi mdi-bell-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">You're all caught up</span>
+    <span class="text-body-md">New notifications will show up here.</span></div>
+
+  <div class="col gap-1" data-state="loading">
+    <div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div><div class="skeleton-row"></div>
+  </div>
+
+  <div class="error-state" data-state="error"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load your notifications</span>
+    <span class="text-body-md">Check your connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var c = Portal.coop(), f = GF.fmt, esc = Portal.esc, s = c.profile.short_name;
+/* The cooperative's own status changes that notify (01), newest first. The
+ * hold and the end follow the review bar, with the dates portal.js's banner uses. */
+var items = GF.q.coopHistory(c.id).filter(function (h) { return h.from_status === "ONBOARDING" && h.to_status === "ACTIVE"; }).map(function (h) {
+  return { title: s + " is active", body: h.changed_by + " at GroFunder made " + s + " active. Members' records, deliveries and payouts can all start.", at: h.changed_at, read: true };
+});
+if (c.status === "ON_HOLD" || c.status === "ENDED") items.unshift({ title: s + " is on hold", body: 'GroFunder put ' + s + ' on hold: "Annual returns for 2025 not filed with the Commissioner". Recording deliveries and paying members carry on; nothing new starts.', at: "2026-10-14", read: c.status === "ENDED" });
+if (c.status === "ENDED") items.unshift({ title: s + "'s time on GroFunder has ended", body: "Everything stays readable; nothing can be changed. Ask GroFunder if you need a copy of the records.", at: "2026-10-28", read: false });
+
+function draw() {
+  var unread = items.filter(function (i) { return !i.read; }).length;
+  document.getElementById("readall").classList.toggle("hidden", !unread);
+  document.getElementById("inbox").innerHTML = items.map(function (it, n) {
+    return '<button class="rowcard" type="button" style="align-items:flex-start" aria-label="' + (it.read ? "" : "Unread: ") + esc(it.title) + '" onclick="openItem(' + n + ')">' +
+      '<span class="status status-' + (it.read ? "neutral" : "info") + '">' + (it.read ? "Read" : "New") + "</span>" +
+      '<span class="grow col gap-1"><span class="' + (it.read ? "text-body-md" : "text-title-sm") + '">' + esc(it.title) + "</span>" +
+      '<span class="text-body-sm tone-muted"' + (it.open ? "" : ' style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden"') + ">" + esc(it.body) + "</span>" +
+      '<span class="text-label-sm tone-muted tabular">' + f.date(it.at) + "</span></span></button>";
+  }).join("");
+}
+function openItem(n) { items[n].open = !items[n].open; items[n].read = true; draw(); }
+function readAll() {
+  var n = items.filter(function (i) { return !i.read; }).length;
+  items.forEach(function (i) { i.read = true; }); draw();
+  Proto.snack(n === 1 ? "1 notification marked read" : n + " notifications marked read");
+}
+draw();
+Portal.mountBanner();
+if (!items.length) document.addEventListener("DOMContentLoaded", function () { setTimeout(function () { if (!/state=/.test(location.search)) Proto.go("empty"); }, 0); });
+</script>
+</body>
+</html>

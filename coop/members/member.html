@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Member · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/members.js"></script>
+<script src="../assets/produce.js"></script>
+<script src="../assets/payouts.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Member" data-dest="members" data-back="index.html" data-wide id="screen">
+
+  <p class="proto-note"><b>C11 · From notes 05, 07 and 08 (UI-35).</b> A member's full record is a page, because it is a place with tabs of its own (design system §3.0). The header holds who they are, their status with a visible <b>Change status</b>, and three figures. The tabs hold the details, deliveries, payouts, positions and history.</p>
+  <p class="proto-note"><b>C12 · Edit is on each card</b> and opens a panel with that card's fields (UI-13, as G6 does for a cooperative). The ID can't change once the member's login is linked, because the login's username was built from it (05). Phone, preferred name, email and language are also the member's to change in the app. The card says so, and staff can still correct them.</p>
+  <p class="proto-note"><b>C13 and C14 are dialogs on this page.</b> The status dialog offers only the moves note 05 allows. It asks for a reason where one is needed, and counts the positions a move would end. Assigning a position applies the scope, the member's own cluster and the holder limit, which is counted per cluster, and names who holds a full position.</p>
+  <p class="proto-note">Try <a href="member.html?m=m-kij-0142">Wanjiku</a> (uses the app, a cluster leader, nominees), <a href="member.html?m=m-kij-0412">Jane, suspended</a>, <a href="member.html?m=m-kij-0077">Daniel, exited</a>, and <a href="member.html?m=m-kij-0001">the chair</a>.</p>
+  <p class="proto-note proto-gap"><b>G40 · Unlinking a login.</b> Note 05 says staff unlink a member's login before correcting a wrong ID, and calls unlinking "a phase 5 service". Note 06 doesn't design it: who may do it, what the member is told, and whether the member's other records stay linked. The Identity panel points at it without offering it.</p>
+
+  <!-- LOADED -->
+  <div data-state="loaded" class="col gap-4" id="page"></div>
+
+  <!-- LOADING -->
+  <div data-state="loading" class="col gap-4">
+    <div class="skeleton-card" style="height:180px"></div><div class="skeleton" style="height:48px"></div>
+    <div class="two-col"><div class="skeleton-card" style="height:240px"></div><div class="skeleton-card" style="height:240px"></div></div>
+  </div>
+
+  <!-- EMPTY: no such member in this cooperative (the API answers 404) -->
+  <div data-state="empty" class="empty">
+    <span class="mdi mdi-account-question-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">This member isn't on the register</span>
+    <span class="text-body-md">They may belong to another cooperative, or the link is wrong. Search the register instead.</span>
+    <a class="btn btn-tonal" href="index.html">Go to the register</a>
+  </div>
+
+  <!-- ERROR -->
+  <div data-state="error" class="error-state">
+    <span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load this member</span>
+    <span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loading');setTimeout(function(){Proto.go('loaded')},800)">Try again</button>
+  </div>
+</div>
+
+<script>
+var params = new URLSearchParams(location.search);
+/* ?m= names the member. The register only reaches its own cooperative's members; anyone else is "not found" (05: 404).
+ * Without ?m=, the page shows Wanjiku at Kijani, or the cooperative's first member elsewhere. */
+var M0 = (function () {
+  var id = params.get("m"), cid = Members.coopId();
+  if (id) { var x = GF.get(id); return x && x.cooperative === cid ? x : null; }
+  var mine = GF.q.members(cid);
+  return mine.find(function (x) { return x.id === GF.who.wanjiku; }) || mine[0] || null;
+})();
+(function () {
+  var s = document.getElementById("screen"), m = M0;
+  s.setAttribute("data-title", m ? m.full_name : "Member");
+  s.setAttribute("data-sub", Members.coop().profile.short_name);
+  if (!m) return;
+  /* The page's main action: recording a delivery for an active or suspended member (07). */
+  if (m.status !== "EXITED") s.setAttribute("data-action", JSON.stringify({ label: "Record delivery", icon: "plus", href: "../produce/record.html?m=" + m.id, roles: "admin manager clerk", write: true }));
+  var menu = [];
+  if (m.status === "ACTIVE") menu.push({ label: "Give a position", icon: "account-star-outline", roles: "admin manager", write: true, on: "Members.assignDialog('" + m.id + "')" });
+  menu.push({ label: "Start a payout", icon: "cash-plus", roles: "admin manager accountant", write: true, on: "Payouts.start({member:'" + m.id + "'})" });
+  if (Members.canDelete(m)) menu.push({ label: "Delete this record", icon: "delete-outline", roles: "admin manager", write: true, destructive: true, sep: true, on: "deleteMember()" });
+  s.setAttribute("data-menu", JSON.stringify(menu));
+})();
+Portal.mountBanner();
+
+document.addEventListener("DOMContentLoaded", function () {
+  var q = GF.q, f = GF.fmt, get = GF.get, M = Members, esc = M.esc, MANAGE = M.MANAGE;
+  var m = M0;
+  if (!m) { setTimeout(function () { Proto.go("empty"); }, 0); return; }
+  var login = q.loginOf(m), p = m.profile || {}, hs = M.holdings(m.id);
+  var ID = { NATIONAL_ID: "National ID", PASSPORT: "Passport", ALIEN_ID: "Alien ID" };
+  var GENDER = { FEMALE: "Female", MALE: "Male", UNDISCLOSED: "Not given" };
+  var LANG = { en: "English", sw: "Swahili" };
+  var LEVEL = { WARD: "ward", SUB_COUNTY: "sub-county", COUNTY: "county" };
+  var area = function (id) { if (!id) return "–"; var a = get(id), path = [a.name + " " + LEVEL[a.level]]; while (a.parent) { a = get(a.parent); path.push(a.name + " " + LEVEL[a.level]); } return path.join(", "); };
+  var card = function (key, title, body, sub, editable) {
+    return '<div class="card card-outlined"><div class="card-header"><div class="card-header-text"><span class="card-title">' + title + "</span>" + (sub ? '<span class="card-description">' + sub + "</span>" : "") + "</div>" +
+      (editable === false ? "" : '<button class="btn btn-text btn-sm" type="button" data-roles="' + MANAGE + '" data-write data-edit="' + key + '">Edit</button>') + "</div>" + body + "</div>";
+  };
+  var history = q.statusHistory(m.id);
+  var last = history[0];
+
+  /* ---------------------------------------------------------------- header */
+  var month = GF.TODAY.slice(0, 7);
+  var thisMonth = q.deliveries({ member: m.id, from: month + "-01", to: GF.TODAY, recorded: true });
+  var products = Produce.products(M.coop());
+  var perProduct = products.map(function (x) {
+    var l = thisMonth.filter(function (d) { return d.product === x.id; });
+    return l.length ? f.qty(q.quantity(l), x.unit, { digits: x.unit === "LITRE" ? 1 : 0 }) + (products.length > 1 ? " " + x.product.name.toLowerCase() : "") : "";
+  }).filter(Boolean);
+  var paid = q.payouts({ member: m.id, status: "PAID" }).sort(function (a, b) { return a.paid_at < b.paid_at ? 1 : -1; })[0];
+  var owed = q.balance(q.deliveries({ member: m.id }));
+  var draft = q.payouts({ member: m.id, status: "DRAFT" })[0];
+
+  var header =
+    '<div class="card card-outlined card-lg"><div class="row-top gap-4 wrap">' +
+      '<span class="avatar" style="width:64px;height:64px;font-size:22px" aria-hidden="true">' + f.initials(m.full_name) + "</span>" +
+      '<div class="col gap-1 grow"><div class="row gap-3 wrap"><span class="text-headline-sm">' + esc(m.full_name) + "</span>" + M.chip(m.status) +
+        '<button class="btn btn-text btn-sm" type="button" data-roles="' + MANAGE + '" data-write id="change-status">Change status</button></div>' +
+        '<span class="text-body-md tone-muted tabular">' + (m.member_no || "No member number") + " · " + M.clusterName(m.cluster) + " · member since " + f.date(m.joined_on) + "</span>" +
+        (m.status !== "ACTIVE" && last ? '<span class="text-body-md">' + M.STATUS[m.status][1] + " since " + f.date(last.changed_at) + (last.details.reason ? ': "' + esc(last.details.reason) + '"' : "") + "</span>" : "") +
+        '<span class="text-body-md tone-muted">' + (login ? (login.is_active ? '<span class="mdi mdi-cellphone-check" aria-hidden="true"></span> Uses the member app' : '<span class="mdi mdi-cellphone-off" aria-hidden="true"></span> Member app login disabled by GroFunder') : "Not on the member app yet") + "</span>" +
+      "</div></div>" +
+      '<div class="stats-grid">' +
+        '<div class="stat-card"><span class="stat-text"><span class="stat-label">Delivered this month</span><span class="stat-value">' + (perProduct.join(" · ") || "Nothing yet") + '</span><span class="stat-caption">' + thisMonth.length + " deliveries in " + ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][+month.slice(5) - 1] + "</span></span></div>" +
+        '<div class="stat-card"><span class="stat-text"><span class="stat-label">Still owed</span><span class="stat-value">' + f.money(owed, { whole: true }) + '</span><span class="stat-caption">' + (draft ? '<a href="../payouts/draft.html?p=' + draft.id + '">A draft payout is open</a>' : "On deliveries up to today") + "</span></span></div>" +
+        '<div class="stat-card"><span class="stat-text"><span class="stat-label">Last paid</span><span class="stat-value">' + (paid ? f.money(paid.net_cents, { whole: true }) : "Not yet") + '</span><span class="stat-caption">' + (paid ? '<a href="../payouts/statement.html?p=' + paid.id + '">' + f.date(paid.paid_at) + ", " + esc(paid.details.label) + "</a>" : "No payout marked paid") + "</span></span></div>" +
+      "</div></div>";
+
+  /* --------------------------------------------------------------- details */
+  var nominees = p.nominees || [];
+  var details =
+    '<div class="two-col"><div class="col gap-4">' +
+      card("identity", "Identity", '<dl class="facts"><dt>Name as on ID</dt><dd>' + esc(m.full_name) + '</dd><dt>ID</dt><dd class="tabular">' + ID[m.id_type] + " " + m.id_number + "</dd>" +
+        "<dt>Gender</dt><dd>" + GENDER[m.gender] + '</dd><dt>Born</dt><dd class="tabular">' + (m.date_of_birth ? f.date(m.date_of_birth) + " (" + M.age(m) + ")" : "Not known") + "</dd></dl>") +
+      card("membership", "Membership", '<dl class="facts"><dt>Member number</dt><dd class="tabular">' + (m.member_no || "None") + "</dd><dt>Cluster</dt><dd>" +
+        (m.cluster ? '<a href="../settings/clusters.html?cl=' + m.cluster + '">' + M.clusterName(m.cluster) + "</a>" : "No cluster") + '</dd><dt>Joined</dt><dd class="tabular">' + f.date(m.joined_on) + "</dd><dt>Home area</dt><dd>" + area(m.area) + "</dd></dl>") +
+      card("contact", "Contact", '<dl class="facts"><dt>Phone</dt><dd class="tabular">' + f.phone(m.phone) + "</dd><dt>Likes to be called</dt><dd>" + (esc(p.preferred_name) || "–") + "</dd><dt>Email</dt><dd>" + (esc(p.email) || "–") +
+        "</dd><dt>Language</dt><dd>" + (LANG[p.language] || "The cooperative's default") + "</dd></dl>", login ? m.full_name.split(" ")[0] + " can change these in the member app; you see the changes at once." : "") +
+    '</div><div class="col gap-4">' +
+      card("address", "Address", '<dl class="facts"><dt>Ward</dt><dd>' + (esc((p.address || {}).ward) || "–") + "</dd><dt>Village</dt><dd>" + (esc((p.address || {}).village) || "–") + "</dd><dt>Street or landmark</dt><dd>" + (esc((p.address || {}).street) || "–") + "</dd></dl>",
+        "The map position, when there is one, is never shown to other members.") +
+      card("nominees", "Nominees", nominees.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Relationship</th><th class="num">Share</th></tr></thead><tbody>' + nominees.map(function (n) {
+          return '<tr><td class="primary-cell">' + esc(n.name) + (n.phone || n.id_number ? '<span class="cell-sub tabular">' + [n.phone ? f.phone(n.phone) : "", n.id_number ? "ID " + n.id_number : ""].filter(Boolean).join(" · ") + "</span>" : "") + "</td><td>" + esc(n.relationship) + '</td><td class="num">' + n.share_pct + "%</td></tr>";
+        }).join("") + "</tbody></table></div>" : '<span class="text-body-md tone-muted">None recorded. Most by-laws ask for at least one.</span>', "Who receives the member's interest if they die. Shares add up to 100%.") +
+      card("notes", "Staff notes", '<p class="text-body-md">' + (esc(p.notes) || '<span class="tone-muted">No notes.</span>') + "</p>") +
+      card("app", "Member app", login ? '<dl class="facts"><dt>Signs in with</dt><dd class="tabular">' + ID[m.id_type] + " " + login.username + "</dd><dt>Login phone</dt><dd class=\"tabular\">" + f.phone(login.phone) + "</dd><dt>Since</dt><dd class=\"tabular\">" + f.date(login.date_joined) +
+          '</dd><dt>Last signed in</dt><dd class="tabular">' + f.date(login.last_sign_in_at) + "</dd></dl>" + (login.is_active ? "" : '<div class="banner banner-error"><span class="mdi mdi-cellphone-off" aria-hidden="true"></span><div class="grow"><span class="text-body-md">GroFunder disabled this login. Contact GroFunder if it should be turned back on.</span></div></div>')
+        : '<span class="text-body-md tone-muted">' + (m.status === "EXITED" ? "Exited members don't reach the member app." : m.full_name.split(" ")[0] + " hasn't signed up. They can, from the app, with their ID and the phone on this record.") + "</span>", "", false) +
+    "</div></div>";
+
+  /* ------------------------------------------------------------ deliveries */
+  var dels = q.deliveries({ member: m.id }).slice().reverse();
+  var deliveries = '<div class="section"><div class="section-toolbar"><div class="chip-row" data-choice role="radiogroup" aria-label="Period" id="d-period">' +
+      '<button class="chip" type="button" role="radio" aria-checked="true" data-p="this">This month</button><button class="chip" type="button" role="radio" aria-checked="false" data-p="last">Last month</button><button class="chip" type="button" role="radio" aria-checked="false" data-p="all">Everything</button></div>' +
+      '<a class="btn btn-text btn-sm" href="../produce/index.html?q=' + encodeURIComponent(m.member_no) + '">Open in Produce</a></div>' +
+    '<div class="section-band" id="d-band"></div><div class="table-wrap only-wide"><table class="table"><thead><tr><th>Date</th><th>Product</th><th class="num">Quantity</th><th>Round</th><th>Receipt</th><th class="num">Value</th><th></th></tr></thead><tbody id="d-rows"></tbody></table></div>' +
+    '<div class="rowcards only-compact" id="d-cards"></div></div>';
+
+  /* --------------------------------------------------------------- payouts */
+  var pays = q.payouts({ member: m.id }).slice().sort(function (a, b) { return (a.paid_at || a.created_at) < (b.paid_at || b.created_at) ? 1 : -1; });
+  var payoutsHtml = '<div class="col gap-3"><div class="row between gap-2 wrap"><span class="text-body-md tone-muted">' + (pays.length ? pays.length + " payouts. Still owed: " + f.money(owed) + "." : "No payouts yet.") + "</span>" +
+      (draft ? '<a class="btn btn-tonal btn-sm" href="../payouts/draft.html?p=' + draft.id + '">Open the draft</a>' : '<button class="btn btn-tonal btn-sm" type="button" data-roles="admin manager accountant" data-write onclick="Payouts.start({member:\'' + m.id + '\'})">Start a payout</button>') + "</div>" +
+    (pays.length ? '<div class="list rowcards">' + pays.map(function (po) {
+      var href = po.status === "DRAFT" ? "../payouts/draft.html?p=" + po.id : "../payouts/statement.html?p=" + po.id;
+      return '<a class="rowcard" href="' + href + '"><span class="grow"><span class="text-body-lg">' + esc(po.details.label) + '</span><span class="text-body-md tone-muted tabular">' +
+        (po.status === "PAID" ? "Paid " + f.date(po.paid_at) + " · " + { MPESA: "M-Pesa", BANK: "Bank", CASH: "Cash" }[po.method] : po.status === "DRAFT" ? "Prepared " + f.date(po.created_at) : "Cancelled") + "</span></span>" +
+        '<span class="col end gap-1"><span class="text-title-md tabular">' + f.money(po.net_cents) + "</span>" + Payouts.chip(po.status) + "</span></a>";
+    }).join("") + "</div>" : "") + "</div>";
+
+  /* ------------------------------------------------------------- positions */
+  var cur = hs.filter(function (h) { return h.status === "ACTIVE"; }), past = hs.filter(function (h) { return h.status !== "ACTIVE"; });
+  var hold = function (h, ended) {
+    var po = get(h.position);
+    return '<div class="rowcard"><span class="grow"><span class="text-body-lg">' + po.name + (h.cluster ? " · " + get(h.cluster).name : "") + '</span><span class="text-body-md tone-muted tabular">' +
+      (ended ? f.date(h.details.started_on) + " to " + f.date(h.details.ended_on) : "Since " + f.date(h.details.started_on)) + (h.details.note ? " · " + esc(h.details.note) : "") + "</span></span>" +
+      (ended ? "" : '<button class="btn btn-text btn-sm" type="button" data-roles="' + MANAGE + '" data-write onclick="Members.endDialog(\'' + h.id + '\')">End</button>') + "</div>";
+  };
+  var positions = '<div class="col gap-3"><div class="row between gap-2 wrap"><span class="text-title-md">Now</span>' +
+      (m.status === "ACTIVE" ? '<button class="btn btn-tonal btn-sm" type="button" data-roles="' + MANAGE + '" data-write onclick="Members.assignDialog(\'' + m.id + '\')">Give a position</button>' : '<span class="text-body-sm tone-muted">Only active members hold positions.</span>') + "</div>" +
+    '<div class="list rowcards">' + (cur.map(function (h) { return hold(h); }).join("") || '<div class="rowcard"><span class="text-body-md tone-muted">No position.</span></div>') + "</div>" +
+    (past.length ? '<span class="text-title-md">Before</span><div class="list rowcards">' + past.map(function (h) { return hold(h, true); }).join("") + "</div>" : "") + "</div>";
+
+  /* --------------------------------------------------------------- history */
+  var SRC = { PORTAL: "in the portal", IMPORT: "by import", CONSOLE: "by GroFunder" };
+  var historyHtml = '<div class="list rowcards">' + history.map(function (h) {
+    return '<div class="rowcard"><span class="grow"><span class="text-body-lg">' + (h.from_status ? M.STATUS[h.from_status][1] + " → " : "Joined, ") + M.STATUS[h.to_status][1].toLowerCase() + "</span>" +
+      '<span class="text-body-md tone-muted tabular">' + f.date(h.changed_at) + (h.changed_by ? " · " + h.changed_by : "") + " " + (SRC[h.source] || "") + "</span>" +
+      (h.details.reason ? '<span class="text-body-md">"' + esc(h.details.reason) + '"</span>' : "") + "</span></div>";
+  }).join("") + "</div>";
+
+  var tabs = [["details", "Details"], ["deliveries", "Deliveries"], ["payouts", "Payouts"], ["positions", "Positions"], ["history", "History"]];
+  var want = params.get("tab");
+  document.getElementById("page").innerHTML = header +
+    '<div data-tabset class="col gap-4"><div class="tabs secondary scroll" role="tablist" aria-label="Member">' + tabs.map(function (t, i) {
+      var on = want ? t[0] === want : i === 0;
+      return '<button class="tab" type="button" role="tab" data-tab="' + t[0] + '" aria-selected="' + on + '">' + t[1] + "</button>";
+    }).join("") + "</div>" +
+    '<div data-panel="details"' + (want && want !== "details" ? ' class="hidden"' : "") + ">" + details + "</div>" +
+    '<div data-panel="deliveries"' + (want === "deliveries" ? "" : ' class="hidden"') + ">" + deliveries + "</div>" +
+    '<div data-panel="payouts"' + (want === "payouts" ? "" : ' class="hidden"') + ">" + payoutsHtml + "</div>" +
+    '<div data-panel="positions"' + (want === "positions" ? "" : ' class="hidden"') + ">" + positions + "</div>" +
+    '<div data-panel="history"' + (want === "history" ? "" : ' class="hidden"') + ">" + historyHtml + "</div></div>";
+  Proto.applyRoles(document.getElementById("page"));
+
+  /* Deliveries tab: a period, totals per product, rows open the delivery panel (C5). */
+  function drawDeliveries(per) {
+    var t = GF.TODAY, lm = new Date(Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 2, 1)).toISOString().slice(0, 7), le = new Date(Date.UTC(+t.slice(0, 4), +t.slice(5, 7) - 1, 0)).toISOString().slice(0, 10);
+    var from = per === "this" ? t.slice(0, 8) + "01" : per === "last" ? lm + "-01" : GF.FROM, to = per === "last" ? le : t;
+    var l = dels.filter(function (d) { return d.delivered_on >= from && d.delivered_on <= to; }), rec = l.filter(function (d) { return d.status === "RECORDED"; });
+    document.getElementById("d-band").innerHTML = products.map(function (x) {
+      var mine = rec.filter(function (d) { return d.product === x.id; });
+      return mine.length ? '<div class="section-figure lg"><span class="k">' + x.product.name + '</span><span class="v">' + f.qty(q.quantity(mine), x.unit, { digits: x.unit === "LITRE" ? 1 : 0 }) + "</span></div>" : "";
+    }).join("") + '<div class="section-figure"><span class="k">Deliveries</span><span class="v">' + rec.length + '</span></div><div class="section-figure"><span class="k">Value</span><span class="v">' + f.money(q.value(rec), { whole: true }) + "</span></div>";
+    document.getElementById("d-rows").innerHTML = l.map(function (d) {
+      var v = d.status === "VOIDED", st = q.standing(d);
+      return '<tr data-href="#" data-d="' + d.id + '"><td class="tabular">' + f.date(d.delivered_on) + "</td><td>" + f.productName(d.product, d.grade) + '</td><td class="num' + (v ? " struck tone-muted" : "") + '">' + f.delivery(d) + "</td><td>" + (d.round ? get(d.round).name : "–") +
+        '</td><td class="tabular">' + (d.receipt_no || "–") + '</td><td class="num">' + (v ? "–" : f.money(st.value_cents)) + "</td><td>" + Produce.payState(st) + "</td></tr>";
+    }).join("") || '<tr><td colspan="7" class="tone-muted">No deliveries in this period.</td></tr>';
+    document.getElementById("d-cards").innerHTML = l.map(function (d) {
+      var v = d.status === "VOIDED";
+      return '<a class="rowcard" href="#" data-d="' + d.id + '"><span class="grow"><span class="text-body-lg tabular">' + f.date(d.delivered_on) + '</span><span class="text-body-md tone-muted">' + f.productName(d.product, d.grade) + (d.round ? " · " + get(d.round).name : "") + "</span></span>" +
+        '<span class="col end gap-1"><span class="text-title-md tabular' + (v ? " struck tone-muted" : "") + '">' + f.delivery(d) + "</span>" + Produce.payState(q.standing(d)) + "</span></a>";
+    }).join("") || '<div class="rowcard"><span class="text-body-md tone-muted">No deliveries in this period.</span></div>';
+  }
+  drawDeliveries("this");
+  document.querySelectorAll("#d-period .chip").forEach(function (c) { c.addEventListener("click", function () { drawDeliveries(c.getAttribute("data-p")); }); });
+  document.addEventListener("click", function (e) { var r = e.target.closest("[data-d]"); if (r && r.closest("#d-rows, #d-cards")) { e.preventDefault(); Produce.delivery(r.getAttribute("data-d")); } });
+
+  document.getElementById("change-status").addEventListener("click", function () { M.statusDialog(m.id); });
+
+  /* --------------------------------------------- C12: a panel per card */
+  var fld = function (id, label, value, opts) {
+    opts = opts || {};
+    return '<div class="field' + (opts.cls ? " " + opts.cls : "") + '"><label class="field-label" for="' + id + '">' + label + (opts.optional ? ' <span class="optional">(optional)</span>' : "") + "</label>" +
+      (opts.select ? '<select class="field-input" id="' + id + '"' + (opts.disabled ? " disabled" : "") + ">" + opts.select + "</select>" :
+        '<input class="field-input' + (opts.tabular ? " tabular" : "") + '" id="' + id + '" value="' + esc(value || "") + '"' + (opts.type ? ' type="' + opts.type + '"' : "") + (opts.disabled ? " disabled" : "") + (opts.mode ? ' inputmode="' + opts.mode + '"' : "") + ">") +
+      (opts.help ? '<span class="field-help">' + opts.help + "</span>" : "") + '<span class="field-error hidden" id="' + id + '-e"></span></div>';
+  };
+  var opts = function (map, cur) { return Object.keys(map).map(function (k) { return '<option value="' + k + '"' + (k === cur ? " selected" : "") + ">" + map[k] + "</option>"; }).join(""); };
+  var clusterOpts = function () {
+    return GF.clusters.filter(function (c) { return c.cooperative === m.cooperative && (c.status === "ACTIVE" || c.id === m.cluster); }).map(function (c) {
+      return '<option value="' + c.id + '"' + (c.id === m.cluster ? " selected" : "") + (c.status !== "ACTIVE" ? " disabled" : "") + ">" + M.clusterName(c.id) + "</option>";
+    }).join("") + '<option value=""' + (m.cluster ? "" : " selected") + ">No cluster</option>";
+  };
+  var areaOpts = function () {
+    var counties = GF.areas.filter(function (a) { return a.level === "COUNTY" && a.status === "ACTIVE"; }).sort(function (a, b) { return a.name < b.name ? -1 : 1; });
+    return '<option value="">Not recorded</option>' + counties.map(function (c) {
+      var subs = GF.areas.filter(function (a) { return a.county === c.id && a.status === "ACTIVE"; });
+      return '<option value="' + c.id + '"' + (c.id === m.area ? " selected" : "") + ">" + c.name + "</option>" + subs.map(function (s) {
+        return '<option value="' + s.id + '"' + (s.id === m.area ? " selected" : "") + ">" + c.name + " › " + (s.level === "WARD" ? get(s.parent).name + " › " : "") + s.name + "</option>";
+      }).join("");
+    }).join("");
+  };
+  var PANELS = {
+    identity: function () {
+      return { title: "Identity", body:
+        fld("e-name", "Name as on ID", m.full_name) +
+        '<div class="field"><span class="field-label" id="e-idt-l">ID type</span><div class="chip-row" data-choice role="radiogroup" aria-labelledby="e-idt-l">' + Object.keys(ID).map(function (k) {
+          return '<button class="chip" type="button" role="radio" aria-checked="' + (k === m.id_type) + '"' + (login ? " disabled" : "") + ">" + ID[k] + "</button>"; }).join("") + "</div></div>" +
+        fld("e-id", "ID number", m.id_number, { tabular: true, disabled: !!login, help: login ? "Locked: " + m.full_name.split(" ")[0] + " signs in to the member app with it. If it is wrong, the login has to be unlinked first (G40)." : "Digits only for a national ID. It must not be on another member of this cooperative." }) +
+        fld("e-gender", "Gender", "", { select: opts(GENDER, m.gender) }) +
+        fld("e-dob", "Date of birth", m.date_of_birth || "", { type: "date", optional: true, help: "Used only for age-band reports." }) +
+        '<div class="field"><span class="field-label">Photo <span class="optional">(optional)</span></span><div class="row gap-3"><span class="avatar" aria-hidden="true">' + f.initials(m.full_name) + '</span><button class="btn btn-outlined btn-sm" type="button" onclick="Proto.snack(\'Choose a photo\')">Add a photo</button></div></div>' };
+    },
+    membership: function () {
+      var clusterHs = hs.filter(function (h) { return h.status === "ACTIVE" && get(h.position).scope === "CLUSTER"; });
+      return { title: "Membership", body:
+        fld("e-no", "Member number", m.member_no, { tabular: true, help: "Unique in the cooperative." }) +
+        fld("e-cl", "Cluster", "", { select: clusterOpts() }) +
+        (clusterHs.length ? '<div class="banner banner-warning hidden" id="e-cl-w"><span class="mdi mdi-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">Moving ' + m.full_name.split(" ")[0] + " ends their " +
+          clusterHs.map(function (h) { return get(h.position).name.toLowerCase() + " position for " + get(h.cluster).name; }).join(" and ") + ".</span></div></div>" : "") +
+        fld("e-joined", "Joined", m.joined_on, { type: "date", help: "The date the cooperative records, even if before GroFunder." }) +
+        fld("e-area", "Home area", "", { select: areaOpts(), help: "A county, sub-county or ward, for reports by place." }) };
+    },
+    contact: function () {
+      return { title: "Contact", body:
+        (login ? '<div class="banner banner-info"><span class="mdi mdi-cellphone-check" aria-hidden="true"></span><div class="grow"><span class="text-body-md">' + m.full_name.split(" ")[0] + " can change these in the member app. Correct them here only if they ask you to.</span></div></div>" : "") +
+        fld("e-phone", "Phone", f.phone(m.phone), { tabular: true, mode: "tel", optional: true, help: "Family members may share a phone." }) +
+        fld("e-pref", "Likes to be called", p.preferred_name, { optional: true }) +
+        fld("e-email", "Email", p.email, { optional: true, type: "email" }) +
+        fld("e-lang", "Language", "", { select: '<option value="">The cooperative\'s default</option>' + opts(LANG, p.language) }) };
+    },
+    address: function () {
+      var a = p.address || {};
+      return { title: "Address", body: fld("e-ward", "Ward", a.ward, { optional: true }) + fld("e-village", "Village", a.village, { optional: true }) + fld("e-street", "Street or landmark", a.street, { optional: true }) +
+        '<button class="btn btn-outlined btn-sm" type="button" style="align-self:flex-start" onclick="Proto.snack(\'Position set from this phone\')"><span class="mdi mdi-crosshairs-gps" aria-hidden="true"></span>Use this phone\'s position</button>' +
+        '<span class="text-body-sm tone-muted">For field visits. Never shown to other members.</span>' };
+    },
+    nominees: function () {
+      var rows = (nominees.length ? nominees : [{ name: "", relationship: "", phone: "", id_number: "", share_pct: 100 }]);
+      return { title: "Nominees", wide: true, body:
+        '<span class="text-body-md tone-muted">Up to five. Their shares must add up to 100%.</span><div class="col gap-3" id="nom">' + rows.map(nomRow).join("") + "</div>" +
+        '<button class="btn btn-text btn-sm" type="button" style="align-self:flex-start" id="nom-add"><span class="mdi mdi-plus" aria-hidden="true"></span>Add a nominee</button>' +
+        '<div class="totals" style="width:100%"><div class="net"><span>Shares</span><span id="nom-t"></span></div></div><span class="field-error hidden" id="nom-e"></span>' };
+    },
+    notes: function () { return { title: "Staff notes", body: '<div class="field"><label class="field-label" for="e-notes">Notes</label><textarea class="field-input" id="e-notes" rows="5">' + esc(p.notes || "") + '</textarea><span class="field-help">Seen by staff only.</span></div>' }; }
+  };
+  function nomRow(n, i) {
+    return '<div class="card card-outlined" data-nom><div class="form-grid">' +
+      '<div class="field"><label class="field-label">Name</label><input class="field-input" data-k="name" value="' + esc(n.name) + '"></div>' +
+      '<div class="field"><label class="field-label">Relationship</label><input class="field-input" data-k="relationship" value="' + esc(n.relationship) + '"></div>' +
+      '<div class="field"><label class="field-label">Phone <span class="optional">(optional)</span></label><input class="field-input tabular" data-k="phone" value="' + esc(n.phone ? f.phone(n.phone) : "") + '"></div>' +
+      '<div class="field"><label class="field-label">ID number <span class="optional">(optional)</span></label><input class="field-input tabular" data-k="id" value="' + esc(n.id_number) + '"></div>' +
+      '<div class="field"><label class="field-label">Share</label><div class="field-box has-trail"><input class="field-input tabular" data-k="share" inputmode="numeric" value="' + n.share_pct + '"><span class="trail affix">%</span></div></div>' +
+      '<button class="btn btn-text btn-sm tone-error" type="button" style="align-self:end" data-nom-x>Remove</button></div></div>';
+  }
+  function openPanel(key) {
+    var d = PANELS[key]();
+    var el = Proto.sheet({ title: d.title, wide: d.wide, body: '<div class="col gap-4">' + d.body + "</div>",
+      footer: '<button class="btn btn-text" type="button" onclick="Proto.close()">Cancel</button><button class="btn btn-filled" type="button" data-save-panel>Save</button>' });
+    if (key === "membership") { var sel = el.querySelector("#e-cl"), w = el.querySelector("#e-cl-w"); if (sel && w) sel.addEventListener("change", function () { w.classList.toggle("hidden", sel.value === m.cluster); }); }
+    if (key === "nominees") {
+      var box = el.querySelector("#nom");
+      var total = function () {
+        var cards = box.querySelectorAll("[data-nom]"), sum = 0, named = true;
+        cards.forEach(function (c) { sum += +(c.querySelector('[data-k="share"]').value || 0); if (!c.querySelector('[data-k="name"]').value.trim()) named = false; });
+        el.querySelector("#nom-t").textContent = sum + "%";
+        el.querySelector("#nom-t").className = sum === 100 ? "" : "tone-error";
+        el.querySelector("#nom-add").classList.toggle("hidden", cards.length >= 5);
+        return { ok: sum === 100 && named, sum: sum, named: named };
+      };
+      box.addEventListener("input", total);
+      box.addEventListener("click", function (e) { var x = e.target.closest("[data-nom-x]"); if (x) { x.closest("[data-nom]").remove(); total(); } });
+      el.querySelector("#nom-add").addEventListener("click", function () { box.insertAdjacentHTML("beforeend", nomRow({ name: "", relationship: "", phone: "", id_number: "", share_pct: 0 })); total(); });
+      total();
+      el.querySelector("[data-save-panel]").addEventListener("click", function (e) {
+        var t = total(), err = el.querySelector("#nom-e");
+        if (!t.ok) { e.stopImmediatePropagation(); err.textContent = !t.named ? "Every nominee needs a name." : "The shares add up to " + t.sum + "%. Make them 100%."; err.classList.remove("hidden"); }
+      }, true);
+    }
+    if (key === "membership") el.querySelector("[data-save-panel]").addEventListener("click", function (e) {
+      var v = el.querySelector("#e-no").value.trim(), clash = v && q.members(m.cooperative).find(function (x) { return x.id !== m.id && x.member_no.toLowerCase() === v.toLowerCase(); });
+      var err = el.querySelector("#e-no-e");
+      if (clash) { e.stopImmediatePropagation(); err.textContent = v + " is " + clash.full_name + "'s number."; err.classList.remove("hidden"); el.querySelector("#e-no").setAttribute("aria-invalid", "true"); }
+    }, true);
+    el.querySelector("[data-save-panel]").addEventListener("click", function () { Proto.close(); Proto.snack(d.title + " saved"); });
+  }
+  document.getElementById("page").addEventListener("click", function (e) { var b = e.target.closest("[data-edit]"); if (b) openPanel(b.getAttribute("data-edit")); });
+
+  /* Delete: only a record added by mistake (05). */
+  window.deleteMember = function () {
+    Proto.confirm({ title: "Delete " + m.full_name + "?", message: "Only for a record added by mistake. Nothing points at it yet: no deliveries, payouts, positions or login. This can't be undone.",
+      confirm: "Delete", destructive: true, onConfirm: function () { location.href = "index.html"; } });
+  };
+  if (params.get("added")) setTimeout(function () { Proto.snack(m.full_name + " added to the register"); }, 0);
+});
+</script>
+</body>
+</html>

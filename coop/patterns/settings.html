@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Settings · settings pattern · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Settings" data-dest="settings" data-wide>
+  <div data-subnav="settings" data-current="profile" data-label="Settings"></div>
+
+  <p class="proto-note"><b>Pattern sample: a settings page (phase 2).</b> Settings' sections are a side pane from 840 and tabs across the top below; each tab is gated by the code that edits it (note 09). The set-up flow (phase 5) designs these screens properly from note 01.</p>
+  <p class="proto-note"><b>Save per card.</b> Each card saves on its own; its Save stays off until something in that card changes (the kit's react-hook-form <code>isDirty</code>). There is no page-wide Save to forget.</p>
+  <p class="proto-note"><b>Registered name and number are GroFunder's to change</b> (G1, closed; note 01: <code>PATCH {id}/</code>, "name and registration number: GroFunder staff only"). The portal shows them as facts, not disabled fields; the console edits them.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div class="card card-outlined">
+      <div class="card-header"><div class="card-header-text"><span class="card-title">Registration</span>
+        <span class="card-description">GroFunder changes these. Ask through support if they are wrong.</span></div></div>
+      <dl class="facts">
+        <dt>Registered name</dt><dd>Kijani Valley Dairy Farmers Co-operative Society Ltd</dd>
+        <dt>Registration number</dt><dd class="tabular">CS/12345</dd>
+        <dt>Status</dt><dd><span class="status status-success">Active</span></dd>
+      </dl>
+    </div>
+
+    <div class="card card-outlined">
+      <div class="card-header"><div class="card-header-text"><span class="card-title">About the cooperative</span></div></div>
+      <div class="form-grid">
+        <div class="field"><label class="field-label" for="short">Short name</label><input class="field-input" id="short" value="Kijani Valley Dairy">
+          <span class="field-help">What members call it; used in the app and in SMS.</span></div>
+        <div class="field"><label class="field-label" for="regon">Registered on <span class="optional">(optional)</span></label>
+          <div class="field-box has-trail"><input class="field-input tabular" id="regon" value="12 Aug 1998"><span class="trail"><span class="mdi mdi-calendar-blank-outline" aria-hidden="true"></span></span></div></div>
+        <div class="field"><label class="field-label" for="count">Members, as the cooperative counts them <span class="optional">(optional)</span></label><input class="field-input tabular" id="count" inputmode="numeric" value="450">
+          <span class="field-help">412 are in the register so far.</span></div>
+        <div class="field"><label class="field-label" for="lang">Language for members who haven't chosen one</label>
+          <select class="field-input" id="lang"><option>English</option><option selected>Swahili</option></select></div>
+        <div class="field field-wide"><label class="field-label" for="desc">What the cooperative does <span class="optional">(optional)</span></label>
+          <textarea class="field-input" id="desc">Collects and chills milk from smallholder farmers around Ndumberi and sells to processors in Kiambu and Nairobi.</textarea></div>
+      </div>
+      <div class="actions"><button class="btn btn-filled" type="button" data-save="Saved" disabled>Save</button></div>
+    </div>
+
+    <div class="card card-outlined">
+      <div class="card-header"><div class="card-header-text"><span class="card-title">Contact person</span>
+        <span class="card-description">Who GroFunder calls about the cooperative. They don't need a login.</span></div></div>
+      <div class="form-grid">
+        <div class="field"><label class="field-label" for="cn">Name</label><input class="field-input" id="cn" value="John Gitau"></div>
+        <div class="field"><label class="field-label" for="cr">Role</label><input class="field-input" id="cr" value="Chair"></div>
+        <div class="field"><label class="field-label" for="cp">Phone</label><input class="field-input tabular" id="cp" value="0733 456 789" inputmode="tel"></div>
+        <div class="field"><label class="field-label" for="ce">Email <span class="optional">(optional)</span></label><input class="field-input" id="ce" value="chair@kijanidairy.example" aria-invalid="true" aria-describedby="ce-e">
+          <span class="field-error" id="ce-e">Enter an email address like name@example.com.</span></div>
+      </div>
+      <div class="actions"><button class="btn btn-filled" type="button" data-save="Contact saved" disabled>Save</button></div>
+    </div>
+  </div>
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:160px"></div><div class="skeleton-card" style="height:320px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the settings</span><button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+</body>
+</html>

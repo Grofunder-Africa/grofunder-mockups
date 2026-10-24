@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Welcome · member app · GroFunder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Welcome" data-auth="sm">
+  <p class="proto-note"><b>M1 · Welcome (note 06; UI-18).</b> The first screen of the member app when nobody is signed in. Two ways in: sign in, or find your membership the first time. There's no "create an account": a login comes only from a cooperative's record (06), so the second button says what it does.</p>
+  <p class="proto-note proto-gap"><b>F1.</b> The kit has no ID-or-phone, PIN and SMS-code sign-in; these screens are drawn from note 06 and the F4 proposals (PinPad, OtpInput).</p>
+  <p class="proto-note"><b>Room for the pending amendment</b> (UI-18): if members may later apply without a cooperative record, the second button keeps its place and its first step; only what follows the code changes.</p>
+
+  <div class="brand-lockup"><img src="../../assets/brand/grofunder-wordmark.png" alt="GroFunder"></div>
+
+  <div class="col gap-6" data-state="loaded">
+    <div class="col gap-2" style="text-align:center">
+      <h1 class="text-headline-md">Your deliveries and payments, on your phone</h1>
+      <p class="text-body-lg tone-muted">See what you delivered to your cooperative, what it was worth and what you've been paid.</p>
+    </div>
+    <div class="col gap-2">
+      <a class="btn btn-filled btn-lg btn-block" href="sign-in.html">Sign in</a>
+      <a class="btn btn-outlined btn-lg btn-block" href="claim.html">First time? Find your membership</a>
+    </div>
+    <div class="card card-outlined">
+      <div class="card-header"><div class="card-header-text"><span class="card-title">Before you start</span></div></div>
+      <ul class="col gap-2 text-body-md" style="margin:0;padding-left:20px">
+        <li>Your cooperative must have you on its register.</li>
+        <li>Use the phone number your cooperative has for you. We send a code to it.</li>
+        <li>Each person needs their own phone number.</li>
+      </ul>
+    </div>
+    <p class="text-body-sm tone-muted" style="text-align:center">Not on the register yet? Ask your cooperative's office to add you.</p>
+  </div>
+  <div class="col gap-4" data-state="loading"><div class="skeleton" style="height:64px"></div><div class="skeleton-card" style="height:112px"></div></div>
+  <div class="error-state" data-state="error"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Signing in needs a connection. Try again when you have signal.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+</body>
+</html>

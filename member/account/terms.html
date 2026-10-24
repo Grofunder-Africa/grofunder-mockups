@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Terms and privacy · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Terms and privacy" data-back="index.html" data-dest="account" data-compact>
+
+  <p class="proto-note"><b>M17 · Terms and privacy (note 06).</b> What the member accepted when they signed up. A long text, so a page (UI-13), reached from Account.</p>
+  <p class="proto-note proto-gap"><b>Where acceptance is kept (06, concern 2).</b> Until a consents app exists, the accepted version and time go to the audit trail. The prototype shows the login's sign-up date as the acceptance date, and the version is typed on the page: neither is in the shared data. The terms' wording itself isn't written anywhere yet; the headings below are placeholders for it.</p>
+
+  <div data-roles="out" class="empty">
+    <span class="mdi mdi-account-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">You're signed out</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a>
+  </div>
+
+  <div data-state="loaded" class="col gap-6" data-roles="in">
+    <div class="card card-outlined">
+      <dl class="facts">
+        <dt>You accepted</dt><dd>Terms of use and privacy notice, version 1</dd>
+        <dt>On</dt><dd class="tabular" id="accepted"></dd>
+        <dt>When</dt><dd>Signing up in the member app</dd>
+      </dl>
+    </div>
+
+    <section class="section">
+      <div class="section-header"><span class="text-title-lg">What GroFunder holds about you</span></div>
+      <p class="text-body-md">Your cooperatives keep your membership records: your name and ID number as on your ID, your phone, your cluster, your deliveries and your payments. GroFunder keeps them for your cooperatives, and shows them to you here.</p>
+    </section>
+    <section class="section">
+      <div class="section-header"><span class="text-title-lg">Who sees it</span></div>
+      <p class="text-body-md">Each cooperative's staff see only that cooperative's records. You see every record you have linked to your login. Your map position is never shown to other members.</p>
+    </section>
+    <section class="section">
+      <div class="section-header"><span class="text-title-lg">Your login</span></div>
+      <p class="text-body-md">You sign in with your ID number or phone, your PIN, and a code we send by SMS. Keep your PIN to yourself. Each person needs their own phone number.</p>
+    </section>
+    <p class="text-body-sm tone-muted">The full wording will be written with GroFunder's legal advisers before the app is released.</p>
+  </div>
+
+  <div data-state="loading" class="col gap-4" data-roles="in"><div class="skeleton-card" style="height:120px"></div><div class="skeleton-card" style="height:280px"></div></div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">The terms show again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+document.getElementById("accepted").textContent = GF.fmt.date(MemberApp.login.date_joined);
+</script>
+</body>
+</html>

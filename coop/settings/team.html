@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Team · Settings · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Settings" data-dest="settings" data-wide
+     data-action='{"label":"Invite","icon":"account-plus-outline","roles":"admin","on":"invite()"}'>
+  <div data-subnav="settings" data-current="team" data-label="Settings"></div>
+
+  <p class="proto-note"><b>C28 · The kit's team page, from note 09.</b> The people on the cooperative's account and the invitations still open. Only the account's owners (the administrators, note 01) see it. Tap a person to change what they can do or remove them, in a panel (UI-13). Inviting is a dialog. Switch the review bar to Onboarding to see Mumbi, where Rose is alone.</p>
+  <p class="proto-note proto-gap"><b>F12 · Several owners, as the notes say.</b> Notes 01 and 09 make every administrator an owner. The kit keeps one owner and moves ownership only by "Hand the business over". This page draws what the notes ask for: an Owner tick on invite and on a person, offered with the Administrator role only, and the kit's own rule that the last owner can't be removed or unticked.</p>
+  <p class="proto-note proto-gap"><b>F13 · GroFunder's wording.</b> The kit's empty state talks about "the front desk". This page uses GroFunder's own copy, which the kit needs to take from the host.</p>
+
+  <div class="empty" data-roles="manager accountant clerk viewer">
+    <span class="mdi mdi-account-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">You don't manage this cooperative's team</span>
+    <span class="text-body-md">Only the cooperative's owners, its administrators, can see and change the team.</span>
+  </div>
+
+  <div data-state="loaded" class="col gap-4" data-roles="admin">
+    <div class="section" id="people-section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">People</span><span class="text-body-md tone-muted" id="people-sub"></span></div></div>
+      <div class="list rowcards" id="people"></div>
+    </div>
+    <div id="alone"></div>
+    <div class="section" id="inv-section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">Invitations</span>
+        <span class="text-body-md tone-muted">A link works for seven days. Sending it again gives a new link; the old one stops working.</span></div></div>
+      <div class="list rowcards" id="invitations"></div>
+    </div>
+  </div>
+  <div data-state="loading" class="col gap-4" data-roles="admin"><div class="skeleton-card" style="height:300px"></div><div class="skeleton-card" style="height:120px"></div></div>
+  <div data-state="empty" class="empty" data-roles="admin">
+    <span class="mdi mdi-account-multiple-plus-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">It's just you</span>
+    <span class="text-body-md">Invite the people who work with you. They choose their own password and see only what their role allows: clerks record deliveries, accountants pay members.</span>
+    <button class="btn btn-filled" type="button" data-write onclick="invite()">Invite somebody</button>
+  </div>
+  <div data-state="error" class="error-state" data-roles="admin"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the team</span><button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var f = GF.fmt, esc = Portal.esc, ME = Portal.me;
+var ENDED = Portal.status === "ended";
+Portal.mountBanner();
+if (ENDED) document.querySelector("[data-screen]").removeAttribute("data-action");
+
+/* Roles a person can hold here: the standard ones, then the cooperative's own. */
+var ROLES = GF.standardRoles.map(function (r) { return { id: r.id, name: r.name, about: r.about }; })
+  .concat(GF.customRoles.filter(function (r) { return r.account === Portal.COOP; }).map(function (r) { return { id: r.id, name: r.name, about: "This cooperative's own role" }; }));
+var roleName = function (id) { var r = ROLES.find(function (x) { return x.id === id; }); return r ? r.name : id; };
+
+var team = Portal.staff();
+var mship = function (u) { return u.memberships.find(function (m) { return m.account === Portal.COOP; }); };
+var owners = function () { return team.filter(function (u) { return mship(u).owner; }).length; };
+
+function drawPeople() {
+  document.getElementById("people-sub").textContent = team.length + (team.length === 1 ? " person" : " people") + ", " + owners() + (owners() === 1 ? " owner" : " owners");
+  document.getElementById("people").innerHTML = team.map(function (u) {
+    var m = mship(u), me = u.id === ME.id;
+    return '<button class="rowcard" type="button" onclick="person(\'' + u.id + '\')"><span class="avatar avatar-sm">' + f.initials(u.name) + "</span>" +
+      '<span class="grow"><span class="text-body-lg">' + esc(u.name) + (me ? ' <span class="text-body-sm tone-muted">(you)</span>' : "") + '</span><span class="text-body-md tone-muted">' + esc(u.email) + "</span></span>" +
+      '<span class="trail"><span class="text-body-md">' + m.roles.map(roleName).join(", ") + "</span>" + (m.owner ? '<span class="status status-primary">Owner</span>' : "") + "</span></button>";
+  }).join("");
+}
+drawPeople();
+
+var invs = Portal.invitations();
+var expires = function (iso) { var d = new Date(iso + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + 7); return d.toISOString().slice(0, 10); };
+function drawInvitations() {
+  document.getElementById("invitations").innerHTML = invs.map(function (i) {
+    return '<div class="rowcard"><span class="avatar avatar-sm"><span class="mdi mdi-email-outline" aria-hidden="true"></span></span>' +
+      '<span class="grow"><span class="text-body-lg">' + esc(i.email) + '</span><span class="text-body-md tone-muted">Invited as ' + roleName(i.role) + (i.owner ? " and owner" : "") + " on " + f.date(i.sent_at, "short") + " by " + esc(i.sent_by) + " · Expires " + f.date(expires(i.sent_at), "short") + "</span></span>" +
+      '<span class="status status-info">Pending</span>' +
+      '<span class="row" data-write><button class="btn btn-text btn-sm" type="button" onclick="sendAgain(\'' + i.id + '\')">Send again</button>' +
+      '<button class="icon-btn" type="button" aria-label="More for ' + esc(i.email) + '" onclick="Proto.menu(this,{heading:\'' + esc(i.email) + '\',items:[{label:\'Revoke\',icon:\'email-remove-outline\',destructive:true,onSelect:\'revoke(&quot;' + i.id + '&quot;)\'}]})"><span class="mdi mdi-dots-vertical" aria-hidden="true"></span></button></span></div>';
+  }).join("") || '<div class="rowcard"><span class="grow"><span class="text-body-lg">No invitations open</span><span class="text-body-md tone-muted">Invite people by email. They choose their own password.</span></span></div>';
+}
+drawInvitations();
+
+/* Rose alone at Mumbi: the kit's "It is just you", in GroFunder's words. */
+if (team.length === 1) {
+  document.getElementById("people-section").classList.add("hidden");
+  document.getElementById("alone").innerHTML = document.querySelector('[data-state="empty"]').outerHTML.replace('data-state="empty" ', 'id="alone-state" ');
+  if (!invs.length) document.getElementById("inv-section").classList.add("hidden");
+}
+
+/* What someone can do: roles as ticks, Owner only with Administrator (F12). */
+function rolesPicker(prefix, current, owner, single) {
+  var type = single ? "radio" : "checkbox";
+  return '<div class="col" role="' + (single ? "radiogroup" : "group") + '" aria-label="Roles">' + ROLES.map(function (r) {
+    return '<label class="check"><input type="' + type + '" name="' + prefix + '-role" value="' + r.id + '"' + (current.indexOf(r.id) > -1 ? " checked" : "") + ' onchange="ownerRow(\'' + prefix + '\')">' +
+      '<span class="grow"><span class="text-body-lg">' + esc(r.name) + '</span><span class="text-body-sm tone-muted">' + esc(r.about) + "</span></span></label>";
+  }).join("") + "</div>" +
+  '<label class="check" id="' + prefix + '-owner-row"><input type="checkbox" id="' + prefix + '-owner"' + (owner ? " checked" : "") + '>' +
+    '<span class="grow"><span class="text-body-lg">Owner</span><span class="text-body-sm tone-muted" id="' + prefix + '-owner-help">Manages the team: invites, changes roles and removes people</span></span></label>';
+}
+function ownerRow(prefix) {
+  var row = document.getElementById(prefix + "-owner-row"); if (!row) return;
+  var admin = !!document.querySelector('input[name="' + prefix + '-role"][value="cooperative_admin"]:checked');
+  row.classList.toggle("hidden", !admin);
+  if (!admin) document.getElementById(prefix + "-owner").checked = false;
+}
+
+function person(id) {
+  var u = team.find(function (x) { return x.id === id; }), m = mship(u), me = u.id === ME.id;
+  var lastOwner = m.owner && owners() === 1;
+  var canEdit = !ENDED && !me;
+  var el = Proto.sheet({ title: esc(u.name), body:
+    '<dl class="facts"><dt>Email</dt><dd>' + esc(u.email) + "</dd><dt>Standing</dt><dd>" + (m.owner ? "Owner" : "Member") + "</dd><dt>Can do</dt><dd>" + m.roles.map(roleName).join(", ") + "</dd>" +
+      (m.joined ? "<dt>Joined</dt><dd>" + f.date(m.joined) + "</dd>" : "") + "</dl>" +
+    (canEdit ? '<div class="col gap-2"><span class="text-title-md">What ' + esc(u.name.split(" ")[0]) + " can do here</span>" + rolesPicker("p", m.roles, m.owner) +
+      '<span class="field-error hidden" id="p-err">Choose at least one role.</span></div>'
+      : '<p class="text-body-md tone-muted">' + (ENDED ? "The cooperative has ended, so the team can't change." : "Another owner changes your own roles, so you can't lock yourself out.") + "</p>") +
+    (lastOwner ? '<div class="banner banner-info"><span class="mdi mdi-shield-account-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">' + esc(u.name.split(" ")[0]) +
+      " is the only owner. Make someone else an owner first; a cooperative always has one.</span></div></div>" : ""),
+    footer: canEdit ? '<button class="btn btn-text tone-error" type="button" id="p-remove"' + (lastOwner ? " disabled" : "") + ">Remove from the cooperative</button><span class=\"spacer\"></span>" +
+      '<button class="btn btn-filled" type="button" id="p-save" disabled>Save</button>' : ""
+  });
+  if (!canEdit) return;
+  ownerRow("p");
+  if (lastOwner) { var o = el.querySelector("#p-owner"); o.disabled = true; el.querySelector("#p-owner-help").textContent = "The only owner can't stop being one"; }
+  el.addEventListener("change", function () { el.querySelector("#p-save").disabled = false; });
+  el.querySelector("#p-save").addEventListener("click", function () {
+    if (!el.querySelector('input[name="p-role"]:checked')) { el.querySelector("#p-err").classList.remove("hidden"); return; }
+    Proto.close(); Proto.snack(u.name + " updated");
+  });
+  el.querySelector("#p-remove").addEventListener("click", function () {
+    if (lastOwner) return;
+    Proto.confirm({ title: "Remove " + esc(u.name) + "?", message: "They lose access to " + esc(Portal.coop().profile.short_name) + " at once. Their login and any other cooperatives are untouched, and what they did stays in the records under their name.",
+      confirm: "Remove", destructive: true, onConfirm: function () { Proto.close(); Proto.snack(u.name + " removed"); } });
+  });
+}
+
+function invite() {
+  var el = Proto.dialog({ title: "Invite someone", body:
+    '<div class="field"><label class="field-label" for="ie">Email</label><input class="field-input" id="ie" type="email" placeholder="name@example.com" autocomplete="off">' +
+      '<span class="field-error hidden" id="ie-err">Enter a valid email address.</span></div>' +
+    '<span class="field-label">What they can do</span>' + rolesPicker("i", ["cooperative_clerk"], false, true) +
+    '<p class="text-body-sm tone-muted">They get an email with a link that works for seven days, and choose their own password.</p>',
+    submit: "Send invitation", onSubmit: function (d) {
+      var email = d.querySelector("#ie").value.trim() || "mercy@kijanidairy.example";
+      Proto.snack("Invitation sent to " + esc(email), "Copy link", function () { Proto.snack("Link copied"); });
+    } });
+  ownerRow("i");
+}
+
+function sendAgain(id) {
+  var i = invs.find(function (x) { return x.id === id; });
+  var el = Proto.dialog({ title: "Sent again to " + esc(i.email), body:
+    '<p class="text-body-md">The same invitation, good for another seven days. The link in the earlier email has stopped working.</p>' +
+    '<div class="field"><label class="field-label" for="nl">The new link</label><input class="field-input" id="nl" readonly value="https://app.grofunder.example/accept-invitation?token=Qm7kX2vR9tLp">' +
+      '<span class="field-help">Paste it into WhatsApp or an SMS if that is how you reach them.</span></div>' +
+    '<div class="actions actions-start"><button class="btn btn-tonal" type="button" onclick="Proto.snack(\'Link copied\')"><span class="mdi mdi-content-copy" aria-hidden="true"></span>Copy the link</button></div>',
+    submit: "Done" });
+}
+function revoke(id) {
+  var i = invs.find(function (x) { return x.id === id; });
+  Proto.confirm({ title: "Revoke this invitation?", message: "The link sent to " + esc(i.email) + " will stop working.", confirm: "Revoke", destructive: true,
+    onConfirm: function () { invs = invs.filter(function (x) { return x.id !== id; }); drawInvitations(); Proto.snack("Invitation revoked"); } });
+}
+</script>
+</body>
+</html>

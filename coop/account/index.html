@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your account · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Your account" data-back="../home/index.html">
+  <p class="proto-note"><b>S5 · The kit's own account screens</b>, <code>ProfileScreen</code> and <code>SecurityScreen</code>, as two tabs of one page (the kit's <code>tabs</code> prop). It is one place with two sections (design system §3.0). Reached from the account sheet (S4). It's the person's login, the same in every cooperative they work for (note 09), so it doesn't change with the cooperative.</p>
+  <p class="proto-note"><b>Every change saves on its own card</b> (the settings pattern). Changing the email or phone asks for the current password, then a code sent to the new address. Changing the password, or "Sign out everywhere", ends every session.</p>
+  <p class="proto-note proto-gap"><b>F13.</b> The kit's "Your details" card says "Organisers see this on your bookings and at the door". GroFunder needs its own line, passed in by the host. <b>No device list:</b> the kit shows recent sign-ins and one "Sign out everywhere", not each device (UI-16). The sign-in history below is typed on this page, because <code>canon.js</code> has no sign-in records yet.</p>
+
+  <div class="col gap-4" data-state="loaded 2fa-off" data-tabset>
+    <div class="tabs secondary" role="tablist" aria-label="Your account">
+      <button class="tab" type="button" role="tab" data-tab="profile" aria-selected="true">Profile</button>
+      <button class="tab" type="button" role="tab" data-tab="security" aria-selected="false">Security</button>
+    </div>
+
+    <div data-panel="profile" class="col gap-4">
+      <div class="card card-outlined">
+        <div class="card-header"><div class="card-header-text"><span class="card-title">Your details</span>
+          <span class="card-description">Your team and GroFunder see this name on what you record and change.</span></div></div>
+        <div class="form-grid">
+          <div class="field"><label class="field-label" for="fn">First name</label><input class="field-input" id="fn" autocomplete="given-name"></div>
+          <div class="field"><label class="field-label" for="ln">Last name <span class="optional">(optional)</span></label><input class="field-input" id="ln" autocomplete="family-name"></div>
+          <div class="field"><label class="field-label" for="un">Username <span class="optional">(optional)</span></label><input class="field-input" id="un" autocomplete="username">
+            <span class="field-help">Another way to sign in, if you'd rather not type your email.</span></div>
+        </div>
+        <div class="actions"><button class="btn btn-filled" type="button" data-save="Profile saved." disabled>Save name</button></div>
+      </div>
+
+      <div class="card card-outlined">
+        <div class="card-header"><div class="card-header-text"><span class="card-title">Email</span><span class="card-description" id="email"></span></div>
+          <button class="btn btn-tonal btn-sm" type="button" onclick="changeAddress('email')">Change email</button></div>
+      </div>
+
+      <div class="card card-outlined">
+        <div class="card-header"><div class="card-header-text"><span class="card-title">Phone number</span><span class="card-description">No phone number</span></div>
+          <button class="btn btn-tonal btn-sm" type="button" onclick="changeAddress('phone')">Add phone number</button></div>
+      </div>
+
+      <div class="card card-outlined">
+        <div class="card-header"><div class="card-header-text"><span class="card-title">Your data</span></div></div>
+        <div class="rowcards">
+          <button class="rowcard" type="button" onclick="Proto.snack('Your data is downloading')"><span class="mdi mdi-download-outline" aria-hidden="true"></span>
+            <span class="grow"><span class="text-body-lg">Download your data</span><span class="text-body-md tone-muted">Everything GroFunder holds about you, as one file</span></span></button>
+          <button class="rowcard" type="button" onclick="closeLogin()"><span class="mdi mdi-account-cancel-outline" aria-hidden="true"></span>
+            <span class="grow"><span class="text-body-lg">Close your login</span><span class="text-body-md tone-muted">You can no longer sign in anywhere</span></span></button>
+        </div>
+      </div>
+    </div>
+
+    <div data-panel="security" class="col gap-4 hidden">
+      <div class="card card-outlined">
+        <div class="card-header"><div class="card-header-text"><span class="card-title">Two-step verification</span></div>
+          <span class="status status-success" data-state="loaded">On</span><span class="status status-neutral" data-state="2fa-off">Off</span></div>
+        <div class="col gap-4" data-state="loaded">
+          <p class="text-body-md">You'll be asked for a code from your authenticator app when you sign in. 8 recovery codes left.</p>
+          <div class="actions"><button class="btn btn-text" type="button" onclick="turnOff()">Turn off</button><button class="btn btn-tonal" type="button" onclick="newCodes()">New recovery codes</button></div>
+        </div>
+        <div class="col gap-4" data-state="2fa-off">
+          <div class="banner banner-info"><span class="mdi mdi-shield-key-outline" aria-hidden="true"></span>
+            <div class="grow"><span class="text-body-md">You can see and change members' records and money. Turn this on so a stolen password isn't enough.</span></div></div>
+          <p class="text-body-md">Protect your account with a code from an authenticator app as well as your password.</p>
+          <div class="actions"><button class="btn btn-filled" type="button" onclick="turnOn()">Turn on</button></div>
+        </div>
+      </div>
+
+      <div class="card card-outlined">
+        <div class="card-header"><div class="card-header-text"><span class="card-title">Password</span><span class="card-description">Changing it signs you out everywhere.</span></div></div>
+        <div class="form-grid">
+          <div class="field field-wide"><label class="field-label" for="cp">Current password</label><input class="field-input" id="cp" type="password" autocomplete="current-password"></div>
+          <div class="field"><label class="field-label" for="np">New password</label><input class="field-input" id="np" type="password" autocomplete="new-password"><span class="field-help">At least 8 characters.</span></div>
+          <div class="field"><label class="field-label" for="np2">Confirm new password</label><input class="field-input" id="np2" type="password" autocomplete="new-password"></div>
+        </div>
+        <div class="actions"><button class="btn btn-filled" type="button" data-save="Password changed. Sign in again with the new one." disabled>Change password</button></div>
+      </div>
+
+      <div class="card card-outlined">
+        <div class="card-header"><div class="card-header-text"><span class="card-title">Recent sign-ins</span>
+          <span class="card-description">Signed in somewhere you don't recognise? End every session, including this one.</span></div></div>
+        <div class="rowcards" id="signins"></div>
+        <div class="actions"><button class="btn btn-outlined" type="button" onclick="everywhere()">Sign out everywhere</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col gap-4" data-state="loading">
+    <div class="skeleton-line" style="width:40%"></div>
+    <div class="skeleton-card" style="height:200px"></div><div class="skeleton-card" style="height:88px"></div><div class="skeleton-card" style="height:88px"></div>
+  </div>
+  <div class="error-state" data-state="error"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load your account</span>
+    <span class="text-body-md">Check your connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var me = Portal.me, esc = Portal.esc;
+var parts = me.name.split(" ");
+document.getElementById("fn").value = parts[0];
+document.getElementById("ln").value = parts.slice(1).join(" ");
+document.getElementById("email").textContent = me.email;
+/* Not in canon.js yet: typed here, and flagged in the notes. */
+var SIGNINS = [["30 Oct 2026, 06:12", "Signed in", "41.90.64.12"], ["29 Oct 2026, 17:48", "Signed in", "41.90.64.12"], ["27 Oct 2026, 08:03", "Signed in with a recovery code", "105.163.2.40"]];
+document.getElementById("signins").innerHTML = SIGNINS.map(function (s) {
+  return '<div class="rowcard"><span class="grow"><span class="text-label-sm tone-muted tabular">' + s[0] + '</span><span class="text-body-lg">' + s[1] + '</span><span class="text-body-md tone-muted tabular">From ' + s[2] + "</span></span></div>";
+}).join("");
+Portal.mountBanner();
+
+var field = function (id, label, opts) {
+  opts = opts || {};
+  return '<div class="field"><label class="field-label" for="' + id + '">' + label + '</label><input class="field-input' + (opts.tab ? " tabular" : "") + '" id="' + id + '"' +
+    (opts.type ? ' type="' + opts.type + '"' : "") + (opts.mode ? ' inputmode="' + opts.mode + '"' : "") + ">" + (opts.help ? '<span class="field-help">' + opts.help + "</span>" : "") + "</div>";
+};
+function changeAddress(kind) {
+  var email = kind === "email";
+  Proto.dialog({ title: email ? "Change email" : "Add phone number",
+    body: '<div class="col gap-4">' + (email ? field("na", "New email", { type: "email" }) : field("na", "New phone number", { type: "tel", mode: "tel", tab: true, help: "We'll text a code to it." })) +
+      field("cpw", "Current password", { type: "password" }) + "</div>",
+    submit: "Send code",
+    onSubmit: function (el) {
+      var to = el.querySelector("#na").value || (email ? "the new address" : "the new number");
+      Proto.dialog({ title: "Enter the code", body: '<div class="col gap-4"><p class="text-body-md tone-muted">Code sent to ' + esc(to) + ".</p>" + field("ac", "Code", { mode: "numeric", tab: true }) + "</div>",
+        submit: "Confirm", onSubmit: function () { Proto.snack(email ? "Email updated. Sign in again with your new address." : "Phone number updated. Sign in again."); } });
+    } });
+}
+function closeLogin() {
+  Proto.dialog({ title: "Close your login?",
+    body: '<div class="col gap-4"><p class="text-body-md">You will not be able to sign in to GroFunder again, here or anywhere else. What you did stays in each cooperative\'s records under your name.</p>' +
+      (Portal.isOwner(me) ? '<div class="banner banner-warning"><span class="mdi mdi-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">You\'re an owner of ' + esc(Portal.coop().profile.short_name) + '. Make sure another administrator is on the team first.</span></div></div>' : "") +
+      field("clp", "Current password", { type: "password" }) + "</div>",
+    submit: "Close my login", onSubmit: function () { Proto.snack("Your login is closed"); } });
+}
+function recoveryCodes() {
+  var codes = ["7KQ2-MX4P", "R8VD-2JHN", "C3TW-9LQE", "Y6PA-K2DF", "H4ZN-8RTB", "M9EX-3UQS", "B2LC-7WGV", "T5JK-6NPA"];
+  Proto.dialog({ title: "Save your recovery codes",
+    body: '<div class="col gap-4"><p class="text-body-md">Each code signs you in once if you lose your authenticator. They won\'t be shown again.</p>' +
+      '<div class="form-grid tabular text-title-md">' + codes.map(function (c) { return "<span>" + c + "</span>"; }).join("") + "</div>" +
+      '<div class="actions"><button class="btn btn-text" type="button" onclick="Proto.snack(\'Recovery codes copied.\')">Copy</button><button class="btn btn-filled" type="button" onclick="Proto.close()">Done</button></div></div>' });
+}
+function turnOn() {
+  Proto.dialog({ title: "Set up two-step verification",
+    body: '<div class="col gap-4"><p class="text-body-md">Confirm your password first: whoever can add an authenticator can recover the account with it.</p>' + field("tp", "Current password", { type: "password" }) + "</div>",
+    submit: "Continue",
+    onSubmit: function () {
+      Proto.dialog({ title: "Set up two-step verification",
+        body: '<div class="col gap-4"><p class="text-body-md">Scan this with your authenticator app, then enter the code it shows.</p>' +
+          '<div class="center"><span class="mdi mdi-qrcode" aria-label="QR code" style="font-size:196px;line-height:1"></span></div>' +
+          '<p class="text-body-md tone-muted">Can\'t scan it? Enter this key instead: <span class="tabular">JBSW Y3DP EHPK 3PXP</span></p>' +
+          field("tc", "Code from the app", { mode: "numeric", tab: true }) + "</div>",
+        submit: "Turn on", onSubmit: recoveryCodes });
+    } });
+}
+function turnOff() {
+  Proto.dialog({ title: "Turn off two-step verification?", body: '<div class="col gap-4"><p class="text-body-md">Signing in will need only your password.</p>' + field("op", "Current password", { type: "password" }) + "</div>",
+    submit: "Turn off", onSubmit: function () { Proto.snack("Two-step verification is off."); Proto.go("2fa-off"); } });
+}
+function newCodes() {
+  Proto.dialog({ title: "Replace recovery codes?", body: '<p class="text-body-md">Your current recovery codes will stop working.</p>', submit: "Replace", onSubmit: recoveryCodes });
+}
+function everywhere() {
+  Proto.confirm({ title: "Sign out everywhere?", message: "Every device, including this one, will need to sign in again.", confirm: "Sign out everywhere", destructive: true,
+    onConfirm: function () { location.href = "../auth/sign-in.html"; } });
+}
+</script>
+</body>
+</html>

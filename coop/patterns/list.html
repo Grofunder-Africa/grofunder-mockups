@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deliveries · list pattern · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Produce" data-dest="produce" data-wide
+     data-action='{"label":"Record delivery","icon":"plus","href":"form.html","roles":"admin manager clerk"}'
+     data-menu='[{"label":"Import from a spreadsheet","icon":"file-upload-outline","roles":"admin manager clerk","on":"Proto.snack(&apos;Import is drawn with the produce flow&apos;)"},{"label":"Download as CSV","icon":"download","on":"Proto.snack(&apos;Downloading 68 deliveries&apos;)"}]'>
+
+  <div data-subnav="produce" data-current="deliveries" data-label="Produce"></div>
+
+  <p class="proto-note"><b>Data:</b> today's deliveries at Kijani Valley Dairy from the shared data set (<code>assets/data/canon.js</code>); every row opens the member sample.</p>
+  <p class="proto-note"><b>Pattern sample: a list screen (phase 2).</b> Shows the shell, Section, toolbar, band and DataTable working together. The content is provisional; the produce flow (phase 7) designs this screen properly from note 07.</p>
+  <p class="proto-note"><b>Second level.</b> Produce has three pages, so it carries Tabs: across the top below 840, a list pane on the left from 840 (the kit's <code>Screen tabs</code>). The rail stays collapsed on a screen with a pane, so the table keeps its width.</p>
+  <p class="proto-note"><b>Primary action.</b> "Record delivery" is a labelled button in the app bar from 600, and an extended FAB on a phone. A viewer or accountant doesn't see it (<code>produce.record</code>).</p>
+
+  <div class="banner banner-info" data-coop="on_hold">
+    <span class="mdi mdi-information-outline" aria-hidden="true"></span>
+    <div class="grow"><span class="text-title-sm">Kijani Valley Dairy is on hold</span>
+      <span class="text-body-md">Recording deliveries and paying members carry on. Adding new members is paused until GroFunder lifts the hold.</span></div>
+  </div>
+
+  <!-- LOADED -->
+  <div data-state="loaded" class="col gap-4">
+    <div class="section">
+      <div class="section-toolbar">
+        <div class="field search">
+          <div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>
+            <input class="field-input" id="q" type="search" placeholder="Member, number or receipt" aria-label="Search deliveries" oninput="draw()"></div>
+        </div>
+        <select class="field-input" aria-label="Product" style="width:auto"><option>All products</option><option>Raw milk</option></select>
+        <select class="field-input" aria-label="Period" style="width:auto"><option>Today</option><option>This week</option><option>This month</option><option>Pick dates…</option></select>
+        <select class="field-input" aria-label="Round" style="width:auto"><option>All rounds</option><option>Morning</option><option>Evening</option></select>
+      </div>
+      <div class="section-band">
+        <div class="section-figure lg"><span class="k">Today</span><span class="v" id="f-qty"></span></div>
+        <div class="section-figure"><span class="k">Deliveries</span><span class="v" id="f-count"></span></div>
+        <div class="section-figure"><span class="k">Members</span><span class="v" id="f-members"></span></div>
+        <span class="note">Voided entries are left out of every total.</span>
+      </div>
+      <div class="table-wrap only-wide">
+        <table class="table">
+          <thead><tr><th>Member</th><th>Product</th><th class="num">Quantity</th><th>Round</th><th>Centre</th><th>Receipt</th><th>Recorded by</th><th></th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="rowcards only-compact" id="cards"></div>
+    </div>
+  </div>
+
+  <!-- LOADING -->
+  <div data-state="loading" class="col gap-4">
+    <div class="skeleton" style="height:40px"></div>
+    <div class="skeleton-card"></div>
+    <div class="col"><div class="skeleton-row"><span class="skeleton-avatar"></span><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:50%"></div><div class="skeleton skeleton-line" style="width:30%"></div></div></div>
+      <div class="skeleton-row"><span class="skeleton-avatar"></span><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:60%"></div><div class="skeleton skeleton-line" style="width:25%"></div></div></div>
+      <div class="skeleton-row"><span class="skeleton-avatar"></span><div class="col gap-2 grow"><div class="skeleton skeleton-line" style="width:45%"></div><div class="skeleton skeleton-line" style="width:35%"></div></div></div></div>
+  </div>
+
+  <!-- EMPTY -->
+  <div data-state="empty" class="empty">
+    <span class="mdi mdi-basket-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No deliveries today yet</span>
+    <span class="text-body-md">Deliveries appear here as clerks record them at the collection centres.</span>
+    <a class="btn btn-filled" href="form.html" data-roles="admin manager clerk"><span class="mdi mdi-plus" aria-hidden="true"></span>Record delivery</a>
+  </div>
+
+  <!-- ERROR -->
+  <div data-state="error" class="error-state">
+    <span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load deliveries</span>
+    <span class="text-body-md">Check the connection and try again. Nothing you recorded is lost.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loading');setTimeout(function(){Proto.go('loaded')},800)">Try again</button>
+  </div>
+</div>
+
+<script>
+/* Today's deliveries at Kijani Valley Dairy, from the shared data (assets/data/canon.js). */
+var q = GF.q, f = GF.fmt;
+var TODAY = q.deliveries({ cooperative: GF.who.kijani, on: GF.TODAY }).slice().reverse();
+var short = function (n) { var p = n.split(" "); return p[0] + " " + (p[1] || "")[0] + "."; };
+var rec = TODAY.filter(function (d) { return d.status === "RECORDED"; });
+document.getElementById("f-qty").textContent = f.qty(q.quantity(TODAY), "LITRE");
+document.getElementById("f-count").textContent = rec.length;
+document.getElementById("f-members").textContent = new Set(rec.map(function (d) { return d.member; })).size;
+function draw() {
+  var term = (document.getElementById("q").value || "").toLowerCase();
+  var list = TODAY.filter(function (d) { var m = GF.get(d.member); return !term || (m.full_name + m.member_no + d.receipt_no).toLowerCase().indexOf(term) > -1; });
+  document.getElementById("rows").innerHTML = list.map(function (d) {
+    var m = GF.get(d.member), v = d.status === "VOIDED";
+    return '<tr data-href="detail.html" onclick="location.href=\'detail.html\'"><td class="primary-cell">' + m.full_name + '<span class="cell-sub tabular">' + m.member_no + "</span></td>" +
+      "<td>" + f.productName(d.product, d.grade) + '</td><td class="num' + (v ? " struck tone-muted" : "") + '">' + f.delivery(d) + "</td><td>" + GF.get(d.round).name +
+      "</td><td>" + GF.get(d.cluster).name + '</td><td class="tabular">' + (d.receipt_no || "–") + "</td><td>" + short(d.recorded_by) + "</td>" +
+      "<td>" + (v ? '<span class="status status-neutral">Voided</span>' : "") + "</td></tr>";
+  }).join("");
+  document.getElementById("cards").innerHTML = list.map(function (d) {
+    var m = GF.get(d.member), v = d.status === "VOIDED";
+    return '<a class="rowcard" href="detail.html"><span class="grow"><span class="text-body-lg">' + m.full_name + '</span><span class="text-body-md tone-muted tabular">' +
+      m.member_no + " · " + GF.get(d.round).name + " · " + GF.get(d.cluster).name + "</span></span>" +
+      '<span class="trail"><span class="text-title-md tabular' + (v ? " struck tone-muted" : "") + '">' + f.delivery(d) + "</span>" +
+      (v ? '<span class="status status-neutral">Voided</span>' : "") + "</span></a>";
+  }).join("");
+}
+draw();
+</script>
+</body>
+</html>

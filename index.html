@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GroFunder prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/kit.css">
+<script src="assets/proto.js" defer></script>
+<style>
+  .page { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; display: flex; flex-direction: column; gap: 32px; }
+  .hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; align-items: start; }
+  .phase { display: grid; grid-template-columns: 32px 1fr auto; gap: 12px; align-items: center; }
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="col gap-3">
+    <img src="assets/brand/grofunder-wordmark.png" alt="GroFunder" style="height:40px;width:auto;align-self:flex-start">
+    <h1 class="text-headline-md">The GroFunder prototype</h1>
+    <p class="text-body-lg tone-muted" style="max-width:70ch">A clickable mockup of the GroFunder app, drawn with the React Native kit's components and GroFunder's colours, then converted into the Expo app. It is local only. The plan and decisions live next to it in <code>mockups/</code>.</p>
+  </header>
+
+  <section class="col gap-4">
+    <h2 class="text-title-lg">Where it stands</h2>
+    <div class="card card-outlined">
+      <div class="phase"><span class="text-title-md tabular">1</span><span class="text-body-lg">Brand and colour: logo, palette, Figtree, number formats</span><span class="status status-success">Signed off</span></div>
+      <div class="phase"><span class="text-title-md tabular">2</span><span class="text-body-lg">Components and shell, pattern samples, new-component proposals</span><span class="status status-success">Signed off</span></div>
+      <div class="phase"><span class="text-title-md tabular">3</span><span class="text-body-lg">Screen map and the shared fictional data</span><span class="status status-success">Signed off</span></div>
+      <div class="phase"><span class="text-title-md tabular">4</span><span class="text-body-lg">GroFunder onboards a cooperative: the console</span><span class="status status-success">Signed off</span></div>
+      <div class="phase"><span class="text-title-md tabular">5</span><span class="text-body-lg">Cooperative set-up: the portal</span><span class="status status-warning">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">6</span><span class="text-body-lg"><a href="coop/members/index.html">Member register: list, add, member, import, search</a></span><span class="status status-info">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">7</span><span class="text-body-lg"><a href="coop/produce/index.html">Produce: deliveries, recording, import, prices</a></span><span class="status status-info">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">8</span><span class="text-body-lg"><a href="coop/payouts/index.html">Payouts: start, draft, mark paid, statement</a></span><span class="status status-info">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">9</span><span class="text-body-lg">Member app</span><span class="status status-warning">For review</span></div>
+    </div>
+  </section>
+
+  <section class="col gap-4">
+    <h2 class="text-title-lg">Map</h2>
+    <a class="card card-outlined" href="sitemap.html" style="text-decoration:none;color:inherit;max-width:640px"><span class="card-title">Sitemap: every screen, by surface and role</span><span class="card-description">68 screens from notes 01–09, who can open each one, and the flow that draws it.</span></a>
+  </section>
+
+  <section class="col gap-4">
+    <h2 class="text-title-lg">Specimens</h2>
+    <div class="hub-grid">
+      <a class="card card-outlined" href="specimens/identity.html" style="text-decoration:none;color:inherit"><span class="card-title">Identity</span><span class="card-description">Colour, type, statuses and number formats on sample screens. Signed off.</span></a>
+      <a class="card card-outlined" href="specimens/components.html" style="text-decoration:none;color:inherit"><span class="card-title">Components</span><span class="card-description">Every kit component GroFunder uses, in every state.</span></a>
+      <a class="card card-outlined" href="specimens/new-components.html" style="text-decoration:none;color:inherit"><span class="card-title">New components</span><span class="card-description">PinPad, OtpInput, QuantityEntry, MoneyField, KeyValueList, Avatar: proposals.</span></a>
+    </div>
+  </section>
+
+  <section class="col gap-4">
+    <h2 class="text-title-lg">Pattern samples, in the shell</h2>
+    <p class="text-body-md tone-muted" style="max-width:70ch">Sample screens that test the shell and the components on real kinds of screen. Their content is provisional: each flow redesigns its screens from the app notes. Use the review bar at the top of each page to switch role, cooperative status, theme and state; its Notes button explains the page.</p>
+    <div class="hub-grid">
+      <div class="card card-outlined">
+        <span class="card-title">Cooperative portal</span><span class="card-description">Web, for cooperative staff. Bottom bar on a phone (clerks), rail on a computer.</span>
+        <div class="rowcards">
+          <a class="rowcard" href="coop/home/index.html"><span class="mdi mdi-view-dashboard-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Home</span><span class="text-body-md tone-muted">Dashboard: StatCards, a Section</span></span></a>
+          <a class="rowcard" href="coop/patterns/list.html"><span class="mdi mdi-format-list-bulleted" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Deliveries</span><span class="text-body-md tone-muted">List: tabs as a pane, toolbar, band, DataTable</span></span></a>
+          <a class="rowcard" href="coop/patterns/form.html"><span class="mdi mdi-form-select" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Record delivery</span><span class="text-body-md tone-muted">Task form, phone-first, pinned action</span></span></a>
+          <a class="rowcard" href="coop/patterns/detail.html"><span class="mdi mdi-card-account-details-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Member</span><span class="text-body-md tone-muted">Detail: header, tabs, menu, status dialog</span></span></a>
+          <a class="rowcard" href="coop/patterns/settings.html"><span class="mdi mdi-cog-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Settings</span><span class="text-body-md tone-muted">Pane, save per card</span></span></a>
+          <a class="rowcard" href="coop/patterns/sign-in.html"><span class="mdi mdi-login" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Staff sign-in</span><span class="text-body-md tone-muted">Signed out: one centred column</span></span></a>
+        </div>
+      </div>
+      <div class="card card-outlined">
+        <span class="card-title">Member app</span><span class="card-description">Android and iOS, for members.</span>
+        <div class="rowcards">
+          <a class="rowcard" href="member/home/index.html"><span class="mdi mdi-home-variant-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Home</span><span class="text-body-md tone-muted">Phone layout, switching cooperatives</span></span></a>
+          <a class="rowcard" href="member/patterns/sign-in.html"><span class="mdi mdi-dialpad" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Sign in</span><span class="text-body-md tone-muted">ID, PinPad, SMS code (steps are states)</span></span></a>
+        </div>
+      </div>
+      <div class="card card-outlined">
+        <span class="card-title">GroFunder console</span><span class="card-description">Web, for GroFunder staff.</span>
+        <div class="rowcards">
+          <a class="rowcard" href="gf/home/index.html"><span class="mdi mdi-view-dashboard-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Overview</span><span class="text-body-md tone-muted">Phase 4: what needs GroFunder, figures, recent changes</span></span></a>
+          <a class="rowcard" href="gf/cooperatives/index.html"><span class="mdi mdi-office-building-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Cooperatives</span><span class="text-body-md tone-muted">Phase 4: list, add, detail, edit, status, invitations, members</span></span></a>
+          <a class="rowcard" href="gf/reference/catalog.html"><span class="mdi mdi-sprout-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Reference data</span><span class="text-body-md tone-muted">Phase 4: catalog and places</span></span></a>
+          <a class="rowcard" href="gf/team/index.html"><span class="mdi mdi-shield-account-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Team</span><span class="text-body-md tone-muted">Phase 4: GroFunder staff and roles (owners)</span></span></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="col gap-4">
+    <h2 class="text-title-lg">How to read it</h2>
+    <div class="card card-outlined">
+      <dl class="facts">
+        <dt>Review bar</dt><dd>The dark bar at the top is the prototype's, not the app's. Press H to hide it.</dd>
+        <dt>Role</dt><dd>Switches what the role can see; content a role can't use is removed, not greyed out (note 09).</dd>
+        <dt>Cooperative</dt><dd>Active or on hold: what changes while a cooperative is on hold (note 01).</dd>
+        <dt>State</dt><dd>Every screen's loading, empty, error and loaded states; flows show their steps here.</dd>
+        <dt>Notes</dt><dd>Why the screen is the way it is. A red count is gaps: things the design needs that don't exist yet.</dd>
+        <dt>Widths</dt><dd>Narrow the window: under 600 is a phone (bottom bar), 600 to 1199 a rail, 1200 and up an expanded rail.</dd>
+      </dl>
+    </div>
+  </section>
+</main>
+</body>
+</html>

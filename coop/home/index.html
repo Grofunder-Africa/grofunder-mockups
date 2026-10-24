@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Home · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Home" data-dest="home" data-wide
+     data-action='{"label":"Record delivery","icon":"plus","href":"../produce/record.html","roles":"admin manager clerk"}'>
+
+  <p class="proto-note"><b>C1 · Home (notes 01, 05, 07, 08; UI-16).</b> While the cooperative is onboarding, home is its set-up checklist; once GroFunder makes it active, home is the day's figures. Switch <i>Cooperative</i> in the review bar: Onboarding shows Mumbi Maize &amp; Beans as Rose Wairimu, just after she accepted GroFunder's invitation; the other statuses show Kijani Valley Dairy.</p>
+  <p class="proto-note"><b>The checklist is worked out, not stored.</b> Each line reads something that already exists (the profile, a registration certificate, products, clusters, the team, rounds, additions and deductions), so there's nothing new for the backend. Staff can't make the cooperative active themselves: GroFunder does, once someone has accepted an invitation (01).</p>
+  <p class="proto-note"><b>Ended</b> (01) is read only: Record delivery and every other write control go, as they do for a role that can't use them. <b>On hold</b> keeps recording and paying going; adding members pauses (phase 6).</p>
+
+  <!-- Onboarding: the set-up checklist (Mumbi). -->
+  <div data-state="loaded" class="col gap-6" data-coop="onboarding">
+    <div class="card card-outlined" data-roles="admin manager">
+      <div class="card-header"><div class="card-header-text"><span class="card-title" id="ck-title">Set up the cooperative</span>
+        <span class="card-description">Work through these in any order. GroFunder makes the cooperative active when it's ready.</span></div></div>
+      <div class="meter"><div class="meter-track"><div class="meter-fill" id="ck-fill"></div></div><div class="meter-label"><span>Done</span><span id="ck-count"></span></div></div>
+      <div class="rowcards" id="checklist"></div>
+    </div>
+    <div class="card card-outlined" data-roles="accountant clerk viewer">
+      <div class="card-header"><div class="card-header-text"><span class="card-title">The cooperative is being set up</span>
+        <span class="card-description" id="ck-others"></span></div></div>
+    </div>
+  </div>
+
+  <!-- Active, on hold, ended: the day's figures (Kijani). -->
+  <div data-state="loaded" class="col gap-6" data-coop="active on_hold ended">
+    <div class="stats-grid">
+      <a class="stat-card" href="../produce/index.html"><span class="stat-text"><span class="stat-label">Collected today</span><span class="stat-value" id="s-today"></span><span class="stat-caption" id="s-today-c"></span></span></a>
+      <div class="stat-card"><span class="stat-text"><span class="stat-label">Active members</span><span class="stat-value" id="s-members"></span><span class="stat-caption" id="s-members-c"></span></span></div>
+      <div class="stat-card" data-roles="admin manager accountant viewer"><span class="stat-text"><span class="stat-label">Still to pay members</span><span class="stat-value" id="s-owed"></span><span class="stat-caption">On deliveries up to today</span></span></div>
+      <div class="stat-card" data-roles="admin manager accountant viewer"><span class="stat-text"><span class="stat-label">Paid in October</span><span class="stat-value" id="s-paid"></span><span class="stat-caption" id="s-paid-c"></span></span></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">Today by centre</span><span class="text-body-md tone-muted" id="round-line"></span></div></div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Centre</th><th class="num">Members</th><th class="num" id="qty-head">Litres</th><th>Clerk</th></tr></thead>
+          <tbody id="by-centre"></tbody>
+          <tfoot id="by-centre-total"></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4">
+    <div class="stats-grid"><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div></div>
+    <div class="skeleton-card" style="height:240px"></div>
+  </div>
+  <div data-state="empty" class="empty" data-coop="active on_hold ended">
+    <span class="mdi mdi-sprout-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Nothing collected yet today</span>
+    <span class="text-body-md">Today's deliveries appear here as the clerks record them.</span>
+    <a class="btn btn-filled" href="../produce/record.html" data-roles="admin manager clerk" data-write>Record delivery</a>
+  </div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the home page</span><span class="text-body-md">Check your connection, then try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var q = GF.q, f = GF.fmt, K = Portal.COOP, c = Portal.coop(), esc = Portal.esc;
+Portal.title();
+Portal.mountBanner();
+/* Nothing new can be recorded while ended (01), and there's no one to record for until members are in. */
+if (Portal.status === "ended" || Portal.onboarding) document.querySelector("[data-screen]").removeAttribute("data-action");
+var set = function (id, t) { document.getElementById(id).textContent = t; };
+
+if (Portal.onboarding) {
+  var S = "../settings/";
+  var docs = q.documentsOf(K), team = Portal.staff().length - 1 + Portal.invitations().length;
+  var has = function (list) { return list.filter(function (x) { return x.cooperative === K && x.status === "ACTIVE"; }).length; };
+  var nProducts = has(GF.coopProducts), nClusters = has(GF.clusters), nRounds = has(GF.rounds), nTypes = has(GF.payoutItemTypes);
+  var about = c.profile.description && c.profile.contact.phone;
+  var items = [
+    { done: !!about, title: "Describe the cooperative", sub: about ? "About and contact person filled in" : "Say what the cooperative does; the contact person is " + esc(c.profile.contact.name), href: S + "profile.html" },
+    { done: docs.some(function (d) { return d.purpose === "REGISTRATION_CERTIFICATE"; }), title: "Registration certificate", sub: "Uploaded " + f.date((docs.find(function (d) { return d.purpose === "REGISTRATION_CERTIFICATE"; }) || { uploaded_at: GF.TODAY }).uploaded_at), todo: "Upload a copy, and the logo if you have one", href: S + "profile.html" },
+    { done: nProducts > 0, title: "Products you collect", sub: nProducts + " added: " + GF.coopProducts.filter(function (p) { return p.cooperative === K; }).map(function (p) { return GF.get(p.product).name; }).join(", "), todo: "Add what members deliver, and the unit you record it in", href: S + "products.html" },
+    { done: nClusters > 0, title: "Clusters", sub: nClusters + " clusters", todo: "Add your collection centres, zones or village groups", href: S + "clusters.html" },
+    { done: team > 0, title: "Invite your team", sub: team + " invited", todo: "Invite the clerks, the accountant and the board", href: S + "team.html" },
+    { done: nRounds > 0, optional: true, title: "Collection rounds", sub: nRounds + " rounds", todo: "When you collect, if you collect on a schedule", href: S + "rounds.html" },
+    { done: nTypes > 0, optional: true, title: "Additions and deductions", sub: nTypes + " kinds", todo: "Levies, bonuses and corrections that appear on members' pay", href: S + "pay-items.html" },
+    { done: false, title: "Add your members", todo: "Add them one by one or import a spreadsheet", href: "../members/index.html", later: true }
+  ];
+  var needed = items.filter(function (i) { return !i.optional; }), done = needed.filter(function (i) { return i.done; }).length;
+  set("ck-count", done + " of " + needed.length);
+  document.getElementById("ck-fill").style.width = Math.round(100 * done / needed.length) + "%";
+  document.getElementById("checklist").innerHTML = items.map(function (i) {
+    return '<a class="rowcard" href="' + i.href + '" aria-label="' + i.title + ": " + (i.done ? "done" : "to do") + '"><span class="mdi mdi-' + (i.done ? "check-circle tone-primary" : "circle-outline tone-muted") + '" aria-hidden="true"></span>' +
+      '<span class="grow"><span class="text-body-lg">' + i.title + (i.optional ? ' <span class="tone-muted">(optional)</span>' : "") + "</span>" +
+      '<span class="text-body-md tone-muted">' + (i.done ? i.sub : i.todo) + "</span></span>" +
+      '<span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>';
+  }).join("") +
+    '<div class="rowcard"><span class="mdi mdi-flag-checkered tone-muted" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">GroFunder makes the cooperative active</span>' +
+    '<span class="text-body-md tone-muted">Once someone on the team has accepted an invitation. You can carry on setting up afterwards.</span></span></div>';
+  set("ck-others", "Rose Wairimu and GroFunder are setting up " + c.profile.short_name + ". Deliveries and payouts appear here once members are added.");
+} else {
+  var today = q.deliveries({ cooperative: K, on: GF.TODAY, recorded: true });
+  /* Quantities per product, each in its catalog unit (milk in litres; maize in kg, as it's stored). */
+  var cps = GF.coopProducts.filter(function (p) { return p.cooperative === K && p.status === "ACTIVE"; });
+  var collected = function (ds) {
+    var parts = cps.map(function (cp) {
+      var mine = ds.filter(function (d) { return d.product === cp.id; }); if (!mine.length) return "";
+      var amount = q.quantity(mine), base = f.qty(amount, GF.get(cp.product).unit, { digits: 0 });
+      /* In the unit the cooperative records in, as 07 shows it: "31 bags (2,790 kg)". */
+      var shown = cp.recording_unit ? f.qty(amount / cp.unit_factor, cp.recording_unit, { digits: 0, long: true }) + " (" + base + ")" : base;
+      return shown + (cps.length > 1 ? " " + GF.get(cp.product).name.toLowerCase() : "");
+    }).filter(Boolean);
+    return parts.length ? parts.join(", ") : "–";
+  };
+  var dow = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][new Date(GF.TODAY + "T00:00:00Z").getUTCDay()];
+  var mon = +GF.TODAY.slice(5, 7);
+  var todays = GF.rounds.filter(function (r) { return r.cooperative === K && r.status === "ACTIVE" && r.schedule.days.indexOf(dow) > -1 && (!r.schedule.months.length || r.schedule.months.indexOf(mon) > -1); });
+  set("s-today", collected(today));
+  set("s-today-c", today.length + " deliveries" + (todays.length ? ", " + todays.map(function (r) { return r.name.toLowerCase(); }).join(" and ") : ""));
+  document.getElementById("s-today").classList.toggle("text-title-lg", cps.length > 1);
+  set("s-members", q.activeCount(K));
+  set("s-members-c", "Of " + c.profile.declared_member_count + " the cooperative counts");
+  set("s-owed", f.money(q.balance(q.deliveries({ cooperative: K })), { whole: true }));
+  var paid = q.paidIn(K, "2026-10");
+  set("s-paid", f.money(q.sum(paid, function (p) { return p.net_cents; }), { whole: true }));
+  set("s-paid-c", paid.length + " payouts");
+  set("round-line", todays.length ? todays.map(function (r) { return r.name + ", " + r.schedule.start_time + " to " + r.schedule.end_time; }).join("; ") : "No collection round today");
+  document.getElementById("qty-head").textContent = cps.length === 1 ? (GF.UNITS[GF.get(cps[0].product).unit] || [""])[1].replace(/^./, function (x) { return x.toUpperCase(); }) : "Collected";
+  var rows = GF.clusters.filter(function (cl) { return cl.cooperative === K && cl.status === "ACTIVE"; }).map(function (cl) {
+    var ds = today.filter(function (d) { return d.cluster === cl.id; });
+    return { name: cl.name, members: new Set(ds.map(function (d) { return d.member; })).size, ds: ds, clerk: ds[0] ? ds[0].recorded_by : "–" };
+  });
+  document.getElementById("by-centre").innerHTML = rows.map(function (r) {
+    return '<tr><td class="primary-cell">' + r.name + '</td><td class="num">' + r.members + '</td><td class="num">' + collected(r.ds) + "</td><td>" + r.clerk + "</td></tr>";
+  }).join("");
+  document.getElementById("by-centre-total").innerHTML = '<tr><td>Total</td><td class="num">' + rows.reduce(function (s, r) { return s + r.members; }, 0) +
+    '</td><td class="num">' + collected(today) + "</td><td></td></tr>";
+}
+</script>
+</body>
+</html>

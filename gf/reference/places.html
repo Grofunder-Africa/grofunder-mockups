@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Places · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/console.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Reference data" data-dest="reference" data-wide>
+  <div data-subnav="reference" data-current="places" data-label="Reference data"></div>
+
+  <p class="proto-note"><b>G14 · From note 04, as amended by UI-14.</b> The 47 counties come from the official list (<code>load_admin_areas</code>). A county opens as a panel with its sub-counties and their wards, added and corrected there without leaving the list (UI-13). Editing needs <code>places.manage</code> (Full and Owner).</p>
+  <p class="proto-note"><b>UI-14 (accepted; note 04 amended).</b> GroFunder adds sub-counties and wards by hand until an official list is agreed (Q2); a WARD level sits under the sub-county it mostly falls in (note 04, concern 1, option c); a hand-added area has no official code until the list is loaded, and can be deleted while unused.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div class="section">
+      <div class="section-toolbar">
+        <div class="field search"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>
+          <input class="field-input" id="q" type="search" placeholder="County, sub-county or ward" aria-label="Search places"></div></div>
+        <span class="text-body-sm tone-muted" id="count"></span>
+      </div>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Code</th><th>County</th><th class="num">Sub-counties</th><th class="num">Wards</th><th class="num">Records</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+    </div>
+  </div>
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:40px"></div><div class="skeleton-card" style="height:400px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span><span class="text-headline-sm">Couldn't load places</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var q = GF.q, esc = Console.esc;
+var counties = GF.areas.filter(function (a) { return a.level === "COUNTY"; }).sort(function (a, b) { return a.code < b.code ? -1 : 1; });
+var under = function (id, level) { return GF.areas.filter(function (a) { return a.parent === id && a.level === level; }); };
+var wardsIn = function (countyId) { return GF.areas.filter(function (a) { return a.level === "WARD" && a.county === countyId; }); };
+var uses = function (id) { var n = q.inUse(id); return n ? n.toLocaleString("en-KE") + " record" + (n === 1 ? "" : "s") : "Not used yet"; };
+function draw() {
+  var t = document.getElementById("q").value.trim().toLowerCase();
+  var list = counties.filter(function (c) {
+    return !t || c.name.toLowerCase().indexOf(t) > -1 || GF.areas.some(function (a) { return a.county === c.id && a.name.toLowerCase().indexOf(t) > -1; });
+  });
+  document.getElementById("rows").innerHTML = list.map(function (c) {
+    var n = q.inUse(c.id) + GF.areas.filter(function (a) { return a.county === c.id; }).reduce(function (s, a) { return s + q.inUse(a.id); }, 0);
+    return '<tr data-href="#" onclick="countyPanel(\'' + c.id + '\')"><td class="tabular tone-muted">' + c.code + '</td><td class="primary-cell">' + c.name + '</td><td class="num">' + (under(c.id, "SUB_COUNTY").length || "–") +
+      '</td><td class="num">' + (wardsIn(c.id).length || "–") + '</td><td class="num">' + (n ? n.toLocaleString("en-KE") : "–") + "</td></tr>";
+  }).join("") || '<tr><td colspan="5" class="tone-muted">No place matches.</td></tr>';
+  document.getElementById("count").textContent = list.length + " of 47 counties";
+}
+
+/* One county, its sub-counties and their wards (UI-13: one thing and its children, in a panel). */
+function countyPanel(id) {
+  var c = GF.get(id), subs = under(id, "SUB_COUNTY");
+  var row = function (a, extra) {
+    return '<div class="rowcard" style="align-items:flex-start"><span class="grow"><span class="text-body-lg">' + esc(a.name) + '</span><span class="text-body-sm tone-muted">' +
+      (a.code ? "Code " + a.code + " · " : "Added by hand · ") + uses(a.id) + "</span>" + (extra || "") + "</span>" +
+      '<span class="row" data-roles="owner full"><button class="btn btn-text btn-sm" type="button" onclick="renameArea(\'' + a.id + '\')">Rename</button>' +
+      '<button class="icon-btn" type="button" aria-label="More for ' + esc(a.name) + '" onclick="Proto.menu(this,{heading:\'' + esc(a.name).replace(/'/g, "\\'") + "',items:[{label:'Archive',icon:'archive-outline',onSelect:'archiveArea(&quot;" + a.id + "&quot;)'}" +
+      (!a.code && !q.inUse(a.id) ? ",{label:'Delete',icon:'delete-outline',destructive:true,onSelect:'Proto.snack(&quot;" + esc(a.name).replace(/'/g, "\\'") + " deleted&quot;)'}" : "") + ']})"><span class="mdi mdi-dots-vertical" aria-hidden="true"></span></button></span></div>';
+  };
+  Proto.sheet({ wide: true, title: c.name, body:
+    '<span class="text-body-md tone-muted">County ' + c.code + " · " + uses(c.id) + " directly</span>" +
+    '<div class="row between"><span class="text-title-md">Sub-counties</span><button class="btn btn-tonal btn-sm" type="button" data-roles="owner full" onclick="addArea(\'' + id + '\',\'SUB_COUNTY\')">Add sub-county</button></div>' +
+    (subs.length ? '<div class="col gap-2">' + subs.map(function (s) {
+      var wards = under(s.id, "WARD");
+      return '<div class="card card-outlined" style="padding:0;gap:0">' + row(s,
+        '<span class="chip-row" style="margin-top:8px">' + wards.map(function (w) {
+          return '<button class="chip" type="button" onclick="wardMenu(this,\'' + w.id + '\')">' + esc(w.name) + "</button>";
+        }).join("") + '<button class="chip chip-icon" type="button" data-roles="owner full" onclick="addArea(\'' + s.id + '\',\'WARD\')"><span class="mdi mdi-plus" aria-hidden="true"></span>Ward</button></span>') + "</div>";
+    }).join("") + "</div>"
+      : '<div class="empty" style="padding:24px 8px"><span class="mdi mdi-map-marker-plus-outline" aria-hidden="true"></span><span class="text-title-md">No sub-counties yet</span>' +
+        '<span class="text-body-md">Until an official list is loaded (Q2), add the ones your cooperatives need. Records point at the county until then.</span></div>'),
+    footer: '<span data-roles="owner full" class="row gap-1"><button class="btn btn-text" type="button" onclick="renameArea(\'' + id + '\')">Rename county</button><button class="btn btn-text" type="button" onclick="archiveArea(\'' + id + '\')">Archive county</button></span>'
+  });
+}
+function wardMenu(el, id) {
+  var w = GF.get(id);
+  Proto.menu(el, { heading: w.name + " ward · " + uses(id), items: [
+    { label: "Rename", icon: "pencil-outline", onSelect: "renameArea('" + id + "')", roles: "owner full" },
+    { label: "Archive", icon: "archive-outline", onSelect: "archiveArea('" + id + "')", roles: "owner full" }
+  ].concat(q.inUse(id) ? [] : [{ label: "Delete", icon: "delete-outline", destructive: true, roles: "owner full", onSelect: "Proto.snack('Ward deleted')" }]) });
+}
+function addArea(parentId, level) {
+  var parent = GF.get(parentId), what = level === "WARD" ? "ward" : "sub-county";
+  var el = Proto.dialog({ title: "Add a " + what + " to " + parent.name, body:
+    '<div class="field"><label class="field-label" for="an">Name</label><input class="field-input" id="an" autocomplete="off"><span class="field-error" id="an-e" hidden></span></div>' +
+    (level === "SUB_COUNTY" ? '<div class="field"><label class="field-label" for="ac">Official code <span class="optional">(optional)</span></label><input class="field-input tabular" id="ac"><span class="field-help">Leave it empty if you don\'t know it; the official list fills it in when it\'s loaded.</span></div>'
+      : '<p class="text-body-sm tone-muted">A ward is placed under the sub-county it mostly falls in.</p>'),
+    submit: "Add " + what, onSubmit: function () { Proto.snack(what[0].toUpperCase() + what.slice(1) + " added"); } });
+  var input = el.querySelector("#an"), err = el.querySelector("#an-e");
+  input.addEventListener("input", function () {
+    var hit = GF.areas.find(function (a) { return a.parent === parentId && a.name.toLowerCase() === input.value.trim().toLowerCase(); });
+    err.hidden = !hit; input.setAttribute("aria-invalid", String(!!hit));
+    if (hit) err.textContent = parent.name + " already has " + hit.name + ".";
+  });
+}
+function renameArea(id) {
+  var a = GF.get(id);
+  Proto.dialog({ title: "Correct the name", body: '<div class="field"><label class="field-label" for="rn">Name</label><input class="field-input" id="rn" value="' + esc(a.name) + '">' +
+    (a.code ? '<span class="field-help">Code ' + a.code + " stays as it is: it is how the official list is matched when it's loaded again.</span>" : "") + "</div>",
+    submit: "Save", onSubmit: function () { Proto.snack("Saved"); } });
+}
+function archiveArea(id) {
+  var a = GF.get(id), kids = GF.areas.filter(function (x) { return x.parent === id; }).length;
+  Proto.confirm({ title: "Archive " + a.name + "?", message: "Only for a place a boundary change removed. It leaves the pickers and stays on " + uses(id).toLowerCase() + "." + (kids ? " The " + kids + " places under it are archived too." : ""),
+    confirm: "Archive", onConfirm: function () { Proto.snack(a.name + " archived", "Undo"); } });
+}
+document.getElementById("q").addEventListener("input", draw);
+draw();
+</script>
+</body>
+</html>

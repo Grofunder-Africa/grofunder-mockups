@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Account · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Account" data-dest="account" data-compact>
+
+  <p class="proto-note"><b>M13 · Account (notes 05, 06; UI-18).</b> One login, every membership it links. The member changes only their phone, preferred name, email and language (05); the cooperative sees the change at once. Everything else on the record stays with the cooperative's staff, so it's shown as facts, not disabled fields.</p>
+  <p class="proto-note"><b>Memberships.</b> Each linked record, with its number, status, cluster, joining date and current positions. A suspended record is listed, but its deliveries and payments aren't opened: a member sees their ACTIVE records (05).</p>
+  <p class="proto-note"><b>M14 · Edit your details</b> is a dialog (three fields, UI-13); <code>?show=details</code> opens it. The phone changes in its own flow (M16), because the new number needs a code (06).</p>
+
+  <div data-roles="out" class="empty">
+    <span class="mdi mdi-account-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">You're signed out</span>
+    <span class="text-body-md">Sign in to see your account.</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a>
+  </div>
+
+  <div data-state="loaded" class="col gap-6" data-roles="in">
+    <section class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">Your details</span></div>
+        <button class="btn btn-tonal btn-sm" type="button" id="edit-details" onclick="editDetails()">Edit</button></div>
+      <dl class="facts" id="mine"></dl>
+    </section>
+
+    <section class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">As your cooperative records you</span>
+        <span class="text-body-md tone-muted">Your cooperative changes these. Ask the office if something is wrong.</span></div></div>
+      <dl class="facts" id="staff-facts"></dl>
+    </section>
+
+    <section class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">Your memberships</span>
+        <span class="text-body-md tone-muted" id="m-count"></span></div></div>
+      <div class="col gap-4" id="memberships"></div>
+    </section>
+
+    <section class="section">
+      <div class="section-header"><div class="grow"><span class="text-title-lg">Sign-in and privacy</span></div></div>
+      <div class="list rowcards">
+        <a class="rowcard" href="pin.html"><span class="mdi mdi-dialpad" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Change PIN</span><span class="text-body-md tone-muted">The 4 digits you sign in with</span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
+        <a class="rowcard" href="phone.html"><span class="mdi mdi-cellphone" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Change phone</span><span class="text-body-md tone-muted tabular" id="phone-line"></span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
+        <a class="rowcard" href="terms.html"><span class="mdi mdi-file-document-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Terms and privacy</span><span class="text-body-md tone-muted" id="terms-line"></span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
+        <a class="rowcard" href="../auth/welcome.html" id="sign-out" onclick="signOut();return false"><span class="mdi mdi-logout" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Sign out</span><span class="text-body-md tone-muted">You'll need your PIN and an SMS code to come back</span></span></a>
+      </div>
+    </section>
+  </div>
+
+  <div data-state="loading" class="col gap-4" data-roles="in">
+    <div class="skeleton" style="width:40%;height:24px"></div>
+    <div class="skeleton-card" style="height:160px"></div>
+    <div class="skeleton-card" style="height:200px"></div>
+  </div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Your account shows again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var A = MemberApp, f = GF.fmt, esc = A.esc, me = A.current, login = A.login;
+var LANG = { en: "English", sw: "Kiswahili" };
+var ID = { NATIONAL_ID: "National ID", PASSPORT: "Passport", ALIEN_ID: "Alien ID" };
+var GENDER = { FEMALE: "Female", MALE: "Male", UNDISCLOSED: "Not given" };
+var STATUS = { ACTIVE: ["success", "Active"], SUSPENDED: ["warning", "Suspended"], EXITED: ["neutral", "Exited"] };
+var dd = function (k, v, cls) { return "<dt>" + k + "</dt><dd" + (cls ? ' class="' + cls + '"' : "") + ">" + v + "</dd>"; };
+
+function drawMine() {
+  var p = me.profile;
+  var lang = p.language || GF.get(me.cooperative).profile.default_language;
+  document.getElementById("mine").innerHTML =
+    dd("Phone", f.phone(login.phone), "tabular") +
+    dd("Preferred name", p.preferred_name ? esc(p.preferred_name) : '<span class="tone-muted">Not given</span>') +
+    dd("Email", p.email ? esc(p.email) : '<span class="tone-muted">Not given</span>') +
+    dd("Language", LANG[lang] + (p.language ? "" : ' <span class="tone-muted">(your cooperative\'s default)</span>'));
+}
+drawMine();
+document.getElementById("staff-facts").innerHTML =
+  dd("Name", esc(me.full_name)) +
+  dd(ID[me.id_type], esc(me.id_number), "tabular") +
+  dd("Born", me.date_of_birth ? f.date(me.date_of_birth) : '<span class="tone-muted">Not recorded</span>', "tabular") +
+  dd("Gender", GENDER[me.gender] || "–");
+document.getElementById("phone-line").textContent = f.phone(login.phone);
+document.getElementById("terms-line").textContent = "Accepted on " + f.date(login.date_joined);
+
+/* Each linked record: open (ACTIVE) ones show their facts; a suspended one is listed only. */
+document.getElementById("m-count").textContent = A.records.length + " cooperatives, on one login";
+document.getElementById("memberships").innerHTML = A.records.map(function (m) {
+  var c = GF.get(m.cooperative), s = STATUS[m.status], open = m.status === "ACTIVE";
+  var head = '<div class="row between gap-2"><div class="col"><span class="text-title-md">' + esc(c.profile.short_name) + '</span><span class="text-body-md tone-muted tabular">' + esc(m.member_no) + "</span></div>" +
+    '<span class="status status-' + s[0] + '">' + s[1] + "</span></div>";
+  if (!open) return '<div class="card card-outlined" data-record="' + m.id + '">' + head +
+    '<p class="text-body-md tone-muted">This membership is ' + s[1].toLowerCase() + ". Its deliveries and payments open again when " + esc(c.profile.short_name) + " makes it active. Ask the office why.</p></div>";
+  var pos = GF.q.memberPositions(m.id).map(function (mp) { var p = GF.get(mp.position); return esc(p.name) + (mp.cluster ? ", " + esc(GF.get(mp.cluster).name) : ""); });
+  var nominees = (m.profile.nominees || []).map(function (n) { return esc(n.name) + " · " + esc(n.relationship) + ' · <span class="tabular">' + n.share_pct + "%</span>"; });
+  return '<div class="card card-outlined" data-record="' + m.id + '">' + head + '<dl class="facts">' +
+    dd("Cluster", m.cluster ? esc(GF.get(m.cluster).name) : "–") +
+    dd("Member since", f.date(m.joined_on), "tabular") +
+    dd("Positions", pos.length ? pos.join("<br>") : '<span class="tone-muted">None</span>') +
+    dd("Nominees", nominees.length ? nominees.join("<br>") : '<span class="tone-muted">None recorded</span>') +
+    "</dl></div>";
+}).join("");
+
+/* M14: the three profile keys a member edits (05); the phone has its own flow. */
+function editDetails() {
+  var p = me.profile, lang = p.language || "";
+  Proto.dialog({
+    title: "Edit your details",
+    body: '<p class="text-body-md tone-muted">' + A.records.filter(function (m) { return m.status === "ACTIVE"; }).map(function (m) { return esc(A.coopName(m)); }).join(" and ") + " see the change straight away.</p>" +
+      '<div class="field"><label class="field-label" for="d-pn">Preferred name <span class="optional">(optional)</span></label><input class="field-input" id="d-pn" value="' + esc(p.preferred_name) + '" autocomplete="nickname"><span class="field-help">What you like to be called, in the app and in SMS.</span></div>' +
+      '<div class="field"><label class="field-label" for="d-em">Email <span class="optional">(optional)</span></label><input class="field-input" id="d-em" type="email" inputmode="email" value="' + esc(p.email) + '" autocomplete="email"><span class="field-error hidden" id="d-em-e">Enter an email address like name@example.com.</span></div>' +
+      '<div class="field"><label class="field-label" for="d-ln">Language</label><select class="field-input" id="d-ln">' +
+        '<option value=""' + (lang ? "" : " selected") + ">Your cooperative's default (" + LANG[GF.get(me.cooperative).profile.default_language] + ")</option>" +
+        '<option value="en"' + (lang === "en" ? " selected" : "") + '>English</option><option value="sw"' + (lang === "sw" ? " selected" : "") + ">Kiswahili</option></select>" +
+        '<span class="field-help">For SMS from your cooperative.</span></div>',
+    submit: "Save",
+    onSubmit: function (el) {
+      var em = el.querySelector("#d-em").value.trim();
+      if (em && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return Proto.snack("Enter an email address like name@example.com");
+      A.records.forEach(function (m) { m.profile.preferred_name = el.querySelector("#d-pn").value.trim(); m.profile.email = em; m.profile.language = el.querySelector("#d-ln").value; });
+      drawMine();
+      Proto.snack("Saved. Your cooperatives see the change now");
+    }
+  });
+}
+function signOut() {
+  try { localStorage.setItem("gf.role.member", "out"); } catch (e) {}
+  location.href = "../auth/welcome.html";
+}
+document.addEventListener("DOMContentLoaded", function () {
+  setTimeout(function () { if (new URLSearchParams(location.search).get("show") === "details" && Proto.role() === "in") editDetails(); }, 0);
+});
+</script>
+</body>
+</html>

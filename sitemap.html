@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GroFunder sitemap</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/kit.css">
+<script src="assets/data/screens.js"></script>
+<script src="assets/proto.js" defer></script>
+<style>
+  .page { max-width: 1240px; margin: 0 auto; padding: 24px 16px 64px; display: flex; flex-direction: column; gap: 24px; }
+  .surface { display: flex; flex-direction: column; gap: 12px; }
+  .surface-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .sec-label { padding: 12px 16px 4px; font-size: 12px; line-height: 16px; letter-spacing: 0.5px; font-weight: 600; color: var(--on-surface-variant); text-transform: uppercase; }
+  .scr { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; gap: 4px 12px; align-items: start; padding: 10px 16px; border-top: var(--hairline); text-decoration: none; color: inherit; }
+  .scr .id { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--on-surface-variant); padding-top: 2px; }
+  .scr .meta { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .scr.off { opacity: 0.35; }
+  a.scr:hover { background: var(--hover); }
+  .legend { display: flex; gap: 8px 16px; flex-wrap: wrap; align-items: center; }
+  @media (max-width: 599px) { .scr { grid-template-columns: 40px minmax(0, 1fr); } .scr .meta { grid-column: 2; justify-content: flex-start; } }
+</style>
+</head>
+<body>
+<main class="page">
+  <header class="col gap-2">
+    <a href="index.html" class="text-label-lg" style="text-decoration:none">← Prototype contents</a>
+    <h1 class="text-headline-md">Sitemap</h1>
+    <p class="text-body-lg tone-muted" style="max-width:75ch">Every screen the signed-off apps (notes 01–09) need, by surface. A screen with a link has a drawn sample; the rest show the flow that will draw them. Choose a role to see what that person can open: the roles come from the permission codes in note 09. The same list, as text, is <code>mockups/screens.md</code>.</p>
+    <div class="legend text-body-sm tone-muted">
+      <span><span class="status status-success">drawn</span> designed in its flow</span>
+      <span><span class="status status-warning">sample</span> a phase 2 pattern sample, redesigned in its flow</span>
+      <span><span class="status status-neutral">phase 4</span> drawn in that flow</span>
+      <span><span class="status status-info">kit</span> the kit already has it; GroFunder themes it</span>
+    </div>
+  </header>
+  <div id="surfaces" class="col gap-8"></div>
+</main>
+<script>
+(function () {
+  var S = window.GF_SCREENS;
+  var PHASE = { 4: "GroFunder onboarding", 5: "Cooperative set-up", 6: "Members", 7: "Produce", 8: "Payouts", 9: "Member app" };
+  var host = document.getElementById("surfaces");
+  S.SURFACES.forEach(function (s) {
+    var roles = S.ROLES[s.roleSet];
+    var count = s.sections.reduce(function (n, x) { return n + x.screens.length; }, 0);
+    var el = document.createElement("section");
+    el.className = "surface";
+    el.innerHTML =
+      '<div class="surface-head"><div class="col gap-1"><h2 class="text-title-lg">' + s.name + ' <span class="text-body-md tone-muted tabular">' + count + " screens</span></h2>" +
+      '<p class="text-body-md tone-muted" style="max-width:75ch">' + s.about + "</p></div>" +
+      (s.id === "staff" ? "" : '<select class="field-input in-toolbar" style="width:auto" aria-label="Show what a role can open"><option value="">Every role</option>' +
+        Object.keys(roles).map(function (r) { return '<option value="' + r + '">' + roles[r].label + "</option>"; }).join("") + "</select>") + "</div>" +
+      '<div class="section">' + s.sections.map(function (sec) {
+        return '<div class="sec-label">' + sec.label + "</div>" + sec.screens.map(function (x) {
+          var who = s.id === "staff" ? ["*"] : S.rolesFor(s, x);
+          var tag = x.href ? "a" : "div";
+          return "<" + tag + ' class="scr"' + (x.href ? ' href="' + x.href + '"' : "") + ' data-roles="' + who.join(" ") + '">' +
+            '<span class="id">' + x.id + "</span>" +
+            '<span class="col gap-1"><span class="text-body-lg">' + x.title + '</span><span class="text-body-md tone-muted">' + x.purpose + "</span>" +
+            '<span class="text-body-sm tone-muted">Notes ' + x.notes.join(", ") + (x.codes.length ? " · " + x.codes.map(function (c) { return c === "owner" ? "account owners" : c; }).join(" or ") : "") + "</span></span>" +
+            '<span class="meta">' + (x.kit ? '<span class="status status-info">kit</span>' : "") +
+            (x.href && S.DRAWN.indexOf(x.phase) > -1 ? '<span class="status status-success">drawn</span>' : x.href ? '<span class="status status-warning">sample</span>' : '<span class="status status-neutral" title="' + (PHASE[x.phase] || "") + '">phase ' + x.phase + "</span>") +
+            '<span class="status status-neutral">' + x.kind + "</span></span></" + tag + ">";
+        }).join("");
+      }).join("") + "</div>";
+    host.appendChild(el);
+    var sel = el.querySelector("select");
+    if (sel) sel.addEventListener("change", function () {
+      el.querySelectorAll(".scr").forEach(function (row) {
+        row.classList.toggle("off", !!sel.value && row.getAttribute("data-roles").split(" ").indexOf(sel.value) === -1);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
