@@ -10,11 +10,35 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
 <link rel="stylesheet" href="assets/tokens.css">
 <link rel="stylesheet" href="assets/kit.css">
+<script src="assets/data/screens.js"></script>
 <script src="assets/proto.js" defer></script>
 <style>
-  .page { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; display: flex; flex-direction: column; gap: 32px; }
+  .page { max-width: 1040px; margin: 0 auto; padding: 32px 16px 64px; display: flex; flex-direction: column; gap: 40px; }
+  .jump { position: sticky; top: 0; z-index: 2; background: var(--surface); border-bottom: var(--hairline); margin-top: -16px; }
+  .surface { display: flex; flex-direction: column; gap: 16px; scroll-margin-top: 56px; }
+  .flow { scroll-margin-top: 56px; }
   .hub-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 16px; align-items: start; }
-  .phase { display: grid; grid-template-columns: 32px 1fr auto; gap: 12px; align-items: center; }
+  .jrow { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 4px 12px; align-items: baseline; padding: 12px 16px; text-decoration: none; color: inherit; }
+  .jrow + .jrow { border-top: var(--hairline); }
+  a.jrow:hover, a.pg-title:hover { text-decoration: underline; }
+  .jrow .n { font-weight: 600; color: var(--on-surface-variant); }
+  .path { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; padding: 12px 16px; border-bottom: var(--hairline); background: var(--surface-container-low); }
+  .path .mdi { color: var(--on-surface-variant); }
+  .pg { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 2px 12px; padding: 14px 16px; }
+  .pg + .pg { border-top: var(--hairline); }
+  .pg .id { font-weight: 600; color: var(--on-surface-variant); padding-top: 2px; }
+  .pg-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  .pg-title { font-weight: 600; color: inherit; text-decoration: none; }
+  .pg ul { margin: 6px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 2px; }
+  .pg .meta { margin-top: 8px; display: flex; flex-direction: column; gap: 2px; }
+  .phase { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 12px; align-items: center; }
+  code { overflow-wrap: anywhere; }
+  @media (max-width: 599px) {
+    .pg { grid-template-columns: minmax(0, 1fr); }
+    .pg .id { padding-top: 0; }
+    .jrow { grid-template-columns: 24px minmax(0, 1fr); }
+    .jrow .status { grid-column: 2; }
+  }
 </style>
 </head>
 <body>
@@ -22,89 +46,446 @@
   <header class="col gap-3">
     <img src="assets/brand/grofunder-wordmark.png" alt="GroFunder" style="height:40px;width:auto;align-self:flex-start">
     <h1 class="text-headline-md">The GroFunder prototype</h1>
-    <p class="text-body-lg tone-muted" style="max-width:70ch">A clickable mockup of the GroFunder app, drawn with the React Native kit's components and GroFunder's colours, then converted into the Expo app. It is local only. The plan and decisions live next to it in <code>mockups/</code>.</p>
+    <p class="text-body-lg tone-muted" style="max-width:70ch">A clickable mockup of GroFunder's three apps, grouped by the journeys people take through them. Each flow says who it's for and what it's for, then lists its pages: what each one is about and what you can do there. Every name and figure is fictional.</p>
   </header>
 
-  <section class="col gap-4">
-    <h2 class="text-title-lg">Where it stands</h2>
-    <div class="card card-outlined">
-      <div class="phase"><span class="text-title-md tabular">1</span><span class="text-body-lg">Brand and colour: logo, palette, Figtree, number formats</span><span class="status status-success">Signed off</span></div>
-      <div class="phase"><span class="text-title-md tabular">2</span><span class="text-body-lg">Components and shell, pattern samples, new-component proposals</span><span class="status status-success">Signed off</span></div>
-      <div class="phase"><span class="text-title-md tabular">3</span><span class="text-body-lg">Screen map and the shared fictional data</span><span class="status status-success">Signed off</span></div>
-      <div class="phase"><span class="text-title-md tabular">4</span><span class="text-body-lg">GroFunder onboards a cooperative: the console</span><span class="status status-success">Signed off</span></div>
-      <div class="phase"><span class="text-title-md tabular">5</span><span class="text-body-lg">Cooperative set-up: the portal</span><span class="status status-warning">For review</span></div>
-      <div class="phase"><span class="text-title-md tabular">6</span><span class="text-body-lg"><a href="coop/members/index.html">Member register: list, add, member, import, search</a></span><span class="status status-info">For review</span></div>
-      <div class="phase"><span class="text-title-md tabular">7</span><span class="text-body-lg"><a href="coop/produce/index.html">Produce: deliveries, recording, import, prices</a></span><span class="status status-info">For review</span></div>
-      <div class="phase"><span class="text-title-md tabular">8</span><span class="text-body-lg"><a href="coop/payouts/index.html">Payouts: start, draft, mark paid, statement</a></span><span class="status status-info">For review</span></div>
-      <div class="phase"><span class="text-title-md tabular">9</span><span class="text-body-lg">Member app</span><span class="status status-warning">For review</span></div>
-      <div class="phase"><span class="text-title-md tabular">11</span><span class="text-body-lg"><a href="gf/kyc/index.html">KYC: verifications, the agent's visit, the member's details (note 20, draft)</a></span><span class="status status-info">For review</span></div>
+  <nav class="subnav jump" aria-label="Contents">
+    <a class="subnav-item" href="#journey">End to end</a>
+    <a class="subnav-item" href="#gf">GroFunder console</a>
+    <a class="subnav-item" href="#coop">Cooperative portal</a>
+    <a class="subnav-item" href="#member">Member app</a>
+    <a class="subnav-item" href="#more">Reference</a>
+  </nav>
+
+  <section id="journey" class="surface">
+    <div class="col gap-1">
+      <h2 class="text-title-lg">The journey, end to end</h2>
+      <p class="text-body-md tone-muted" style="max-width:70ch">How a cooperative and its members move through the three apps. Each step opens the flow that draws it.</p>
     </div>
+    <div class="section" id="journey-steps"></div>
   </section>
 
-  <section class="col gap-4">
-    <h2 class="text-title-lg">Map</h2>
-    <a class="card card-outlined" href="sitemap.html" style="text-decoration:none;color:inherit;max-width:640px"><span class="card-title">Sitemap: every screen, by surface and role</span><span class="card-description">68 screens from notes 01–09, who can open each one, and the flow that draws it.</span></a>
-  </section>
+  <div id="surfaces" class="col" style="gap:40px"></div>
 
-  <section class="col gap-4">
-    <h2 class="text-title-lg">Specimens</h2>
+  <section id="more" class="surface">
+    <h2 class="text-title-lg">Reference</h2>
     <div class="hub-grid">
+      <a class="card card-outlined" href="sitemap.html" style="text-decoration:none;color:inherit"><span class="card-title">Sitemap</span><span class="card-description" id="sitemap-count">Every screen by app and destination, and which role can open it.</span></a>
       <a class="card card-outlined" href="specimens/identity.html" style="text-decoration:none;color:inherit"><span class="card-title">Identity</span><span class="card-description">Colour, type, statuses and number formats on sample screens. Signed off.</span></a>
       <a class="card card-outlined" href="specimens/components.html" style="text-decoration:none;color:inherit"><span class="card-title">Components</span><span class="card-description">Every kit component GroFunder uses, in every state.</span></a>
       <a class="card card-outlined" href="specimens/new-components.html" style="text-decoration:none;color:inherit"><span class="card-title">New components</span><span class="card-description">PinPad, OtpInput, QuantityEntry, MoneyField, KeyValueList, Avatar: proposals.</span></a>
     </div>
-  </section>
 
-  <section class="col gap-4">
-    <h2 class="text-title-lg">Pattern samples, in the shell</h2>
-    <p class="text-body-md tone-muted" style="max-width:70ch">Sample screens that test the shell and the components on real kinds of screen. Their content is provisional: each flow redesigns its screens from the app notes. Use the review bar at the top of each page to switch role, cooperative status, theme and state; its Notes button explains the page.</p>
-    <div class="hub-grid">
-      <div class="card card-outlined">
-        <span class="card-title">Cooperative portal</span><span class="card-description">Web, for cooperative staff. Bottom bar on a phone (clerks), rail on a computer.</span>
-        <div class="rowcards">
-          <a class="rowcard" href="coop/home/index.html"><span class="mdi mdi-view-dashboard-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Home</span><span class="text-body-md tone-muted">Dashboard: StatCards, a Section</span></span></a>
-          <a class="rowcard" href="coop/patterns/list.html"><span class="mdi mdi-format-list-bulleted" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Deliveries</span><span class="text-body-md tone-muted">List: tabs as a pane, toolbar, band, DataTable</span></span></a>
-          <a class="rowcard" href="coop/patterns/form.html"><span class="mdi mdi-form-select" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Record delivery</span><span class="text-body-md tone-muted">Task form, phone-first, pinned action</span></span></a>
-          <a class="rowcard" href="coop/patterns/detail.html"><span class="mdi mdi-card-account-details-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Member</span><span class="text-body-md tone-muted">Detail: header, tabs, menu, status dialog</span></span></a>
-          <a class="rowcard" href="coop/patterns/settings.html"><span class="mdi mdi-cog-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Settings</span><span class="text-body-md tone-muted">Pane, save per card</span></span></a>
-          <a class="rowcard" href="coop/patterns/sign-in.html"><span class="mdi mdi-login" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Staff sign-in</span><span class="text-body-md tone-muted">Signed out: one centred column</span></span></a>
-        </div>
-      </div>
-      <div class="card card-outlined">
-        <span class="card-title">Member app</span><span class="card-description">Android and iOS, for members.</span>
-        <div class="rowcards">
-          <a class="rowcard" href="member/home/index.html"><span class="mdi mdi-home-variant-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Home</span><span class="text-body-md tone-muted">Phone layout, switching cooperatives</span></span></a>
-          <a class="rowcard" href="member/patterns/sign-in.html"><span class="mdi mdi-dialpad" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Sign in</span><span class="text-body-md tone-muted">ID, PinPad, SMS code (steps are states)</span></span></a>
-          <a class="rowcard" href="member/kyc/index.html"><span class="mdi mdi-shield-check-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Get verified for loans</span><span class="text-body-md tone-muted">Phase 11: what GroFunder holds, and declaring your farm and money</span></span></a>
-        </div>
-      </div>
-      <div class="card card-outlined">
-        <span class="card-title">GroFunder console</span><span class="card-description">Web, for GroFunder staff.</span>
-        <div class="rowcards">
-          <a class="rowcard" href="gf/home/index.html"><span class="mdi mdi-view-dashboard-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Overview</span><span class="text-body-md tone-muted">Phase 4: what needs GroFunder, figures, recent changes</span></span></a>
-          <a class="rowcard" href="gf/cooperatives/index.html"><span class="mdi mdi-office-building-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Cooperatives</span><span class="text-body-md tone-muted">Phase 4: list, add, detail, edit, status, invitations, members</span></span></a>
-          <a class="rowcard" href="gf/reference/catalog.html"><span class="mdi mdi-sprout-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Reference data</span><span class="text-body-md tone-muted">Phase 4: catalog and places</span></span></a>
-          <a class="rowcard" href="gf/team/index.html"><span class="mdi mdi-shield-account-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Team</span><span class="text-body-md tone-muted">Phase 4: GroFunder staff and roles (owners)</span></span></a>
-          <a class="rowcard" href="gf/kyc/index.html"><span class="mdi mdi-shield-check-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Verifications</span><span class="text-body-md tone-muted">Phase 11: KYC visits to review, open and assign; a verification and its items</span></span></a>
-          <a class="rowcard" href="gf/kyc/agent.html"><span class="mdi mdi-clipboard-check-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">My visits (Farmer Support Agent)</span><span class="text-body-md tone-muted">Phase 11: phone-first; switch the role to Farmer Support Agent</span></span></a>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="col gap-4">
-    <h2 class="text-title-lg">How to read it</h2>
+    <h3 class="text-title-md">How to read it</h3>
     <div class="card card-outlined">
       <dl class="facts">
-        <dt>Review bar</dt><dd>The dark bar at the top is the prototype's, not the app's. Press H to hide it.</dd>
-        <dt>Role</dt><dd>Switches what the role can see; content a role can't use is removed, not greyed out (note 09).</dd>
-        <dt>Cooperative</dt><dd>Active or on hold: what changes while a cooperative is on hold (note 01).</dd>
-        <dt>State</dt><dd>Every screen's loading, empty, error and loaded states; flows show their steps here.</dd>
-        <dt>Notes</dt><dd>Why the screen is the way it is. A red count is gaps: things the design needs that don't exist yet.</dd>
-        <dt>Widths</dt><dd>Narrow the window: under 600 is a phone (bottom bar), 600 to 1199 a rail, 1200 and up an expanded rail.</dd>
+        <dt>Review bar</dt><dd>The dark bar at the top of every page is the prototype's, not the app's. Press H to hide it.</dd>
+        <dt>Role</dt><dd>Switches what the role can see. Content a role can't use is removed, not greyed out (note 09). "Try" links marked "as …" set the role or the cooperative's status before opening the page; the choice stays until you change it.</dd>
+        <dt>Cooperative</dt><dd>In the portal and the member app: onboarding, active, on hold or ended, and what changes with each (note 01).</dd>
+        <dt>State</dt><dd>Every page's loading, empty, error and loaded states; a flow's steps are states too. <code>?state=</code> opens one directly.</dd>
+        <dt>Notes</dt><dd>Why the page is the way it is. A red count is gaps: things the design needs that don't exist yet.</dd>
+        <dt>Widths</dt><dd>Under 600 is a phone (bottom bar), 600 to 1199 a rail, 1200 and up an expanded rail.</dd>
       </dl>
+    </div>
+
+    <h3 class="text-title-md">Where it stands</h3>
+    <div class="card card-outlined">
+      <div class="phase"><span class="text-title-md tabular">1</span><span class="text-body-lg"><a href="specimens/identity.html">Brand and colour: logo, palette, Figtree, number formats</a></span><span class="status status-success">Signed off</span></div>
+      <div class="phase"><span class="text-title-md tabular">2</span><span class="text-body-lg"><a href="specimens/components.html">Components and shell, new-component proposals</a></span><span class="status status-success">Signed off</span></div>
+      <div class="phase"><span class="text-title-md tabular">3</span><span class="text-body-lg"><a href="sitemap.html">Screen map and the shared fictional data</a></span><span class="status status-success">Signed off</span></div>
+      <div class="phase"><span class="text-title-md tabular">4</span><span class="text-body-lg"><a href="#gf">GroFunder onboards a cooperative: the console</a></span><span class="status status-success">Signed off</span></div>
+      <div class="phase"><span class="text-title-md tabular">5</span><span class="text-body-lg"><a href="#coop-setup">Cooperative set-up: sign-in, home, settings</a></span><span class="status status-warning">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">6</span><span class="text-body-lg"><a href="#coop-members">Member register</a></span><span class="status status-warning">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">7</span><span class="text-body-lg"><a href="#coop-produce">Produce</a></span><span class="status status-warning">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">8</span><span class="text-body-lg"><a href="#coop-payouts">Payouts</a></span><span class="status status-warning">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">9</span><span class="text-body-lg"><a href="#member">Member app</a></span><span class="status status-warning">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">10</span><span class="text-body-lg">Walk-through and handoff</span><span class="status status-neutral">Not started</span></div>
+      <div class="phase"><span class="text-title-md tabular">11</span><span class="text-body-lg"><a href="#gf-kyc">KYC for lending (note 20, draft)</a></span><span class="status status-warning">For review</span></div>
+    </div>
+
+    <h3 class="text-title-md">Phase 2 pattern samples</h3>
+    <p class="text-body-md tone-muted" style="max-width:70ch">The first samples that tested the shell and components. The flows above have redrawn each of them; they stay for reference only.</p>
+    <div class="card card-outlined card-flush">
+      <div class="rowcards">
+        <a class="rowcard" href="coop/patterns/list.html"><span class="mdi mdi-format-list-bulleted" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">List</span><span class="text-body-md tone-muted">Tabs as a pane, toolbar, band, DataTable</span></span></a>
+        <a class="rowcard" href="coop/patterns/form.html"><span class="mdi mdi-form-select" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Task form</span><span class="text-body-md tone-muted">Phone-first, pinned action</span></span></a>
+        <a class="rowcard" href="coop/patterns/detail.html"><span class="mdi mdi-card-account-details-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Detail</span><span class="text-body-md tone-muted">Header, tabs, menu, status dialog</span></span></a>
+        <a class="rowcard" href="coop/patterns/settings.html"><span class="mdi mdi-cog-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Settings</span><span class="text-body-md tone-muted">Pane, save per card</span></span></a>
+        <a class="rowcard" href="coop/patterns/sign-in.html"><span class="mdi mdi-login" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Staff sign-in</span><span class="text-body-md tone-muted">Signed out: one centred column</span></span></a>
+        <a class="rowcard" href="member/patterns/sign-in.html"><span class="mdi mdi-dialpad" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Member sign-in</span><span class="text-body-md tone-muted">ID, PinPad, SMS code as states</span></span></a>
+      </div>
     </div>
   </section>
 </main>
+
+<script>
+/* The index: journeys first. Page titles, links, kinds and who can open each
+ * page come from assets/data/screens.js (the inventory), so they can't drift;
+ * this file adds only the journeys and what each page lets you do.
+ *
+ * A try link is [label, query] or [label, query, {storageKey: value}]: the
+ * query is added to the page's own address, and the storage keys are the
+ * review bar's (role, cooperative status), set before the page opens. */
+(function () {
+  "use strict";
+  var S = window.GF_SCREENS, BY = {};
+  S.SURFACES.forEach(function (s) {
+    s.sections.forEach(function (sec) { sec.screens.forEach(function (x) { BY[x.id] = { s: s, x: x }; }); });
+  });
+  var APP_OF = { gf: "console", coop: "portal", staff: "portal", member: "member app" };
+
+  function st(name) { return [name, "?state=" + name]; }
+  function as(label, key, value, query) { var o = {}; o[key] = value; return [label, query || "", o]; }
+
+  var JOURNEY = [
+    ["GroFunder adds the cooperative and invites its first administrator.", "Console", "#gf-onboard"],
+    ["The administrator accepts the invitation and sets the cooperative up.", "Portal", "#coop-setup"],
+    ["Staff load the member register, one by one or from a spreadsheet.", "Portal", "#coop-members"],
+    ["GroFunder makes the cooperative active.", "Console", "#gf-onboard"],
+    ["Clerks record deliveries at the collection centres, on their phones.", "Portal", "#coop-produce"],
+    ["Accountants pay members for their deliveries and share statements.", "Portal", "#coop-payouts"],
+    ["Members find their membership in the app and follow deliveries and payments.", "Member app", "#m-first"],
+    ["For a loan: the member declares their farm and money, an agent visits, GroFunder approves.", "Member app · Console", "#m-kyc"]
+  ];
+
+  var STATUS = { signed: ["status-success", "Signed off"], review: ["status-warning", "For review"] };
+
+  var APPS = [
+    { id: "gf", name: "GroFunder console", about: "Web, for GroFunder staff. It reads every cooperative through GroFunder's own account; what each role may change follows note 09. Farmer Support Agents use it on a phone and see only their own visits.",
+      flows: [
+        { id: "gf-onboard", title: "Onboard and look after a cooperative", status: "signed", meta: "Phase 4 · notes 01, 04",
+          who: "Operations and up add and edit; Full and Owner change status; View only reads.",
+          goal: "Put a new cooperative on GroFunder, hand it to its first administrator, then keep its record and status right.",
+          path: [["G1"], ["G3"], ["G4"], ["S2", "Administrator accepts"], ["G7", "Make it active"]],
+          pages: [
+            { id: "G1", about: "The platform at a glance, for every GroFunder role.",
+              can: ["See platform figures and members by county", "See which cooperatives are onboarding or on hold, and the latest status changes", "Search cooperatives by name or registration number, and members by name, ID or phone across cooperatives (G2)"],
+              tries: [st("empty")] },
+            { id: "G3", about: "Every cooperative, to find and compare.",
+              can: ["Filter by status, county or sub-county, value chain and product", "Search by name or registration number", "Compare members on the register with the number the cooperative declared", "Add a cooperative"],
+              tries: [st("empty"), as("as View only", "gf.role.gf", "view")] },
+            { id: "G4", about: "One form, split into steps for a phone: name, registration number, place, profile and the first administrator's email. Nothing is saved until the end.",
+              can: ["Catch a name or registration number already in use", "Pick the county, then the sub-county", "Send the invitation, and copy its link for WhatsApp or SMS"],
+              tries: [st("clash"), st("place"), st("admin"), st("review"), st("done")] },
+            { id: "G5", about: "One cooperative as GroFunder sees it: status, place, value chains, staff and invitations; tabs for profile, products, clusters, documents, members, deliveries, payouts and status history.",
+              can: ["Edit one profile card at a time in a panel; the registered name and number are GroFunder's alone (G6)", "Invite or re-invite the administrator; resending stops the old link (G8)", "Change status, offered only the moves the rules allow, with a reason where one is needed (G7)", "Delete a cooperative still onboarding with nothing attached (G9)", "Open a member and disable or re-enable their app login in a fraud case (G10)"],
+              tries: [["Kijani, active", "?c=co-kijani"], ["Mumbi, onboarding", "?c=co-mumbi"], ["Ruiru Hills, on hold", "?c=co-ruiru"], ["Mawingu, records in bags", "?c=co-mawingu"], ["a member's panel", "?c=co-kijani&m=m-kij-0142"]] }
+          ] },
+        { id: "gf-reference", title: "Reference data", status: "signed", meta: "Phase 4 · notes 02, 04",
+          who: "Every GroFunder role reads; Full and Owner edit.",
+          goal: "Keep the lists every cooperative picks from: value chains, products and grades, and Kenya's places.",
+          pages: [
+            { id: "G11", about: "Every value chain as a section with its products.",
+              can: ["Edit a value chain's name, Swahili name and what it covers (G12)", "Add a product; open one to edit it and add, edit or archive its grades in place (G13)", "Archive a value chain with its products and grades in one step, counted first; reactivate; delete only what nothing uses", "A product's unit locks once a cooperative records in it"],
+              tries: [["a product's panel", "?p=p-milk"]] },
+            { id: "G14", about: "The 47 counties from the official list. A county opens a panel with its sub-counties and wards.",
+              can: ["Add sub-counties and wards by hand until an official list is agreed (UI-14)", "Correct or archive an area; delete a hand-added one while nothing uses it"] }
+          ] },
+        { id: "gf-team", title: "GroFunder team", status: "signed", meta: "Phase 4 · note 09 · the kit's page",
+          who: "Owners only.",
+          goal: "Decide who at GroFunder can do what.",
+          pages: [
+            { id: "G15", about: "GroFunder's staff, their roles (View only, Operations, Full, Owner) and pending invitations.",
+              can: ["Invite someone, picking the least role that does the job", "Change a person's role or remove them; the last owner can't be removed"],
+              tries: [as("as Owner", "gf.role.gf", "owner")] }
+          ] },
+        { id: "gf-kyc", title: "Verify members for loans: the office", status: "review", meta: "Phase 11 · note 20 (draft)",
+          who: "Operations and up open, assign and decide; View only reads.",
+          goal: "Check a member is who they say and farms what they say, then approve them for lending.",
+          path: [["K1"], ["K2", "Open and assign an agent"], ["K6", "Agent visits"], ["K3", "Review"], ["K4", "Approve"]],
+          pages: [
+            { id: "K1", about: "One row per visit. Opens on To review: what agents have submitted, oldest first.",
+              can: ["Filter by cooperative and agent; search by member name or number", "Open a verification for an active member with no live visit, and assign an agent (K2)", "See the warnings worked out at submission, such as a reused photo or a farm near another member's verified farm"],
+              tries: [["open a verification", "?open=1"], st("empty")] },
+            { id: "K3", about: "One visit and the member's KYC items, in tabs: summary and decision, identification, farms and crops, income and loans, next of kin and home, visit and history.",
+              can: ["See where each item came from and what the check found", "Jump from a warning to its tab", "Approve, send back with a reason, or fail (K4), never on a visit you made yourself", "Revoke an approval later, which withdraws its checks", "Assign or cancel the visit"],
+              tries: [["the farms tab", "?v=v-101&tab=farms"]] }
+          ] },
+        { id: "gf-agent", title: "Field visits: the Farmer Support Agent", status: "review", meta: "Phase 11 · note 20 (draft) · phone-first",
+          who: "Farmer Support Agents: their own visits and nothing else.",
+          goal: "Visit a member, check identity and farms on the spot, and send it to the office.",
+          path: [["K5"], ["K6"], ["K7", "Each farm"], ["K3", "Office reviews"]],
+          pages: [
+            { id: "K5", about: "The agent's own visits: sent back first, then visits to make, then those waiting for review (read only).",
+              can: ["Open a visit", "See why a visit was sent back"],
+              tries: [as("as Farmer Support Agent", "gf.role.gf", "agent"), st("offline")] },
+            { id: "K6", about: "A checklist for one member. Each row opens a panel to capture or confirm that kind of information.",
+              can: ["Capture the ID, portrait and phone", "Add and check each farm as its own row (K7)", "Go through what the member declared and correct it", "Submit for review"],
+              tries: [["half done", "?v=v-102"], ["sent back", "?v=v-103"], ["waiting for review", "?v=v-101"]] },
+            { id: "K7", about: "Standing on the farm: its point, size, tenure, what's growing, and photos.",
+              can: ["Confirm or correct what the member declared about the farm"],
+              tries: [["a farm", "?v=v-102&show=farm"]] }
+          ] }
+      ] },
+
+    { id: "coop", name: "Cooperative portal", about: "Web, for cooperative staff; clerks use it on phones at the collection centres. The review bar switches the role (Administrator, Manager, Accountant, Clerk, Viewer) and the cooperative's status (onboarding, active, on hold, ended).",
+      flows: [
+        { id: "coop-access", title: "Get in: invitations, sign-in and your account", status: "review", meta: "Phase 5 · notes 01, 09 · the kit's screens",
+          who: "Every staff member. The console uses the same login and screens.",
+          goal: "Turn an invitation into a login, sign in, and look after your own account.",
+          path: [["S2"], ["C1", "Home, set-up checklist"], ["S1", "Next time: sign in"], ["S5"]],
+          pages: [
+            { id: "S2", about: "Opened from the invitation email, or a link GroFunder copied into WhatsApp or SMS.",
+              can: ["Choose a password, or sign in first if the address already has a login", "Land straight on the cooperative's home and its set-up checklist"],
+              tries: [st("existing"), st("other"), st("match"), st("invalid")] },
+            { id: "S1", about: "Email, phone or username and password, then a two-step code for those who turned it on. There's no sign-up: staff are invited.",
+              can: ["Sign in and land on the last account used", "Reset a forgotten password"],
+              tries: [st("code"), st("notice"), st("error")] },
+            { id: "S3", about: "A code by email or SMS, then a new password. It never says whether an address has a login.",
+              can: ["Reset the password, which ends every session"],
+              tries: [st("code"), st("code-2fa")] },
+            { id: "S5", about: "The person's own login, the same in every cooperative they work for: profile and security as two tabs.",
+              can: ["Change email or phone, confirmed with the password and a code", "Change the password; turn on two-step sign-in", "See recent sign-ins; sign out everywhere", "Switch between cooperatives, or to GroFunder, from the account sheet (S4)"],
+              tries: [st("2fa-off")] },
+            { id: "S6", about: "In-app notices from the bell. For now these are the cooperative's status changes.",
+              can: ["Open a notice and mark it read; mark all as read"],
+              tries: [st("empty")] }
+          ] },
+        { id: "coop-setup", title: "Set up the cooperative", status: "review", meta: "Phase 5 · notes 01, 02, 05, 07, 08, 09",
+          who: "Administrators; managers for most pages; accountants for additions and deductions.",
+          goal: "Get from \"invitation accepted\" to ready for GroFunder to make the cooperative active.",
+          path: [["C1", "Set-up checklist"], ["C22"], ["C23"], ["C24"], ["C28"], ["C26"], ["C27"], ["G7", "GroFunder makes it active"]],
+          pages: [
+            { id: "C1", about: "While onboarding, the set-up checklist; once active, the day's figures: today's collection, members, what's still to pay.",
+              can: ["Follow the checklist, worked out from what already exists", "Search members by name, number, ID or phone, and deliveries by receipt (C2)", "Read the on-hold or ended notice, and see what it stops"],
+              tries: [as("as onboarding", "gf.coopStatus", "onboarding"), as("as active", "gf.coopStatus", "active"), as("as on hold", "gf.coopStatus", "on_hold"), as("as ended", "gf.coopStatus", "ended"), as("as Clerk", "gf.role.coop", "clerk")] },
+            { id: "C22", about: "The cooperative's profile: short name, description, registration date, declared member count, language, address and contact. Each card saves on its own.",
+              can: ["Pick county, sub-county and ward, or type the ward where none is listed yet", "Add the logo and documents", "See the registered name and number as facts: only GroFunder changes them"] },
+            { id: "C23", about: "The products the cooperative handles, picked from GroFunder's catalog. Its value chains follow from them.",
+              can: ["Add a product; set a recording unit with its factor, and a local name", "Archive or reactivate a product"] },
+            { id: "C24", about: "Groups of members: a collection centre, a zone or a village group, one level deep.",
+              can: ["Add, rename, archive or reactivate a cluster; typing an archived name offers it back", "Delete a cluster that never had members"] },
+            { id: "C25", about: "Chair, secretary, treasurer and the rest, starting from a default list.",
+              can: ["Rename, add or archive positions; set each one's scope and holder limit", "See who holds each one (assigned on the member's record)"] },
+            { id: "C26", about: "Optional: when and where the cooperative collects.",
+              can: ["Set each round's days, times, months, cluster and product", "Archive an old round on a big schedule change, so past deliveries stay right"] },
+            { id: "C27", about: "The named kinds of extra amount on a payout: additions due to the member, deductions taken off.",
+              can: ["Add, edit or archive a kind; its direction is fixed once a payout uses it"],
+              tries: [as("as Accountant", "gf.role.coop", "accountant")] },
+            { id: "C28", about: "The cooperative's staff, their roles and open invitations. Only administrators see it.",
+              can: ["Invite staff with a role", "Change a person's role or remove them", "Make another administrator an owner (F12)"],
+              tries: [as("as onboarding", "gf.coopStatus", "onboarding")] },
+            { id: "C29", about: "The five standard roles, read only, and the cooperative's own roles.",
+              can: ["Copy a standard role as a starting point", "Build a role from the codes a cooperative may use"] },
+            { id: "C30", about: "Which status notices reach the staff, by email and in the app.",
+              can: ["Switch each notice on or off; \"put on hold\" and \"ended\" are locked on"] }
+          ] },
+        { id: "coop-members", title: "Build and keep the member register", status: "review", meta: "Phase 6 · note 05",
+          who: "Every role reads; managers and administrators add, import and edit.",
+          goal: "Get every member on the register once, and keep their record right.",
+          path: [["C9"], ["C10", "Add one"], ["C15", "or import many"], ["C11"]],
+          pages: [
+            { id: "C9", about: "The register.",
+              can: ["Find a member by number, ID, phone or name (a typo still matches)", "Filter by status, cluster, gender, position and whether they use the app", "Count by cluster, gender and age band; a count opens the members it counts", "Add or import members (paused while on hold or ended)"],
+              tries: [as("as onboarding (empty)", "gf.coopStatus", "onboarding"), as("as Clerk", "gf.role.coop", "clerk")] },
+            { id: "C10", about: "One member at a time. The ID comes first and is checked against the register as it's typed.",
+              can: ["Go to the existing member when the ID is already registered", "Enter names, phone (a shared phone is fine), cluster and joining date", "Take the suggested member number", "Add nominees whose shares add up to 100%"],
+              tries: [st("invalid")] },
+            { id: "C15", about: "A spreadsheet of members, imported all or nothing.",
+              can: ["See every row's problem at once, fix the file and try again", "Import up to 5,000 rows"],
+              tries: [st("problems"), st("ready"), st("imported")] },
+            { id: "C11", about: "A member's full record: who they are, their status and three figures; tabs for details, deliveries, payouts, positions and history.",
+              can: ["Edit a card's details in a panel (C12)", "Suspend, reactivate, record an exit or rejoin (C13)", "Assign or end a position within its scope and limit (C14)"],
+              tries: [["a member", "?m=m-kij-0142"], ["positions", "?m=m-kij-0142&tab=positions"], ["another member's status", "?m=m-kij-0412"]] }
+          ] },
+        { id: "coop-produce", title: "Record produce", status: "review", meta: "Phase 7 · note 07",
+          who: "Clerks record, on phones at the centres; every role reads; managers and administrators set prices.",
+          goal: "Record every delivery the day it comes in, with the right price behind it.",
+          path: [["C4"], ["C3"], ["C5"], ["C6", "Edit or void"]],
+          pages: [
+            { id: "C4", about: "Phone-first. Date, round and centre are set once at the top; each delivery is then the member, the quantity and the receipt.",
+              can: ["Record one delivery after another; the form keeps the session's settings", "Type in the cooperative's own unit, such as bags, and see the kilograms live", "Hard rules stop an entry; soft checks only warn", "Check \"Recorded here today\" against the scale"],
+              tries: [["Mawingu, in bags", "?c=co-mawingu"], st("invalid"), st("offline"), as("as Clerk", "gf.role.coop", "clerk")] },
+            { id: "C3", about: "Every delivery, filtered by period, product, round, centre and status, with totals.",
+              can: ["Switch between entries and totals by member, centre and day", "Find a receipt number across every date", "Open a delivery in a panel (C5); edit it until money has gone against it, or void it with a reason (C6)"],
+              tries: [["a delivery", "?d=R-4254"], ["edit or void", "?d=R-4471"]] },
+            { id: "C7", about: "A spreadsheet of deliveries, imported all or nothing, under the same rules as recording by hand.",
+              can: ["See every row's problem in one go", "Download a template (columns proposed, G30)"],
+              tries: [st("problems"), st("ready"), st("imported")] },
+            { id: "C8", about: "The dated price per product, and per grade where a grade has its own.",
+              can: ["See the price in force today and any future price", "Add a new dated price, typed per bag where the cooperative records in bags", "A price that has valued a paid delivery can't be corrected"] }
+          ] },
+        { id: "coop-payouts", title: "Pay members", status: "review", meta: "Phase 8 · note 08",
+          who: "Accountants, managers and administrators; viewers read; clerks don't see Payouts.",
+          goal: "Pay a member for their deliveries, and give them a statement.",
+          path: [["C16"], ["C17"], ["C18"], ["C19"], ["C20"], ["M12", "Member's statement"]],
+          pages: [
+            { id: "C16", about: "Every payout: drafts waiting to be paid, paid ones and cancelled ones, with totals.",
+              can: ["Filter by period, product and method", "Start a payout for one member, up to a date (C17)", "Open a draft to finish it, or a paid one's statement"],
+              tries: [["start a payout", "?start=1"], as("as Accountant", "gf.role.coop", "accountant")] },
+            { id: "C18", about: "Every delivery up to the date with a balance, each set to pay in full.",
+              can: ["Pay in full, a percentage, or an amount spread oldest first", "Untick or lower any delivery; what's left stays owed", "Add additions and deductions; choose where the money goes", "Mark as paid with method, reference and date, which fixes it (C19)", "Cancel the draft (C21)"],
+              tries: [["a new draft", "?m=m-kij-0142&to=2026-10-30"], ["an existing draft", "?p=po-9"], st("no-price")] },
+            { id: "C20", about: "What was paid against which deliveries, what's still owed, additions, deductions, net, and where the money went.",
+              can: ["Share or print it", "Start the member's next payout, where any mistake is put right"],
+              tries: [["a part payment", "?p=po-3"]] }
+          ] }
+      ] },
+
+    { id: "member", name: "Member app", about: "Android and iOS, for members. One login reaches every cooperative the member belongs to. Signing in is an ID or phone, a PIN, then an SMS code.",
+      flows: [
+        { id: "m-first", title: "First time in", status: "review", meta: "Phase 9 · notes 05, 06",
+          who: "A member whose cooperative has them on its register.",
+          goal: "Find your membership and make your own login.",
+          path: [["M1"], ["M3"], ["M5"]],
+          pages: [
+            { id: "M1", about: "The first screen when nobody is signed in. A login comes only from a cooperative's record, so there's no \"create an account\".",
+              can: ["Sign in", "Find your membership the first time"] },
+            { id: "M3", about: "Prove you are the person on the record: the ID number and the phone on file, an SMS code, the terms, then a new PIN.",
+              can: ["Link every matching record, in any cooperative, in one go", "Choose a 4-digit PIN that isn't easy to guess"],
+              tries: [st("code"), st("terms"), st("pin"), st("weak"), st("done")] }
+          ] },
+        { id: "m-signin", title: "Sign in, and get back in", status: "review", meta: "Phase 9 · note 06",
+          who: "Members with a login.",
+          goal: "Get into the app safely, every time.",
+          path: [["M2"], ["M5"]],
+          pages: [
+            { id: "M2", about: "ID or phone, then the PIN on a keypad, then an SMS code, every time.",
+              can: ["Sign in; every failure gets the same message, so nothing is revealed", "After 5 wrong tries the ID is locked for 15 minutes"],
+              tries: [st("pin"), st("wrong"), st("locked"), st("code"), st("expired")] },
+            { id: "M4", about: "An SMS code to the login's phone, then a new PIN. Other phones are signed out.",
+              can: ["Set a new PIN"],
+              tries: [st("code"), st("pin"), st("done")] }
+          ] },
+        { id: "m-daily", title: "Follow deliveries and payments", status: "review", meta: "Phase 9 · notes 07, 08",
+          who: "Members.",
+          goal: "See what you delivered, what it's worth, and what you've been paid.",
+          path: [["M5"], ["M9"], ["M10"], ["M11"], ["M12"]],
+          pages: [
+            { id: "M5", about: "One cooperative at a time: this month's deliveries and value, what's paid and still owed, the next collection, today's prices, and the latest deliveries and payments.",
+              can: ["Switch cooperative (M6)", "See your cluster's collection times (M8)", "Start getting verified for loans, when it's offered"],
+              tries: [["switch cooperative", "?show=switch"], ["collection times", "?show=rounds"], st("empty")] },
+            { id: "M9", about: "Your deliveries by month, with totals per product.",
+              can: ["Filter by product", "Open a delivery: as entered, as stored, and what's been paid on it (M10)", "Voided deliveries stay in the list, struck through"],
+              tries: [["the newest delivery", "?d=first"]] },
+            { id: "M11", about: "Your paid payouts, newest first. Drafts and cancelled payouts never show.",
+              can: ["Open a payout's statement"] },
+            { id: "M12", about: "One paid payout: deliveries by product, grade and price, paid before, paid now, still owed; then additions, deductions, net, and where it was sent.",
+              can: ["Keep it or show it: the figures match the cooperative's statement"] }
+          ] },
+        { id: "m-link", title: "More than one cooperative", status: "review", meta: "Phase 9 · note 06",
+          who: "Members of more than one cooperative.",
+          goal: "Reach every membership from one login.",
+          path: [["M7"], ["M6"]],
+          pages: [
+            { id: "M7", about: "Offered when another cooperative adds a record with your ID.",
+              can: ["Confirm with your PIN when the record has your phone", "Otherwise confirm with a code sent to the record's phone"],
+              tries: [st("same"), st("code"), st("linked")] }
+          ] },
+        { id: "m-account", title: "Your account", status: "review", meta: "Phase 9 · notes 05, 06",
+          who: "Members.",
+          goal: "Keep your own details, PIN and phone up to date.",
+          pages: [
+            { id: "M13", about: "One login and every membership it links: number, status, cluster, positions.",
+              can: ["Edit your preferred name, email and language (M14)", "Change your PIN or phone, read the terms, sign out", "Get verified for loans (MK1)"],
+              tries: [["edit details", "?show=details"]] },
+            { id: "M15", about: "Your current PIN, then the new one twice. Other phones are signed out.",
+              can: ["Change your PIN"], tries: [st("done")] },
+            { id: "M16", about: "A code to the new number, and an SMS to the old one. Every linked record takes the new number.",
+              can: ["Change your phone number"], tries: [st("code"), st("done")] },
+            { id: "M17", about: "The terms you accepted when you signed up.",
+              can: ["Read them"] }
+          ] },
+        { id: "m-kyc", title: "Get verified for loans", status: "review", meta: "Phase 11 · note 20 (draft)",
+          who: "Members with an active record.",
+          goal: "Tell GroFunder about your farm and money, then have it checked on a visit.",
+          path: [["M5", "Prompt on Home"], ["MK1"], ["MK2"], ["K6", "Agent visits"], ["K3", "GroFunder approves"]],
+          pages: [
+            { id: "MK1", about: "What GroFunder holds on you, item by item: verified, being reviewed, you told us, or needed.",
+              can: ["See where your visit stands", "Go on to declare your farm and money"],
+              tries: [st("approved"), st("visit"), st("pending"), st("empty")] },
+            { id: "MK2", about: "One step at a time: background, farms, crops, other income, loans and regular payments, next of kin; review, then send.",
+              can: ["Crops you've already delivered come in verified", "Change an answer: the old one is kept, and a verified item goes back to \"You told us\" until the next visit"] }
+          ] }
+      ] }
+  ];
+
+  function base(href) { return href.split("?")[0]; }
+
+  function whoCan(id) {
+    var r = BY[id];
+    if (r.s.id === "staff") return "Any staff member";
+    if (r.s.roleSet === "member") return "";
+    var set = S.ROLES[r.s.roleSet], keys = S.rolesFor(r.s, r.x);
+    if (keys.length === Object.keys(set).length) return "Every role";
+    return keys.map(function (k) { return set[k].label; }).join(", ");
+  }
+
+  function tryLink(screen, t) {
+    var store = t[2] ? " data-as='" + JSON.stringify(t[2]) + "'" : "";
+    return '<a href="' + base(screen.href) + t[1] + '"' + store + ">" + t[0] + "</a>";
+  }
+
+  function pathStep(p, appId) {
+    var r = BY[p[0]], label = p[1] || r.x.title;
+    var other = APP_OF[r.s.id] !== APP_OF[appId] ? ' <span class="tone-muted">(' + APP_OF[r.s.id] + ")</span>" : "";
+    return '<a href="' + r.x.href + '" class="text-body-md">' + label + "</a>" + other;
+  }
+
+  function page(p) {
+    var x = BY[p.id].x, who = whoCan(p.id);
+    var meta = [];
+    if (who) meta.push('<span class="text-body-sm tone-muted">Who: ' + who + "</span>");
+    if (p.tries && p.tries.length) meta.push('<span class="text-body-sm tone-muted">Try: ' + p.tries.map(function (t) { return tryLink(x, t); }).join(" · ") + "</span>");
+    return '<div class="pg"><span class="id text-body-md tabular">' + p.id + "</span><div>" +
+      '<div class="pg-head"><a class="pg-title text-body-lg" href="' + x.href + '">' + x.title + '</a><span class="status status-neutral">' + x.kind.replace("-", " ") + "</span></div>" +
+      '<div class="text-body-md">' + p.about + "</div>" +
+      (p.can ? '<ul class="text-body-md">' + p.can.map(function (c) { return "<li>" + c + "</li>"; }).join("") + "</ul>" : "") +
+      (meta.length ? '<div class="meta">' + meta.join("") + "</div>" : "") +
+      "</div></div>";
+  }
+
+  function flow(f, appId) {
+    var s = STATUS[f.status];
+    return '<div class="section flow" id="' + f.id + '">' +
+      '<div class="section-header"><div class="grow">' +
+        '<h3 class="text-title-md">' + f.title + "</h3>" +
+        '<span class="text-body-md">' + f.goal + "</span>" +
+        '<span class="text-body-sm tone-muted">' + f.who + " · " + f.meta + "</span>" +
+      '</div><span class="status ' + s[0] + '">' + s[1] + "</span></div>" +
+      (f.path ? '<div class="path"><span class="text-label-md tone-muted" style="margin-right:4px">JOURNEY</span>' +
+        f.path.map(function (p) { return pathStep(p, appId); }).join('<span class="mdi mdi-chevron-right" aria-hidden="true"></span>') + "</div>" : "") +
+      f.pages.map(page).join("") +
+      "</div>";
+  }
+
+  /* End to end */
+  document.getElementById("journey-steps").innerHTML = JOURNEY.map(function (j, i) {
+    return '<a class="jrow" href="' + j[2] + '"><span class="n tabular">' + (i + 1) + '</span><span class="text-body-lg">' + j[0] +
+      '</span><span class="status status-neutral">' + j[1] + "</span></a>";
+  }).join("");
+
+  /* One section per app */
+  var host = document.getElementById("surfaces");
+  APPS.forEach(function (a) {
+    var surface = S.SURFACES.filter(function (s) { return s.id === a.id; })[0];
+    var seen = {};
+    var nav = surface.sections.filter(function (sec) {
+      if (!sec.dest || seen[sec.dest]) return false;
+      return (seen[sec.dest] = true);
+    }).map(function (sec) { return sec.label.replace(/ \(.*\)$/, ""); });
+    var el = document.createElement("section");
+    el.className = "surface";
+    el.id = a.id;
+    el.innerHTML = '<div class="col gap-1"><h2 class="text-title-lg">' + a.name + "</h2>" +
+      '<p class="text-body-md tone-muted" style="max-width:75ch">' + a.about + "</p>" +
+      '<p class="text-body-sm tone-muted">Navigation: ' + nav.join(" · ") + "</p></div>" +
+      '<div class="chip-row">' + a.flows.map(function (f) { return '<a class="chip" href="#' + f.id + '">' + f.title + "</a>"; }).join("") + "</div>" +
+      a.flows.map(function (f) { return flow(f, a.id); }).join("");
+    host.appendChild(el);
+  });
+
+  /* "as …" links set the review bar before the page opens. */
+  document.addEventListener("click", function (e) {
+    var a = e.target.closest("a[data-as]");
+    if (!a) return;
+    var set = JSON.parse(a.getAttribute("data-as"));
+    try { Object.keys(set).forEach(function (k) { localStorage.setItem(k, set[k]); }); } catch (err) {}
+  });
+
+  var total = S.SURFACES.reduce(function (n, s) { return n + s.sections.reduce(function (m, sec) { return m + sec.screens.length; }, 0); }, 0);
+  document.getElementById("sitemap-count").textContent = total + " screens by app and destination, and which role can open each one.";
+})();
+</script>
 </body>
 </html>
