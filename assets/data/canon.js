@@ -242,7 +242,7 @@
   var ALL_COOP = coopPermissions.map(function (p) { return p.code; });
   /* Standard cooperative roles (09), global and read-only. */
   var standardRoles = [
-    { id: "cooperative_admin", name: "Administrator", codes: ALL_COOP, about: "Runs the cooperative's account. Give it to the owners, who also manage the team." },
+    { id: "cooperative_admin", name: "Administrator", codes: ALL_COOP, about: "Runs the cooperative's account. The owner holds it and also manages the team." },
     { id: "cooperative_manager", name: "Manager", codes: ALL_COOP, about: "Day-to-day management, without the team." },
     { id: "cooperative_accountant", name: "Accountant", codes: ["cooperatives.view", "members.view", "produce.view", "payouts.view", "payouts.record", "payouts.configure"], about: "Paying members and the money side." },
     { id: "cooperative_clerk", name: "Clerk", codes: ["cooperatives.view", "members.view", "produce.view", "produce.record"], about: "Recording deliveries at collection points." },

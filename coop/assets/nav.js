@@ -7,7 +7,9 @@
  *   Accountant              Home, Produce, Members, Payouts, Settings (additions and deductions only)
  *   Clerk                   Home, Produce, Members
  *   Viewer                  Home, Produce, Members, Payouts
- * Team and Roles in Settings are for the account's owners (the administrators).
+ * Team and Roles in Settings are for the account's one owner, the first
+ * administrator ("admin" in the review bar). An administrator who isn't the
+ * owner sees what a Manager sees: the same codes, no Team or Roles.
  * A place not drawn yet points at soon.html.
  */
 (function () {

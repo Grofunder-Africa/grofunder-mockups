@@ -21,13 +21,13 @@
      data-action='{"label":"New role","icon":"plus","roles":"admin","on":"editRole()"}'>
   <div data-subnav="settings" data-current="roles" data-label="Settings"></div>
 
-  <p class="proto-note"><b>C29 · The kit's roles page, from note 09.</b> The five standard roles every cooperative has are read-only, and each can be copied as a starting point. Below them are the cooperative's own roles, built from the codes a cooperative may use (the kit's <code>permissions/?account=</code>). Only the owners (the administrators) see this page.</p>
+  <p class="proto-note"><b>C29 · The kit's roles page, from note 09.</b> The five standard roles every cooperative has are read-only, and each can be copied as a starting point. Below them are the cooperative's own roles, built from the codes a cooperative may use (the kit's <code>permissions/?account=</code>). Only the cooperative's owner sees this page (note 01, amended for one owner).</p>
   <p class="proto-note"><b>The kit's rules, shown before they bite.</b> A role must grant something (<code>REFUSE_EMPTY_ROLES</code>), and a role someone holds can't be deleted (<code>PROTECT_ROLES_IN_USE</code>): "Clerk who adds members" is held by Joseph Ndungu. A new or edited role opens as a panel (UI-13): a name and a flat list of what it can do, as the kit draws it.</p>
 
   <div class="empty" data-roles="manager accountant clerk viewer">
     <span class="mdi mdi-account-lock-outline" aria-hidden="true"></span>
     <span class="text-headline-sm">You don't manage this cooperative's roles</span>
-    <span class="text-body-md">Only the cooperative's owners, its administrators, can see and change roles.</span>
+    <span class="text-body-md">Only the cooperative's owner can see and change roles.</span>
   </div>
 
   <div data-state="loaded" class="col gap-4" data-roles="admin">

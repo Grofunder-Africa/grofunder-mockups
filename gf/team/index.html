@@ -19,7 +19,7 @@
 
 <div data-screen data-title="Team" data-dest="team"
      data-action='{"label":"Invite","icon":"account-plus-outline","roles":"owner","on":"invite()"}'>
-  <p class="proto-note"><b>G15 · The kit's team page, from note 09.</b> GroFunder's own staff: their roles (View only, Operations, Full, Owner) and pending invitations. Only the account's owners see this page and change it; the kit refuses removing the last owner. Switch the review bar's role to "Owner" to see it in the navigation.</p>
+  <p class="proto-note"><b>G15 · The kit's team page, from note 09.</b> GroFunder's own staff: their roles (View only, Operations, Full, Owner) and pending invitations. Only the account's one owner sees this page and changes it; the owner can't be removed, only hand the account over (frontend build plan decision 6). Switch the review bar's role to "Owner" to see it in the navigation.</p>
   <p class="proto-note"><b>Kit, themed.</b> The kit already has this screen (<code>/accounts/{id}/users/</code>, <code>…/invitations/</code>); GroFunder only names its roles. Each role says what it adds, so an owner picks the least that does the job.</p>
 
   <div data-state="loaded" class="col gap-4">
@@ -48,11 +48,10 @@
 var f = GF.fmt, C = Console;
 var ROLE = { gf_owner: "Owner", gf_full: "Full", gf_operations: "Operations", gf_view_only: "View only" };
 var team = GF.q.staffOf("grofunder");
-var owners = team.filter(function (u) { return u.memberships[0].owner; }).length;
 document.getElementById("people").innerHTML = team.map(function (u) {
   var m = u.memberships[0];
   var items = "[{label:'Change role',icon:'account-edit-outline',onSelect:'changeRole(&quot;" + u.name + "&quot;)'}," +
-    (m.owner && owners === 1 ? "{label:'Remove (the last owner can\\'t be removed)',icon:'account-remove-outline',onSelect:'Proto.snack(&quot;Make someone else an owner first&quot;)'}" :
+    (m.owner ? "{label:'Remove (the owner can\\'t be removed)',icon:'account-remove-outline',onSelect:'Proto.snack(&quot;Hand the account over first&quot;)'}" :
       "{label:'Remove from the team',icon:'account-remove-outline',destructive:true,onSelect:'removeUser(&quot;" + u.name + "&quot;)'}") + "]";
   return '<div class="rowcard"><span class="avatar avatar-sm">' + f.initials(u.name) + '</span><span class="grow"><span class="text-body-lg">' + u.name + '</span><span class="text-body-md tone-muted">' + u.email + "</span></span>" +
     '<span class="trail"><span class="text-body-md">' + ROLE[m.roles[0]] + "</span>" + (m.owner ? '<span class="text-body-sm tone-muted">Owner of the account</span>' : "") + "</span>" +

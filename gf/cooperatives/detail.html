@@ -22,6 +22,7 @@
   <p class="proto-note"><b>G5 · From note 01.</b> One cooperative as GroFunder sees it. Open another with <code>?c=</code>: <a href="?c=co-kijani">Kijani</a> (active), <a href="?c=co-mumbi">Mumbi</a> (onboarding, invitation not yet accepted), <a href="?c=co-ruiru">Ruiru Hills</a> (on hold), <a href="?c=co-mawingu">Mawingu</a> (records maize in bags).</p>
   <p class="proto-note"><b>What each role can do here (09).</b> View only reads. Operations edits the profile, products and documents, invites administrators and deletes a cooperative still onboarding. Full and Owner also change its status. Clusters belong to the cooperative (<code>manage_clusters</code> is usable only in cooperative accounts), so they are read-only here.</p>
   <p class="proto-note"><b>Fewer pages (UI-13).</b> Each Profile card's Edit opens a panel with just that card's fields; a member opens as a panel over the Members tab (and from search, as <code>?m=</code>); "Change status" sits beside the status. ⋮ holds only Delete, while onboarding.</p>
+  <p class="proto-note"><b>Staff, one owner (01 amended 2026-10-27, signed off 2026-10-28).</b> The first administrator GroFunder invites becomes the cooperative's one owner; later ones join as administrators without ownership. If the owner has left, Full and Owner use "Make owner" on another staff member, with a reason both people are told. Invitations can be revoked, so a mistyped first email is put right by revoking it and inviting again.</p>
   <p class="proto-note"><b>Tabs, not destinations (UI-10).</b> A cooperative's members, deliveries and payouts are read here, through the GroFunder account's view codes, so they open in the context of the cooperative they belong to.</p>
 
   <div id="banner"></div>
@@ -188,15 +189,17 @@
   var ROLE = { cooperative_admin: "Administrator", cooperative_manager: "Manager", cooperative_accountant: "Accountant", cooperative_clerk: "Clerk", cooperative_viewer: "Viewer" };
   var staff = q.staffOf(c.id), inv = q.invitationsOf(c.id);
   document.getElementById("p-staff").innerHTML =
-    '<div class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Staff</span><span class="text-body-md tone-muted">The cooperative\'s administrators manage their own team. GroFunder invites the first administrator, or a replacement.</span></div>' +
+    '<div class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Staff</span><span class="text-body-md tone-muted">The cooperative\'s owner manages its team. GroFunder invites the first administrator, who becomes the owner, or a replacement. If the owner has left, make someone else the owner.</span></div>' +
     '<button class="btn btn-tonal btn-sm" type="button" data-roles="owner full ops" onclick="Console.invite(\'' + c.id + '\')">Invite an administrator</button></div>' +
     '<div class="rowcards">' + staff.map(function (u) {
       var m = u.memberships.find(function (x) { return x.account === c.id; });
       return '<div class="rowcard"><span class="avatar avatar-sm">' + f.initials(u.name) + '</span><span class="grow"><span class="text-body-lg">' + esc(u.name) + '</span><span class="text-body-md tone-muted">' + esc(u.email) + "</span></span>" +
-        '<span class="trail"><span class="text-body-md">' + ROLE[m.roles[0]] + "</span>" + (m.owner ? '<span class="text-body-sm tone-muted">Owner</span>' : "") + "</span></div>";
+        '<span class="trail"><span class="text-body-md">' + ROLE[m.roles[0]] + "</span>" + (m.owner ? '<span class="text-body-sm tone-muted">Owner</span>' :
+          (c.status === "ENDED" ? "" : '<button class="btn btn-text btn-sm" type="button" data-roles="owner full" onclick="Console.handOver(\'' + c.id + "', '" + u.id + '\')">Make owner</button>')) + "</span></div>";
     }).join("") + inv.map(function (i) {
       return '<div class="rowcard"><span class="avatar avatar-sm"><span class="mdi mdi-email-outline" aria-hidden="true"></span></span><span class="grow"><span class="text-body-lg">' + esc(i.email) + '</span><span class="text-body-md tone-muted">Invited ' + f.date(i.sent_at) + " by " + i.sent_by + "</span></span>" +
-        '<span class="trail"><span class="status status-info">Invited</span>' + (i.owner ? '<button class="btn btn-text btn-sm" type="button" data-roles="owner full ops" onclick="Console.invite(\'' + c.id + '\', true)">Resend</button>' : "") + "</span></div>";
+        '<span class="trail"><span class="status status-info">' + (i.owner ? "Invited as owner" : "Invited") + "</span>" + (i.owner ? '<button class="btn btn-text btn-sm" type="button" data-roles="owner full ops" onclick="Console.invite(\'' + c.id + '\', true)">Resend</button>' : "") +
+          '<button class="icon-btn" type="button" data-roles="owner full ops" aria-label="Revoke the invitation to ' + esc(i.email) + '" onclick="Console.revoke(\'' + c.id + "', '" + i.id + '\')"><span class="mdi mdi-email-remove-outline" aria-hidden="true"></span></button></span></div>';
     }).join("") + (staff.length + inv.length ? "" : '<div class="rowcard"><span class="text-body-md tone-muted">Nobody yet.</span></div>') + "</div></div>";
 
   /* Documents. */

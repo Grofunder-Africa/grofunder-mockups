@@ -21,14 +21,15 @@
      data-action='{"label":"Invite","icon":"account-plus-outline","roles":"admin","on":"invite()"}'>
   <div data-subnav="settings" data-current="team" data-label="Settings"></div>
 
-  <p class="proto-note"><b>C28 · The kit's team page, from note 09.</b> The people on the cooperative's account and the invitations still open. Only the account's owners (the administrators, note 01) see it. Tap a person to change what they can do or remove them, in a panel (UI-13). Inviting is a dialog. Switch the review bar to Onboarding to see Mumbi, where Rose is alone.</p>
-  <p class="proto-note proto-gap"><b>F12 · Several owners, as the notes say.</b> Notes 01 and 09 make every administrator an owner. The kit keeps one owner and moves ownership only by "Hand the business over". This page draws what the notes ask for: an Owner tick on invite and on a person, offered with the Administrator role only, and the kit's own rule that the last owner can't be removed or unticked.</p>
+  <p class="proto-note"><b>C28 · The kit's team page, from note 09.</b> The people on the cooperative's account and the invitations still open. Only the cooperative's owner sees it: the first administrator (note 01, amended for one owner). Other administrators run the cooperative without managing the team; switch the review bar to Manager to see what they see. Tap a person to change what they can do or remove them, in a panel (UI-13). Inviting is a dialog. Switch the review bar to Onboarding to see Mumbi, where Rose is alone.</p>
+  <p class="proto-note"><b>F12 · One owner, as the kit has it</b> (frontend build plan decision 6; notes 01 and 09 amended 2026-10-27). Nobody is invited as an owner here, and nobody is made one by a tick: the owner hands the cooperative over from their own panel, and stays on with their roles. If the owner has left, GroFunder hands it over from the console (G7's Staff tab).</p>
+  <p class="proto-note proto-gap"><b>Kit layout.</b> The kit draws Team as one page with three views (Members, Roles, Activity) and tables, not two Settings tabs with row cards. The app follows the kit (mockups rule 1); this page keeps the row cards so the wording can be reviewed.</p>
   <p class="proto-note proto-gap"><b>F13 · GroFunder's wording.</b> The kit's empty state talks about "the front desk". This page uses GroFunder's own copy, which the kit needs to take from the host.</p>
 
   <div class="empty" data-roles="manager accountant clerk viewer">
     <span class="mdi mdi-account-lock-outline" aria-hidden="true"></span>
     <span class="text-headline-sm">You don't manage this cooperative's team</span>
-    <span class="text-body-md">Only the cooperative's owners, its administrators, can see and change the team.</span>
+    <span class="text-body-md" id="not-owner">Only the cooperative's owner can see and change the team.</span>
   </div>
 
   <div data-state="loaded" class="col gap-4" data-roles="admin">
@@ -67,10 +68,11 @@ var roleName = function (id) { var r = ROLES.find(function (x) { return x.id ===
 
 var team = Portal.staff();
 var mship = function (u) { return u.memberships.find(function (m) { return m.account === Portal.COOP; }); };
-var owners = function () { return team.filter(function (u) { return mship(u).owner; }).length; };
+var owner = team.find(function (u) { return mship(u).owner; });
+if (owner) document.getElementById("not-owner").textContent = "Only the cooperative's owner, " + owner.name + ", can see and change the team.";
 
 function drawPeople() {
-  document.getElementById("people-sub").textContent = team.length + (team.length === 1 ? " person" : " people") + ", " + owners() + (owners() === 1 ? " owner" : " owners");
+  document.getElementById("people-sub").textContent = team.length + (team.length === 1 ? " person" : " people");
   document.getElementById("people").innerHTML = team.map(function (u) {
     var m = mship(u), me = u.id === ME.id;
     return '<button class="rowcard" type="button" onclick="person(\'' + u.id + '\')"><span class="avatar avatar-sm">' + f.initials(u.name) + "</span>" +
@@ -100,48 +102,37 @@ if (team.length === 1) {
   if (!invs.length) document.getElementById("inv-section").classList.add("hidden");
 }
 
-/* What someone can do: roles as ticks, Owner only with Administrator (F12). */
-function rolesPicker(prefix, current, owner, single) {
+/* What someone can do: roles as ticks. No Owner tick: ownership moves only by handing over (F12). */
+function rolesPicker(prefix, current, single) {
   var type = single ? "radio" : "checkbox";
   return '<div class="col" role="' + (single ? "radiogroup" : "group") + '" aria-label="Roles">' + ROLES.map(function (r) {
-    return '<label class="check"><input type="' + type + '" name="' + prefix + '-role" value="' + r.id + '"' + (current.indexOf(r.id) > -1 ? " checked" : "") + ' onchange="ownerRow(\'' + prefix + '\')">' +
+    return '<label class="check"><input type="' + type + '" name="' + prefix + '-role" value="' + r.id + '"' + (current.indexOf(r.id) > -1 ? " checked" : "") + '>' +
       '<span class="grow"><span class="text-body-lg">' + esc(r.name) + '</span><span class="text-body-sm tone-muted">' + esc(r.about) + "</span></span></label>";
-  }).join("") + "</div>" +
-  '<label class="check" id="' + prefix + '-owner-row"><input type="checkbox" id="' + prefix + '-owner"' + (owner ? " checked" : "") + '>' +
-    '<span class="grow"><span class="text-body-lg">Owner</span><span class="text-body-sm tone-muted" id="' + prefix + '-owner-help">Manages the team: invites, changes roles and removes people</span></span></label>';
-}
-function ownerRow(prefix) {
-  var row = document.getElementById(prefix + "-owner-row"); if (!row) return;
-  var admin = !!document.querySelector('input[name="' + prefix + '-role"][value="cooperative_admin"]:checked');
-  row.classList.toggle("hidden", !admin);
-  if (!admin) document.getElementById(prefix + "-owner").checked = false;
+  }).join("") + "</div>";
 }
 
 function person(id) {
   var u = team.find(function (x) { return x.id === id; }), m = mship(u), me = u.id === ME.id;
-  var lastOwner = m.owner && owners() === 1;
   var canEdit = !ENDED && !me;
+  var others = team.filter(function (x) { return x.id !== ME.id; });
   var el = Proto.sheet({ title: esc(u.name), body:
     '<dl class="facts"><dt>Email</dt><dd>' + esc(u.email) + "</dd><dt>Standing</dt><dd>" + (m.owner ? "Owner" : "Member") + "</dd><dt>Can do</dt><dd>" + m.roles.map(roleName).join(", ") + "</dd>" +
       (m.joined ? "<dt>Joined</dt><dd>" + f.date(m.joined) + "</dd>" : "") + "</dl>" +
-    (canEdit ? '<div class="col gap-2"><span class="text-title-md">What ' + esc(u.name.split(" ")[0]) + " can do here</span>" + rolesPicker("p", m.roles, m.owner) +
+    (canEdit ? '<div class="col gap-2"><span class="text-title-md">What ' + esc(u.name.split(" ")[0]) + " can do here</span>" + rolesPicker("p", m.roles) +
       '<span class="field-error hidden" id="p-err">Choose at least one role.</span></div>'
-      : '<p class="text-body-md tone-muted">' + (ENDED ? "The cooperative has ended, so the team can't change." : "Another owner changes your own roles, so you can't lock yourself out.") + "</p>") +
-    (lastOwner ? '<div class="banner banner-info"><span class="mdi mdi-shield-account-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">' + esc(u.name.split(" ")[0]) +
-      " is the only owner. Make someone else an owner first; a cooperative always has one.</span></div></div>" : ""),
-    footer: canEdit ? '<button class="btn btn-text tone-error" type="button" id="p-remove"' + (lastOwner ? " disabled" : "") + ">Remove from the cooperative</button><span class=\"spacer\"></span>" +
-      '<button class="btn btn-filled" type="button" id="p-save" disabled>Save</button>' : ""
+      : '<p class="text-body-md tone-muted">' + (ENDED ? "The cooperative has ended, so the team can't change." :
+        "You're the owner, so nobody can remove you or change your roles. To step back, hand " + esc(Portal.coop().profile.short_name) + " over to someone on the team.") + "</p>"),
+    footer: canEdit ? '<button class="btn btn-text tone-error" type="button" id="p-remove">Remove from the cooperative</button><span class="spacer"></span>' +
+      '<button class="btn btn-filled" type="button" id="p-save" disabled>Save</button>'
+      : (me && !ENDED ? '<span class="spacer"></span><button class="btn btn-tonal" type="button" id="p-handover"' + (others.length ? "" : " disabled") + '>Hand ' + esc(Portal.coop().profile.short_name) + " over</button>" : "")
   });
-  if (!canEdit) return;
-  ownerRow("p");
-  if (lastOwner) { var o = el.querySelector("#p-owner"); o.disabled = true; el.querySelector("#p-owner-help").textContent = "The only owner can't stop being one"; }
+  if (!canEdit) { var h = el.querySelector("#p-handover"); if (h) h.addEventListener("click", handOver); return; }
   el.addEventListener("change", function () { el.querySelector("#p-save").disabled = false; });
   el.querySelector("#p-save").addEventListener("click", function () {
     if (!el.querySelector('input[name="p-role"]:checked')) { el.querySelector("#p-err").classList.remove("hidden"); return; }
     Proto.close(); Proto.snack(u.name + " updated");
   });
   el.querySelector("#p-remove").addEventListener("click", function () {
-    if (lastOwner) return;
     Proto.confirm({ title: "Remove " + esc(u.name) + "?", message: "They lose access to " + esc(Portal.coop().profile.short_name) + " at once. Their login and any other cooperatives are untouched, and what they did stays in the records under their name.",
       confirm: "Remove", destructive: true, onConfirm: function () { Proto.close(); Proto.snack(u.name + " removed"); } });
   });
@@ -151,13 +142,30 @@ function invite() {
   var el = Proto.dialog({ title: "Invite someone", body:
     '<div class="field"><label class="field-label" for="ie">Email</label><input class="field-input" id="ie" type="email" placeholder="name@example.com" autocomplete="off">' +
       '<span class="field-error hidden" id="ie-err">Enter a valid email address.</span></div>' +
-    '<span class="field-label">What they can do</span>' + rolesPicker("i", ["cooperative_clerk"], false, true) +
+    '<span class="field-label">What they can do</span>' + rolesPicker("i", ["cooperative_clerk"], true) +
     '<p class="text-body-sm tone-muted">They get an email with a link that works for seven days, and choose their own password.</p>',
     submit: "Send invitation", onSubmit: function (d) {
       var email = d.querySelector("#ie").value.trim() || "mercy@kijanidairy.example";
       Proto.snack("Invitation sent to " + esc(email), "Copy link", function () { Proto.snack("Link copied"); });
     } });
-  ownerRow("i");
+}
+
+/* The kit's "Hand the business over", in GroFunder's words: one owner, who stays on. */
+function handOver() {
+  var short = esc(Portal.coop().profile.short_name);
+  var others = team.filter(function (x) { return x.id !== ME.id; });
+  Proto.close();
+  Proto.dialog({ title: "Hand " + short + " over", body:
+    '<div class="col" role="radiogroup" aria-label="Who takes it over">' + others.map(function (u, i) {
+      return '<label class="check"><input type="radio" name="ho" value="' + u.id + '"' + (i === 0 ? " checked" : "") + '><span class="grow"><span class="text-body-lg">' + esc(u.name) +
+        '</span><span class="text-body-sm tone-muted">' + Portal.roleNames(u).join(", ") + "</span></span></label>";
+    }).join("") + "</div>" +
+    '<div class="banner banner-warning"><span class="mdi mdi-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">They become ' + short +
+      "'s one owner and manage the team. You stay on with your roles, and you can't undo this yourself: only they can hand it back.</span></div></div>",
+    submit: "Hand it over", onSubmit: function (d) {
+      var to = team.find(function (x) { return x.id === d.querySelector('input[name="ho"]:checked').value; });
+      Proto.snack("Ownership handed to " + esc(to.name));
+    } });
 }
 
 function sendAgain(id) {

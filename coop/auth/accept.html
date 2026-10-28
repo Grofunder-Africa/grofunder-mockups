@@ -18,7 +18,7 @@
 <body>
 
 <div data-screen data-title="Accept an invitation" data-auth="sm">
-  <p class="proto-note"><b>S2 · The kit's invitation screen</b> (<code>AcceptInvitationScreen</code>), opened from the invitation email or from a link GroFunder copied into WhatsApp or SMS (note 01). This is the invitation GroFunder sent Rose Wairimu for Mumbi Maize &amp; Beans in phase 4: as an <b>owner</b> with <code>cooperative_admin</code> (01, <code>invite</code>).</p>
+  <p class="proto-note"><b>S2 · The kit's invitation screen</b> (<code>AcceptInvitationScreen</code>), opened from the invitation email or from a link GroFunder copied into WhatsApp or SMS (note 01). This is the invitation GroFunder sent Rose Wairimu for Mumbi Maize &amp; Beans in phase 4: as its <b>owner</b> with <code>cooperative_admin</code> (01, <code>invite</code>: the first invitation is as the one owner).</p>
   <p class="proto-note"><b>Four cases, as the kit has them,</b> are this page's states: <b>loaded</b> (a new address: choose a password), <b>existing</b> (the address already has a login: sign in to accept), <b>other</b> (signed in as someone else), <b>match</b> (signed in as the invitee). <b>invalid</b> is the kit's screen for an expired, revoked or used link, or one replaced by GroFunder's "Resend", which stops the old link (01).</p>
   <p class="proto-note"><b>Accepting</b> lands straight on Mumbi's home with its set-up checklist (UI-16). In the prototype it switches the review bar to Onboarding, so the portal shows Mumbi as Rose.</p>
   <p class="proto-note proto-gap"><b>F13.</b> The kit's summary says only "Invitation for {email} as owner." Who sent it and which role it carries are GroFunder's wording, passed in by the host.</p>
@@ -86,7 +86,7 @@ var co = GF.get(inv.account), f = GF.fmt, esc = Portal.esc;
 var exp = new Date(inv.sent_at + "T00:00:00Z"); exp.setUTCDate(exp.getUTCDate() + 7);
 var set = function (id, html) { document.getElementById(id).innerHTML = html; };
 set("join", "Join " + esc(co.profile.short_name));
-set("who", esc(inv.sent_by) + " from GroFunder invited <b>" + esc(inv.email) + "</b> as an owner, with the Administrator role: you'll set up the cooperative and manage its team.");
+set("who", esc(inv.sent_by) + " from GroFunder invited <b>" + esc(inv.email) + "</b> as its owner, with the Administrator role: you'll set up the cooperative and manage its team.");
 set("expires", "Expires " + f.date(exp.toISOString()) + ".");
 set("choose", "Choose a password to create your login for <b>" + esc(inv.email) + "</b>.");
 set("already", "You already have a login. Sign in as <b>" + esc(inv.email) + "</b> to accept.");

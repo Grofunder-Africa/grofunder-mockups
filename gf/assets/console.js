@@ -62,11 +62,44 @@
         submit: "Resend", onSubmit: function () { Proto.snack("Invitation sent again to " + pending.email); }
       });
     }
+    /* One owner (01 amended): the invitation is as owner only while there is no owner and none is invited as one. */
+    var owner = q.staffOf(coopId).find(function (u) { return u.memberships.some(function (m) { return m.account === coopId && m.owner; }); });
+    var standing = owner ? "They join as an administrator. " + esc(owner.name) + " stays the owner and manages the team."
+      : pending ? "They join as an administrator. " + esc(pending.email) + " is invited as the owner; revoke that invitation first if the address was wrong."
+      : "They become its owner and invite the rest of their team.";
     Proto.dialog({
       title: "Invite an administrator",
-      body: '<p class="text-body-md tone-muted">For ' + esc(c.profile.short_name) + "'s first administrator, or a replacement. They become an owner of its account and can invite the rest of their team.</p>" +
+      body: '<p class="text-body-md tone-muted">For ' + esc(c.profile.short_name) + "'s first administrator, or a replacement. " + standing + "</p>" +
         '<div class="field"><label class="field-label" for="em">Email</label><input class="field-input" id="em" type="email" placeholder="name@example.com"></div>',
       submit: "Send invitation", onSubmit: function () { Proto.snack("Invitation sent"); }
+    });
+  }
+
+  /* G7 Staff: GroFunder's hand-over, for when the owner has left (01, hand_over). */
+  function handOver(coopId, userId) {
+    var c = GF.get(coopId), u = GF.get(userId);
+    var owner = q.staffOf(coopId).find(function (x) { return x.memberships.some(function (m) { return m.account === coopId && m.owner; }); });
+    Proto.dialog({
+      title: "Make " + esc(u.name) + " the owner?",
+      body: '<p class="text-body-md">' + esc(u.name.split(" ")[0]) + " manages " + esc(c.profile.short_name) + "'s team from now on" +
+        (owner ? ". " + esc(owner.name) + " stops being the owner and stays on with their roles, until the new owner removes them." : ".") +
+        " Both are told by email, with your reason.</p>" +
+        '<p class="text-body-sm tone-muted">For when the owner has left or lost their login. An owner who is still there hands over themselves, in the portal.</p>' +
+        '<div class="field"><label class="field-label" for="hr">Reason</label><textarea class="field-input" id="hr" rows="2" placeholder="Grace left the cooperative in October"></textarea>' +
+        '<span class="field-help">Required. Both people see it.</span></div>',
+      submit: "Make owner", onSubmit: function (d) {
+        if (!d.querySelector("#hr").value.trim()) return Proto.snack("Nothing changed: a reason is needed");
+        Proto.snack(u.name + " is now the owner");
+      }
+    });
+  }
+
+  function revoke(coopId, invId) {
+    var i = q.invitationsOf(coopId).find(function (x) { return x.id === invId; });
+    Proto.confirm({
+      title: "Revoke this invitation?",
+      message: "The link sent to " + esc(i.email) + " stops working." + (i.owner ? " The next administrator you invite is invited as the owner." : ""),
+      confirm: "Revoke", destructive: true, onConfirm: function () { Proto.snack("Invitation revoked"); }
     });
   }
 
@@ -143,5 +176,5 @@
   }
 
   window.Console = { STATUS: STATUS, MEMBER: MEMBER, MOVES: MOVES, chip: chip, esc: esc, coopUrl: coopUrl, memberUrl: memberUrl, accepted: accepted,
-    changeStatus: changeStatus, invite: invite, remove: remove, search: search, memberPanel: memberPanel, disableLogin: disableLogin, R: R };
+    changeStatus: changeStatus, invite: invite, handOver: handOver, revoke: revoke, remove: remove, search: search, memberPanel: memberPanel, disableLogin: disableLogin, R: R };
 })();
