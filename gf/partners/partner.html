@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lending partner · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../assets/console.js"></script>
+<script src="partners-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Lending partner" data-dest="partners" data-wide data-back="index.html" id="screen">
+
+  <p class="proto-note"><b>Consents (phase 15, note 22's amendment to 24, 2026-11-09).</b> The activation checklist adds the partner's sharing document: bound to <code>loan.sharing</code> for this partner, with a version in force. Shamba's is an English draft, not bound. <i>Consent documents</i> lists the partner's documents.</p>
+  <p class="proto-note"><b>LP3 · Partner (note 24 part 1; <code>GET partners/{id}/</code>).</b> Tabs: <b>Overview</b> (legal details, contact, what members see, the activation checklist from <code>readiness</code>, and the status history), <b>Connection</b>, <b>Products</b> and <b>Remittances</b>. <code>?tab=connection</code> opens a tab.</p>
+  <p class="proto-note"><b>Activation</b> (<code>manage</code>) needs every checklist row met; the refusal lists what is missing. API: a verified connection for the partner's environment. PORTAL: refused until the partner portal exists (L6), then a partner staff login. Both: a product with terms in force covering a cooperative. Pausing and ending need a reason; ending also retires its products and ends their coverage (S3). Live loans carry on.</p>
+  <p class="proto-note"><b>Secrets are never shown</b> (note 24, Secrets): the console sees only whether each is set and when, and the Owner can replace them (<code>credentials</code>). No endpoint returns a secret, so there is nothing to reveal; code reads one only to make a call, and each read is audited (S4). A new URL, key id or secret clears "verified", so it must be tested again.</p>
+  <p class="proto-note"><b>Edit forms</b> (2026-11-08): <b>Edit details</b> (<code>update_partner</code>: everything but code and mode), <b>Add the connection</b> and <b>Edit</b> on it (<code>add_connection</code>, <code>update_connection</code>; Owner only; a new URL or key id clears Verified), <b>Replace secrets</b>, and <b>Add a product</b> with its purposes and reviewers.</p>
+  <p class="proto-note"><b>Audit, 2026-11-08:</b> a connection is <b>Disabled</b> or <b>Enabled</b> (enabling clears Verified); Replace secrets can <b>clear</b> our signing secret (one secret both ways). A partner can have a connection for each environment this deployment allows (production only here, S2), and Add shows for any still missing. Ending an onboarding partner ("added by mistake") needs a reason (ruling 5).</p>
+  <p class="proto-note"><b>Changes (G81, approved 2026-11-08):</b> the partner's audit entries, read only, for Full and Owner (a new endpoint in B3, like the circle's history): additions, edits, connection and secret changes (never values), terms drafted, published and withdrawn, coverage and remittances. Status moves are in the status history.</p>
+  <p class="proto-note"><b>Every action is on the page</b> (2026-11-09, the owner's review): beside the status, <i>Activate</i>, <i>Pause</i>, <i>End the partnership</i> or <i>End (added by mistake)</i>, and <i>Change environment</i> while onboarding or paused (<code>manage</code>); <i>Edit</i> on the details; the connection's own buttons (Owner); <i>Add a product</i>; <i>Record a remittance</i> (<code>settle</code>). A partner is never deleted: ending is final (note 24, lifecycle).</p>
+  <p class="proto-note"><b>Try:</b> <a href="?p=lp-mavuno">Mavuno, API, waiting for L4</a> · <a href="?p=lp-shamba">Shamba, portal, waiting for L6</a> · <a href="?p=lp-tegemeo">Tegemeo, active (as after L4)</a> · <a href="?p=lp-mavuno&amp;tab=connection">a connection</a></p>
+
+  <div data-state="loaded" class="col gap-4" data-tabset id="page">
+    <div id="head"></div>
+    <div class="subnav" role="tablist" aria-label="Partner" id="tabs">
+      <button class="subnav-item" type="button" role="tab" data-tab="overview" aria-selected="true">Overview</button>
+      <button class="subnav-item" type="button" role="tab" data-tab="connection" aria-selected="false">Connection</button>
+      <button class="subnav-item" type="button" role="tab" data-tab="products" aria-selected="false">Products</button>
+      <button class="subnav-item" type="button" role="tab" data-tab="remittances" aria-selected="false">Remittances</button>
+    </div>
+    <div data-panel="overview" class="two-col" id="p-overview"></div>
+    <div data-panel="connection" class="col gap-4 hidden" id="p-connection"></div>
+    <div data-panel="products" class="col gap-4 hidden" id="p-products"></div>
+    <div data-panel="remittances" class="col gap-4 hidden" id="p-remittances"></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:72px"></div><div class="two-col"><div class="skeleton-card" style="height:300px"></div><div class="skeleton-card" style="height:240px"></div></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load this partner</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var P = GF.partners, U = PartnersUI, esc = U.esc, icon = U.icon, L = P.L, f = GF.fmt, R = U.ROLES;
+var p = P.get(new URLSearchParams(location.search).get("p")) || P.get("lp-mavuno");
+var screen = document.getElementById("screen"), ended = p.status === "ENDED";
+var ready = P.readiness(p), canActivate = ready.every(function (r) { return r.ok; });
+screen.setAttribute("data-title", p.name);
+screen.setAttribute("data-sub", "Lending partner · " + p.code);
+if (p.status === "ONBOARDING" || p.status === "PAUSED") screen.setAttribute("data-action", JSON.stringify({ label: "Activate", icon: "play-circle-outline", roles: R.manage, on: "activate()", variant: canActivate ? "btn-filled" : "btn-tonal" }));
+var menu = [];
+if (!ended) menu.push({ label: "Edit details", icon: "pencil-outline", roles: R.manage, on: "editPartner()" });
+if (p.status === "ONBOARDING" || p.status === "PAUSED") menu.push({ label: "Change environment", icon: "swap-horizontal", roles: R.manage, on: "envDialog()" });
+if (p.status === "ACTIVE") menu.push({ label: "Pause", icon: "pause-circle-outline", roles: R.manage, on: "reasonDialog('PAUSED')" });
+if (p.status === "ACTIVE" || p.status === "PAUSED") menu.push({ label: "End the partnership", icon: "close-circle-outline", roles: R.manage, on: "reasonDialog('ENDED')", destructive: true, sep: true });
+if (p.status === "ONBOARDING") menu.push({ label: "End (added by mistake)", icon: "close-circle-outline", roles: R.manage, on: "reasonDialog('ENDED')", destructive: true, sep: true });
+if (menu.length) screen.setAttribute("data-menu", JSON.stringify(menu));
+
+var pr = p.profile;
+/* The status moves allowed now, visible beside the status (2026-11-09). */
+function headActions() {
+  if (ended) return '<span class="text-body-sm tone-muted">Ended: final. A returning lender is added as a new partner.</span>';
+  var b = function (id, on, ic, label, cls) { return '<button class="btn ' + (cls || "btn-outlined") + ' btn-sm" type="button" id="' + id + '" onclick="' + on + '">' + icon(ic) + label + "</button>"; };
+  var out = "";
+  if (p.status === "ONBOARDING" || p.status === "PAUSED") out += b("activate-btn", "activate()", "play-circle-outline", "Activate", canActivate ? "btn-filled" : "btn-tonal");
+  if (p.status === "ACTIVE") out += b("pause-btn", "reasonDialog('PAUSED')", "pause-circle-outline", "Pause");
+  if (p.status === "ONBOARDING" || p.status === "PAUSED") out += b("env-btn", "envDialog()", "swap-horizontal", "Change environment");
+  out += b("end-btn", "reasonDialog('ENDED')", "close-circle-outline", p.status === "ONBOARDING" ? "End (added by mistake)" : "End the partnership", "btn-text tone-error");
+  return '<div class="actions actions-start" data-roles="' + R.manage + '" id="partner-actions">' + out + "</div>";
+}
+document.getElementById("head").innerHTML = '<div class="section"><div class="section-body">' +
+  '<div class="row gap-2 wrap">' + U.chip(L.status[p.status]) + '<span class="status status-neutral">' + L.mode[p.mode] + '</span><span class="status status-neutral">' + L.env[p.environment] + "</span></div>" +
+  '<span class="text-body-md tone-muted">' + esc(pr.legal_name) + " · added " + f.date(p.created_at) + "</span>" + headActions() + "</div></div>";
+
+/* ------------------------------------------------------------- overview */
+function readinessCard() {
+  var head = p.status === "ACTIVE" ? "Activation checklist (met when activated)" : canActivate ? "Ready to activate" : "Before it can be activated";
+  return '<div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">' + head + '</span><div class="rowcards" id="ready">' + ready.map(function (r) {
+    return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start">' + icon(r.ok ? "check-circle-outline" : "circle-outline", r.ok ? "tone-primary" : "tone-muted") +
+      '<span class="grow"><span class="text-body-md">' + r.text + "</span>" + (r.why || r.at ? '<span class="text-body-sm tone-muted">' + esc(r.why) + (r.at ? "Verified " + U.when(r.at) : "") + "</span>" : "") +
+      (r.doc ? '<a class="text-body-sm" href="../consents/document.html?d=' + r.doc + '">Open the sharing document</a>' : "") + "</span></div>";
+  }).join("") + "</div></div></div>";
+}
+/* Its consent documents (phase 15, note 22): the sharing document, and its own loan agreement if it has one (Q9). */
+function docsCard() {
+  var C = GF.consents; if (!C) return "";
+  var docs = C.partnerDocs(p.id);
+  return '<div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">Consent documents</span><span class="text-body-sm tone-muted">Owned by ' + esc(p.name) + "'s account, kept in Consents</span>" +
+    '<div class="rowcards">' + (docs.length ? docs.map(function (d) { var en = C.live(d.id, "en"), sw = C.live(d.id, "sw");
+      return '<a class="rowcard" style="padding-left:0;padding-right:0" href="../consents/document.html?d=' + d.id + '"><span class="grow"><span class="text-body-md">' + esc(d.name) + '</span><span class="text-body-sm tone-muted">' +
+        (en || sw ? "In force: " + [en ? "English v" + en.number : "", sw ? "Swahili v" + sw.number : ""].filter(Boolean).join(", ") : "Nothing in force") + " · " + (C.slotsOf(d.id).length ? "bound" : "not bound") + "</span></span>" + icon("chevron-right", "tone-muted") + "</a>"; }).join("")
+      : '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="text-body-md tone-muted">None yet. A sharing document is needed before activation.</span></div>') + "</div></div></div>";
+}
+function historyCard() {
+  return '<div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">Status history</span><div class="rowcards">' + P.historyOf(p.id).map(function (h) {
+    return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start">' + U.chip(L.status[h.to_status]) + '<span class="grow"><span class="text-body-md">' +
+      (h.from_status ? "From " + L.status[h.from_status][1].toLowerCase() : "Added") + (h.reason ? ': "' + esc(h.reason) + '"' : "") + '</span><span class="text-body-sm tone-muted">' + U.when(h.changed_at) + " · " + esc(U.who(h.changed_by)) + "</span></span></div>";
+  }).join("") + "</div></div></div>";
+}
+document.getElementById("p-overview").innerHTML = '<div class="col gap-4">' +
+  '<div class="section"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">Details</span><span class="text-body-sm tone-muted">Legal details, contact, what members see. The code and mode are fixed</span></div>' +
+    (ended ? "" : '<button class="btn btn-outlined btn-sm" type="button" data-roles="' + R.manage + '" id="edit-details" onclick="editPartner()">' + icon("pencil-outline") + "Edit</button>") + '</div><dl class="facts">' +
+    "<dt>Legal name</dt><dd>" + esc(pr.legal_name) + '</dd><dt>Registration</dt><dd class="tabular">' + esc(pr.registration_no) + "</dd><dt>Licence</dt><dd>" + esc(pr.licence) + "</dd>" +
+    "<dt>Contact</dt><dd>" + esc(pr.contact.name) + ", " + esc(pr.contact.role) + '<br><span class="tabular">' + f.phone(pr.contact.phone) + "</span> · " + esc(pr.contact.email) + "</dd>" +
+    "<dt>Members see</dt><dd>" + esc(pr.member_display.name) + ' · care <span class="tabular">' + f.phone(pr.member_display.phone) + '</span> · paybill <span class="tabular">' + pr.member_display.paybill + "</span></dd>" +
+    "<dt>Texts it sends members</dt><dd>" + (pr.sends_sms.length ? pr.sends_sms.map(function (k) { return L.sms[k]; }).join(", ") : '<span class="tone-muted">None: GroFunder texts every moment</span>') + "</dd>" +
+    "<dt>Remits our share</dt><dd>" + (pr.remittance.cycle === "MONTHLY" ? "Monthly" : "Quarterly") + (pr.remittance.notes ? ". " + esc(pr.remittance.notes) : "") + "</dd></dl></div></div>" +
+  auditCard() + "</div>" + '<div class="col gap-4">' + readinessCard() + docsCard() + historyCard() + "</div>";
+
+/* G81 (approved 2026-11-08): the partner's audit entries, read only, for Full and Owner. */
+function auditCard() {
+  var A = { partner_added: "Added", partner_edited: "Edited", environment_changed: "Environment", connection_added: "Connection added", connection_edited: "Connection edited", secrets_replaced: "Secrets replaced",
+    connection_status_changed: "Connection status", connection_verified: "Connection verified", connection_verify_failed: "Connection test failed", secret_used: "Secret used", product_added: "Product added", product_edited: "Product edited",
+    product_status_changed: "Product status", terms_drafted: "Terms drafted", terms_edited: "Draft edited", draft_deleted: "Draft deleted", terms_published: "Terms published", terms_withdrawn: "Terms withdrawn",
+    coverage_linked: "Coverage linked", coverage_ended: "Coverage ended", remittance_recorded: "Remittance recorded", remittance_voided: "Remittance voided" };
+  var rows = P.auditOf(p.id);
+  return '<div class="section" data-roles="owner full" id="audit"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">Changes</span>' +
+    '<span class="text-body-sm tone-muted">Every change to its set-up, newest first. The values of secrets are never recorded</span></div></div><div class="rowcards">' + rows.map(function (a) {
+      return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start"><span class="grow"><span class="text-body-md"><b>' + A[a.action.split(".")[1]] + "</b> · " + esc(a.text) + '</span><span class="text-body-sm tone-muted">' + U.when(a.at) + " · " + esc(U.who(a.by)) + "</span></span></div>";
+    }).join("") + "</div></div></div>";
+}
+
+/* ----------------------------------------------------------- connection */
+function connectionCard(c) {
+  var s = c.secrets, set = function (k, label, optional) {
+    return "<dt>" + label + "</dt><dd>" + (s[k] ? '<span class="row gap-1">' + icon("lock-outline", "tone-muted") + "Set " + f.date(c.secrets_set_at, "short") + "</span>" : '<span class="tone-muted">' + (optional ? "Not set: one secret both ways" : "Not set") + "</span>") + "</dd>";
+  };
+  return '<div class="section"><div class="section-body" style="gap:8px">' +
+    '<div class="section-header"><div class="grow"><span class="text-title-md">' + L.env[c.environment] + '</span><span class="text-body-sm tone-muted">' + (c.verified_at ? "Verified " + U.when(c.verified_at) : "Not verified") + "</span></div>" +
+      U.chip(c.status === "ACTIVE" ? ["success", "Active"] : ["neutral", "Disabled"]) + "</div>" +
+    '<dl class="facts"><dt>Base URL</dt><dd class="tabular">' + esc(c.base_url) + '</dd><dt>Our key id</dt><dd class="tabular">' + esc(c.api_key_id) + "</dd>" +
+      set("api_secret", "Our key's secret") + set("inbound_secret", "Their signing secret") + set("outbound_secret", "Our signing secret", true) +
+      "<dt>Last rotated</dt><dd>" + (c.rotated_at ? f.date(c.rotated_at) : '<span class="tone-muted">Never. A reminder comes after ' + P.CONFIG.rotate_days + " days</span>") + "</dd>" +
+      '<dt>Limits</dt><dd class="tabular">' + c.details.timeout_s + " s timeout · " + c.details.rate_limit_per_min + " calls a minute</dd>" + (c.details.notes ? "<dt>Notes</dt><dd>" + esc(c.details.notes) + "</dd>" : "") + "</dl>" +
+    (c.verified_at ? "" : '<div class="banner banner-info">' + icon("information-outline") + '<div class="grow"><span class="text-body-md">Testing calls ' + esc(p.name) + "'s adapter, which is built with the gateway (L4). Until then the test answers \"No adapter for " + p.code + ' yet".</span></div></div>') +
+    '<div class="actions actions-start" data-roles="' + R.credentials + '">' +
+      '<button class="btn btn-tonal btn-sm" type="button" onclick="testConn()">' + icon("lan-connect") + "Test the connection</button>" +
+      '<button class="btn btn-outlined btn-sm" type="button" onclick="secrets(\'' + c.id + '\')">' + icon("key-change") + "Replace secrets</button>" +
+      '<button class="btn btn-outlined btn-sm" type="button" onclick="editConn(\'' + c.id + '\')">Edit</button>' +
+      (c.status === "ACTIVE" ? '<button class="btn btn-text btn-sm tone-error" type="button" onclick="disableConn()">Disable</button>' : '<button class="btn btn-tonal btn-sm" type="button" onclick="enableConn()">Enable</button>') + "</div>" +
+    '<p class="text-body-sm tone-muted" data-roles="full ops view">Only an owner can test, edit or replace a connection.</p>' +
+    "</div></div>";
+}
+var conns = P.connectionsOf(p.id);
+document.getElementById("p-connection").innerHTML = p.mode === "PORTAL"
+  ? '<div class="empty"><span class="mdi mdi-web" aria-hidden="true"></span><span class="text-headline-sm">No connection for a portal partner</span><span class="text-body-md">' + esc(p.name) + " will work in GroFunder's partner portal (L6), so there's nothing to connect.</span></div>"
+  : conns.map(connectionCard).join("") + P.CONFIG.environments.filter(function (e) { return conns.length && !conns.some(function (c) { return c.environment === e; }); }).map(function (e) {
+      return '<div class="actions actions-start" data-roles="' + R.credentials + '"><button class="btn btn-outlined" type="button" onclick="addConn()">Add the ' + L.env[e].toLowerCase() + " connection</button></div>"; }).join("") || '<div class="empty"><span class="mdi mdi-lan-disconnect" aria-hidden="true"></span><span class="text-headline-sm">No connection yet</span><span class="text-body-md">Add the ' + L.env[p.environment].toLowerCase() + " connection: the partner's base URL, our key, and the signing secrets.</span>" +
+    '<button class="btn btn-filled" type="button" data-roles="' + R.credentials + '" onclick="addConn()">Add the connection</button></div>';
+
+/* ------------------------------------------------------------- products */
+var prods = P.productsOf(p.id);
+document.getElementById("p-products").innerHTML = '<div class="section"><div class="section-header" style="padding:16px 16px 0"><div class="grow"><span class="text-title-md">Products</span><span class="text-body-sm tone-muted">Codes are the partner\'s own, sent with every request</span></div>' +
+    (ended ? "" : '<button class="btn btn-outlined btn-sm" type="button" data-roles="' + R.manage + '" onclick="addProduct()">' + icon("plus") + "Add a product</button>") + "</div>" +
+  '<div class="rowcards">' + prods.map(function (x) {
+    var t = P.inForce(x.id), next = P.termsOf(x.id).find(function (y) { return P.termsState(y) === "SCHEDULED"; }), draft = P.draftOf(x.id), cov = P.coverageOf(x.id);
+    return '<a class="rowcard" href="product.html?pr=' + x.id + '"><span class="grow"><span class="text-body-lg">' + esc(x.name) + ' <span class="text-body-sm tone-muted tabular">' + x.code + "</span></span>" +
+      '<span class="text-body-md tone-muted">' + (t ? "Version " + t.version + " in force · " + esc(U.termsLine(t)) : "No terms in force") + "</span>" +
+      '<span class="text-body-sm tone-muted">' + [next ? "version " + next.version + " from " + f.date(next.effective_from, "short") : "", draft ? "a draft open" : "", cov.length + (cov.length === 1 ? " cooperative" : " cooperatives")].filter(Boolean).join(" · ") + "</span></span>" +
+      U.chip(L.product[x.status]) + "</a>";
+  }).join("") + "</div>" + (prods.length ? "" : '<p class="text-body-md tone-muted" style="padding:0 16px 16px">No products yet.</p>') + "</div>";
+
+/* ---------------------------------------------------------- remittances */
+var mine = P.remittances.filter(function (r) { return r.partner === p.id; }), tot = P.totals().filter(function (t) { return t.partner === p.id; });
+document.getElementById("p-remittances").innerHTML = mine.length
+  ? '<div class="section"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">Remitted by period</span><span class="text-body-sm tone-muted">Recorded remittances only. What ' + esc(p.name) + " owes for each period comes from loans' payment splits (26), set beside these then</span></div>" +
+      '<a class="btn btn-outlined btn-sm" href="remittances.html?p=' + p.id + '">All remittances</a><a class="btn btn-outlined btn-sm" id="record-btn" data-roles="' + R.settle + '" href="remittances.html?p=' + p.id + '&amp;record=1">' + icon("plus") + "Record a remittance</a></div>" +
+      '<div class="table-wrap"><table class="table"><thead><tr><th>Period</th><th class="num">Remittances</th><th class="num">Remitted</th></tr></thead><tbody>' + tot.map(function (t) {
+        return '<tr><td class="tabular">' + f.date(t.period_start, "short") + " to " + f.date(t.period_end) + '</td><td class="num">' + t.count + '</td><td class="num">' + f.money(t.amount_cents) + "</td></tr>";
+      }).join("") + "</tbody></table></div></div></div>"
+  : '<div class="empty"><span class="mdi mdi-bank-transfer-in" aria-hidden="true"></span><span class="text-headline-sm">Nothing remitted yet</span><span class="text-body-md">Once members repay loans through ' + esc(p.name) + ", it remits GroFunder's share " + (pr.remittance.cycle === "MONTHLY" ? "monthly" : "quarterly") + ". Record each one from the bank statement.</span>" + '<a class="btn btn-filled" id="record-btn" data-roles="' + R.settle + '" href="remittances.html?p=' + p.id + '&amp;record=1">Record a remittance</a></div>';
+
+var tab = new URLSearchParams(location.search).get("tab");
+if (tab) document.addEventListener("DOMContentLoaded", function () { var b = document.querySelector('[data-tab="' + tab + '"]'); if (b) b.click(); });
+
+/* -------------------------------------------------------------- actions */
+function activate() {
+  var missing = ready.filter(function (r) { return !r.ok; });
+  if (missing.length) return Proto.dialog({ title: "Not ready to activate", body: '<p class="text-body-md">' + esc(p.name) + " needs:</p><ul>" + missing.map(function (r) { return "<li>" + r.text + (r.why ? ': <span class="tone-muted">' + esc(r.why) + "</span>" : "") + "</li>"; }).join("") + "</ul>" });
+  Proto.confirm({ title: "Activate " + esc(p.name) + "?", message: "Members of the cooperatives it covers can be quoted its products, and loans are forwarded to it in " + L.env[p.environment].toLowerCase() + ".", confirm: "Activate", onConfirm: function () { Proto.snack(p.name + " is active"); } });
+}
+function reasonDialog(to) {
+  Proto.dialog({ title: to === "PAUSED" ? "Pause " + esc(p.name) + "?" : "End the partnership with " + esc(p.name) + "?",
+    body: '<p class="text-body-md tone-muted">' + (to === "PAUSED" ? "New requests and forwarding stop. Live loans, its events and remittances carry on. You can activate it again." :
+      "Final. Its products are retired and their coverage ends; live loans carry on until they close. A returning lender is added as a new partner.") + "</p>" +
+      '<div class="field"><label class="field-label" for="why">Reason</label><textarea class="field-input" id="why" placeholder="Kept in its status history"></textarea></div>',
+    submit: to === "PAUSED" ? "Pause" : "End partnership", onSubmit: function (d) { if (!d.querySelector("#why").value.trim()) return Proto.snack("A reason is needed"); Proto.snack(p.name + (to === "PAUSED" ? " paused" : " ended")); } });
+}
+function envDialog() {
+  Proto.dialog({ title: "Environment", body: '<p class="text-body-md tone-muted">Only while onboarding or paused, and only what this deployment allows: ' + P.CONFIG.environments.map(function (e) { return L.env[e]; }).join(", ") + ".</p>" +
+    '<div class="field"><label class="field-label" for="env">Environment</label><select class="field-input" id="env">' + P.CONFIG.environments.map(function (e) { return "<option>" + L.env[e] + "</option>"; }).join("") + "</select></div>",
+    submit: "Save", onSubmit: function () { Proto.snack("Environment saved"); } });
+}
+function testConn() { Proto.snack(P.connectionsOf(p.id)[0].verified_at ? "Connection works. Verified now" : "No adapter for " + p.code + " yet. Testing comes with the gateway (L4)"); }
+function secrets(id) {
+  var field = function (k, label, help) { return '<div class="field"><label class="field-label" for="' + k + '">' + label + '</label><input class="field-input" id="' + k + '" type="password" autocomplete="off" placeholder="Leave empty to keep it"><span class="field-help">' + help + "</span></div>"; };
+  Proto.dialog({ title: "Replace secrets", body: '<p class="text-body-md tone-muted">Only the ones you fill in change. They\'re encrypted and never shown again. Replacing clears Verified, so test the connection afterwards. Every owner login is told.</p>' +
+    field("s1", "Our key's secret", "From the partner, with the key id") + field("s2", "Their signing secret", "What they sign callbacks with") + field("s3", "Our signing secret", "Leave empty to keep it") +
+    '<label class="check"><input type="checkbox" id="s3clear"><span>Clear our signing secret: one secret both ways</span></label>',
+    submit: "Replace", onSubmit: function (d) { var n = [].filter.call(d.querySelectorAll('input[type="password"]'), function (i) { return i.value; }).length + (d.querySelector("#s3clear").checked ? 1 : 0);
+      if (d.querySelector("#s3clear").checked && d.querySelector("#s3").value) return Proto.snack("Either type our signing secret or clear it, not both"); if (!n) return Proto.snack("Nothing to replace"); Proto.snack(n + (n === 1 ? " secret replaced" : " secrets replaced") + ". Test the connection again"); } });
+}
+/* set_connection_status ACTIVE: re-enabling clears Verified. */
+function enableConn() {
+  Proto.confirm({ title: "Enable this connection?", message: "Calls can go through it again once it's tested: enabling clears Verified.", confirm: "Enable", onConfirm: function () { Proto.snack("Connection enabled. Test it next"); } });
+}
+function disableConn() {
+  if (p.status === "ACTIVE") return Proto.dialog({ title: "Pause the partner first", body: '<p class="text-body-md">' + esc(p.name) + " is active and uses this connection. Pause it, then disable the connection.</p>" });
+  Proto.confirm({ title: "Disable this connection?", message: "Every call through it is refused. Enabling it again clears Verified.", confirm: "Disable", destructive: true, onConfirm: function () { Proto.snack("Connection disabled"); } });
+}
+/* add_connection: the Owner (credentials). One per environment; https only; secrets are encrypted and never shown again. */
+function addConn() {
+  var sec = function (k, label, help) { return '<div class="field"><label class="field-label" for="' + k + '">' + label + '</label><input class="field-input" id="' + k + '" type="password" autocomplete="off"><span class="field-help">' + help + "</span></div>"; };
+  Proto.dialog({ title: "Add the " + L.env[p.environment].toLowerCase() + " connection",
+    body: '<p class="text-body-md tone-muted">Where GroFunder calls ' + esc(p.name) + ", with which key, and how messages are signed. Secrets are encrypted and never shown again. Every owner login is told.</p>" +
+      U.field("cu", "Base URL", "https://", { help: "https only" }) + U.field("ck", "Our key id", "", { tabular: true, help: "The public part of our key, so staff can tell keys apart" }) +
+      sec("s1", "Our key's secret", "From the partner, with the key id") + sec("s2", "Their signing secret", "What they sign callbacks with") + sec("s3", "Our signing secret (optional)", "Leave empty for one secret both ways") +
+      '<div class="form-grid">' + U.field("ct", "Timeout (seconds)", 20, { mode: "numeric", tabular: true, help: "1 to 60" }) + U.field("cl", "Calls a minute", 60, { mode: "numeric", tabular: true, help: "1 or more" }) + "</div>" + U.field("cn2", "Notes", "", { area: true }),
+    submit: "Add connection", onSubmit: function (d) {
+      var g = function (id) { return d.querySelector("#" + id).value.trim(); };
+      if (!/^https:\/\/[^\s]+\.[^\s]+/.test(g("cu"))) return Proto.snack("The base URL must start with https://");
+      if (!g("ck") || !g("s1") || !g("s2")) return Proto.snack("The key id, our key's secret and their signing secret are needed");
+      if (!(+g("ct") >= 1 && +g("ct") <= 60) || !(+g("cl") >= 1)) return Proto.snack("Timeout 1 to 60 seconds; at least 1 call a minute");
+      Proto.snack("Connection added. Test it next");
+    } });
+}
+/* update_connection: base URL, key id and limits; a new URL or key id clears Verified. */
+function editConn(id) {
+  var c = P.get(id);
+  Proto.dialog({ title: "Edit the connection",
+    body: '<p class="text-body-md tone-muted">Secrets are replaced separately. A new base URL or key id clears Verified, so test the connection afterwards.</p>' +
+      U.field("cu", "Base URL", c.base_url) + U.field("ck", "Our key id", c.api_key_id, { tabular: true }) +
+      '<div class="form-grid">' + U.field("ct", "Timeout (seconds)", c.details.timeout_s, { mode: "numeric", tabular: true, help: "1 to 60" }) + U.field("cl", "Calls a minute", c.details.rate_limit_per_min, { mode: "numeric", tabular: true, help: "1 or more" }) + "</div>" +
+      U.field("cn2", "Notes", c.details.notes, { area: true }),
+    submit: "Save", onSubmit: function (d) {
+      var g = function (x) { return d.querySelector("#" + x).value.trim(); };
+      if (!/^https:\/\/[^\s]+\.[^\s]+/.test(g("cu"))) return Proto.snack("The base URL must start with https://");
+      if (!g("ck")) return Proto.snack("The key id is needed");
+      if (!(+g("ct") >= 1 && +g("ct") <= 60) || !(+g("cl") >= 1)) return Proto.snack("Timeout 1 to 60 seconds; at least 1 call a minute");
+      Proto.snack(g("cu") !== c.base_url || g("ck") !== c.api_key_id ? "Saved. Verified is cleared: test the connection again" : "Saved");
+    } });
+}
+/* update_partner: everything but code and mode. */
+function editPartner() {
+  Proto.dialog({ title: "Edit " + esc(p.name), body: U.partnerForm(p),
+    submit: "Save", onSubmit: function (d) { var e = U.checkPartner(d, p); if (e) return Proto.snack(e); Proto.snack("Saved. A new name is copied to its account"); } });
+}
+/* add_product: starts active with no terms, so it isn't quoted yet. */
+function addProduct() {
+  var el = Proto.dialog({ title: "Add a product", body: '<p class="text-body-md tone-muted">It starts active but isn\'t quoted until it has terms in force and covers a cooperative.</p>' + U.productForm(null),
+    submit: "Add product", onSubmit: function (d) {
+      var code = d.querySelector("#pc").value.trim();
+      if (!code || !d.querySelector("#pn").value.trim()) return Proto.snack("A code and a name are needed");
+      if (P.productsOf(p.id).some(function (x) { return x.code.toLowerCase() === code.toLowerCase(); })) return Proto.snack(esc(p.name) + " already has a product " + code);
+      var e = U.checkPurposes(d); if (e) return Proto.snack(e);
+      Proto.snack("Product added. Draft its terms next");
+    } });
+  U.wirePurposes(el);
+}
+</script>
+</body>
+</html>

@@ -21,6 +21,20 @@
   var GF_VIEW = ["cooperatives.view", "members.view", "produce.view", "payouts.view"];
   /* KYC codes (note 20, draft revision 2): view, open and assign, review. */
   var KYC_OFFICE = ["kyc.view", "kyc.assign", "kyc.review"];
+  /* Growth Circle codes (note 23): view, manage, assign; agents hold groups.assigned. */
+  var GROUPS_OFFICE = ["groups.view", "groups.manage", "groups.assign"];
+  /* Lending partner codes (note 24): view for every office role; manage, publish and settle
+   * for Full and Owner; credentials for the Owner only. */
+  var LP_FULL = ["lending_partners.view", "lending_partners.manage", "lending_partners.publish", "lending_partners.settle"];
+  /* Credit codes (note 25): view for every office role; override and recalculate for Operations
+   * and up; publish (rule sets, overrides above the ladder) for Full and Owner. */
+  var CREDIT_OPS = ["credit.view", "credit.override", "credit.recalculate"];
+  /* Consent codes (note 22): view for every office role; record (an SMS code) and withdraw for Operations
+   * and up, and record for agents on their own visits; manage (drafts, binding) for Full; publish for the Owner. */
+  var CONSENTS_OPS = ["consents.view", "consents.record", "consents.withdraw"];
+  /* Loan codes (note 26): view for every office role; prepare for Operations and up; review, manage and
+   * pause for Full and Owner; pausing everyone for the Owner only. */
+  var LOANS_OPS = ["loans.view", "loans.prepare"], LOANS_FULL = LOANS_OPS.concat(["loans.review", "loans.manage", "loans.pause"]);
   var ROLES = {
     coop: {
       admin: { label: "Administrator", codes: COOP_ALL, owner: true },
@@ -30,12 +44,12 @@
       viewer: { label: "Viewer", codes: ["cooperatives.view", "members.view", "produce.view", "payouts.view"] }
     },
     gf: {
-      owner: { label: "Owner", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile", "cooperatives.set_status", "catalog.manage", "places.manage", "member_access.disable"], KYC_OFFICE), owner: true },
-      full: { label: "Full", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile", "cooperatives.set_status", "catalog.manage", "places.manage", "member_access.disable"], KYC_OFFICE) },
-      ops: { label: "Operations", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile"], KYC_OFFICE) },
-      view: { label: "View only", codes: GF_VIEW.concat(["kyc.view"]) },
+      owner: { label: "Owner", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile", "cooperatives.set_status", "catalog.manage", "places.manage", "member_access.disable"], KYC_OFFICE, GROUPS_OFFICE, LP_FULL, ["lending_partners.credentials"], CREDIT_OPS, ["credit.publish"], CONSENTS_OPS, ["consents.manage", "consents.publish"], LOANS_FULL, ["loans.pause_all"]), owner: true },
+      full: { label: "Full", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile", "cooperatives.set_status", "catalog.manage", "places.manage", "member_access.disable"], KYC_OFFICE, GROUPS_OFFICE, LP_FULL, CREDIT_OPS, ["credit.publish"], CONSENTS_OPS, ["consents.manage"], LOANS_FULL) },
+      ops: { label: "Operations", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile"], KYC_OFFICE, GROUPS_OFFICE, ["lending_partners.view"], CREDIT_OPS, CONSENTS_OPS, LOANS_OPS) },
+      view: { label: "View only", codes: GF_VIEW.concat(["kyc.view", "groups.view", "lending_partners.view", "credit.view", "consents.view", "loans.view"]) },
       /* Farmer Support Agent (note 20, draft): only their own visits. */
-      agent: { label: "Farmer Support Agent", codes: ["kyc.capture"] }
+      agent: { label: "Farmer Support Agent", codes: ["kyc.capture", "groups.assigned", "consents.record"] }
     },
     member: { "in": { label: "Signed in", codes: [] }, out: { label: "Signed out", codes: [] } }
   };
@@ -70,7 +84,7 @@
           { id: "G7", title: "Change status", kind: "dialog", purpose: "From Change status beside the status: only the moves the rules allow; a reason where they ask for one", notes: ["01", "03"], codes: ["cooperatives.set_status"], phase: 4, href: G + "cooperatives/detail.html?c=co-ruiru" },
           { id: "G8", title: "Invite or re-invite an administrator", kind: "dialog", purpose: "From the Staff tab or the onboarding banner: send, resend (the old link stops working), copy the link for WhatsApp or SMS", notes: ["01"], codes: ["cooperatives.onboard"], phase: 4, href: G + "cooperatives/detail.html?c=co-mumbi" },
           { id: "G9", title: "Delete a cooperative", kind: "dialog", purpose: "Only while onboarding and with nothing attached; the one item in the menu", notes: ["01"], codes: ["cooperatives.onboard"], phase: 4, href: G + "cooperatives/detail.html?c=co-mumbi" },
-          { id: "G10", title: "Member and their login (panel)", kind: "sheet", purpose: "A cooperative's member as its staff see them, plus whether a login is linked; disable or re-enable the login in a fraud case", notes: ["05", "06"], codes: ["members.view"], phase: 4, href: G + "cooperatives/detail.html?c=co-kijani&m=m-kij-0142"}
+          { id: "G10", title: "Member and their login (panel)", kind: "sheet", purpose: "A cooperative's member as its staff see them, plus whether a login is linked; disable or re-enable the login in a fraud case; verification for loans and Open a verification; their Growth Circle; their consents, taken by SMS code or withdrawn on request; their loans and Prepare a loan", notes: ["05", "06", "20", "23", "22", "26"], codes: ["members.view"], phase: 4, href: G + "cooperatives/detail.html?c=co-kijani&m=m-kij-0142"}
         ] },
         { label: "Reference data", dest: "reference", screens: [
           { id: "G11", title: "Catalog", kind: "list", purpose: "Every value chain as a section with its products; Edit and Add product on each; archive (cascades, counted), reactivate, delete if unused", notes: ["02"], codes: ["cooperatives.view"], phase: 4, href: G + "reference/catalog.html" },
@@ -82,15 +96,55 @@
           { id: "G15", title: "GroFunder team", kind: "list", purpose: "GroFunder staff, their roles and pending invitations; invite, change role, remove (the kit's team page)", notes: ["09"], codes: ["owner"], phase: 4, href: G + "team/index.html", kit: true }
         ] },
         { label: "Verifications (KYC, phase 11, note 20 draft)", dest: "kyc", screens: [
-          { id: "K1", title: "Verifications", kind: "list", purpose: "Every visit by status (to review first), cooperative and agent; open a verification and assign an agent", notes: ["20"], codes: ["kyc.view"], phase: 11, href: G + "kyc/index.html" },
-          { id: "K2", title: "Open a verification", kind: "dialog", purpose: "An ACTIVE member with no live visit, and optionally an agent", notes: ["20"], codes: ["kyc.assign"], phase: 11, href: G + "kyc/index.html?open=1" },
+          { id: "K1", title: "Verifications", kind: "list", purpose: "Every visit by status (to review first), cooperative, agent and the Growth Circle that opened it; open a verification and assign an agent", notes: ["20", "23"], codes: ["kyc.view"], phase: 11, href: G + "kyc/index.html" },
+          { id: "K2", title: "Open a verification", kind: "dialog", purpose: "An ACTIVE member record with no live visit, and optionally an agent; also opened from the member's panel (G10) with the member filled in", notes: ["20"], codes: ["kyc.assign"], phase: 11, href: G + "kyc/index.html?open=1" },
           { id: "K3", title: "Verification", kind: "detail", purpose: "Tabbed by kind of information (UI-62): summary and decision, identification, farms and crops, income and loans, next of kin and home, visit and history; each item with where it came from and what the check found; approve, send back, fail, revoke; assign or cancel", notes: ["20", "05"], codes: ["kyc.view"], phase: 11, href: G + "kyc/visit.html?v=v-101" },
           { id: "K4", title: "Approve, send back or fail", kind: "dialog", purpose: "Never by the agent who did the visit; a reason to send back, a reason and a failure reason to fail or revoke", notes: ["20"], codes: ["kyc.review"], phase: 11, href: G + "kyc/visit.html?v=v-101" }
         ] },
+        { label: "Growth Circles (phase 12, note 23)", dest: "groups", screens: [
+          { id: "GC1", title: "Growth Circles", kind: "list", purpose: "Every circle by status (open first), cooperative, cluster and agent; the Needs an agent queue; start a circle for members", notes: ["23"], codes: ["groups.view"], phase: 12, href: G + "groups/index.html" },
+          { id: "GC2", title: "Growth Circle", kind: "detail", purpose: "Meeting, agent, borrowing spaces; every place from invitation to leaving, with who objected (staff only) and each member's KYC; assign or change the agent, change spaces, invite, answer by SMS code, remove, hand over, dissolve; audit entries", notes: ["23", "20"], codes: ["groups.view"], phase: 12, href: G + "groups/circle.html?c=ci-kij-01" },
+          { id: "GC3", title: "Start a circle for members", kind: "flow", purpose: "For members without the app (Q6): leader, name, meeting (with an optional map point) and at least 4 invitations from the leader's cluster", notes: ["23"], codes: ["groups.manage"], phase: 12, href: G + "groups/start.html" }
+        ] },
+        { label: "Lending partners (phase 13, note 24 part 1)", dest: "partners", screens: [
+          { id: "LP1", title: "Lending partners", kind: "list", purpose: "Every partner: code, mode, status, environment, products in force, cooperatives covered", notes: ["24"], codes: ["lending_partners.view"], phase: 13, href: G + "partners/index.html" },
+          { id: "LP2", title: "Add a partner", kind: "dialog", purpose: "Name, code, mode, environment, legal details, contact, what members see, texts it sends, remittance cycle; creates its account, onboarding", notes: ["24"], codes: ["lending_partners.manage"], phase: 13, href: G + "partners/index.html" },
+          { id: "LP3", title: "Partner", kind: "detail", purpose: "Details and the activation checklist (API waits for L4, portal for L6); the connection with secrets shown only as set (Owner replaces them); products; remittances by period; activate, pause, end", notes: ["24"], codes: ["lending_partners.view"], phase: 13, href: G + "partners/partner.html?p=lp-mavuno" },
+          { id: "LP4", title: "Loan product", kind: "detail", purpose: "What it's for in English and Swahili, the purposes members pick, every terms version (in force, scheduled, past, withdrawn, draft) and the cooperatives it covers; draft, link, pause, retire", notes: ["24"], codes: ["lending_partners.view"], phase: 13, href: G + "partners/product.html?pr=pr-mav-dairy" },
+          { id: "LP5", title: "Terms version", kind: "detail", purpose: "Limits, repayment, overdue, default and flag days, and each charge with its GroFunder/partner split; a worked example from loans' quote (26); edit a draft, publish (Full and Owner), withdraw a scheduled version", notes: ["24"], codes: ["lending_partners.view"], phase: 13, href: G + "partners/terms.html?t=pt-dairy-4" },
+          { id: "LP6", title: "Coverage", kind: "list", purpose: "Which products serve which cooperatives, and whether each is offered today", notes: ["24"], codes: ["lending_partners.view"], phase: 13, href: G + "partners/coverage.html" },
+          { id: "LP7", title: "Remittances", kind: "list", purpose: "What partners have paid GroFunder of its share, by period and one by one; record from the bank statement and void (Full and Owner)", notes: ["24"], codes: ["lending_partners.view"], phase: 13, href: G + "partners/remittances.html" }
+        ] },
+        { label: "Credit (phase 14, note 25)", dest: "credit", screens: [
+          { id: "CR1", title: "Credit scores", kind: "list", purpose: "Each scored member's latest score, step and limit that counts; filters by cooperative, step and score", notes: ["25"], codes: ["credit.view"], phase: 14, href: G + "credit/index.html" },
+          { id: "CR2", title: "A member's credit", kind: "detail", purpose: "The limit that counts, the latest score factor by factor with its inputs, what the member sees, overrides and every score; recalculate, set a limit or block", notes: ["25"], codes: ["credit.view"], phase: 14, href: G + "credit/member.html?m=m-kij-0142" },
+          { id: "CR3", title: "Limit overrides", kind: "list", purpose: "Every limit set by hand and every block, active or ended, with who, why and when it lapses", notes: ["25"], codes: ["credit.view"], phase: 14, href: G + "credit/overrides.html" },
+          { id: "CR4", title: "Scoring rule sets", kind: "list", purpose: "Every version, in force, scheduled, past, withdrawn or draft; draft a new one", notes: ["25"], codes: ["credit.view"], phase: 14, href: G + "credit/rules.html" },
+          { id: "CR5", title: "Scoring rules version", kind: "detail", purpose: "Factors with weights and settings, the ladder, refresh time; edit and preview a draft, publish, withdraw a scheduled version", notes: ["25"], codes: ["credit.view"], phase: 14, href: G + "credit/rule-set.html?r=rs-4" }
+        ] },
+        { label: "Loans (phase 16, note 26 part 1)", dest: "loans", screens: [
+          { id: "LN1", title: "Loans", kind: "list", purpose: "One queue: requests to review oldest first with their approvals (1 of 2), drafts with their expiry, approved loans waiting to be sent, ended ones; what fails a check now", notes: ["26"], codes: ["loans.view"], phase: 16, href: G + "loans/index.html" },
+          { id: "LN2", title: "Prepare a loan", kind: "flow", purpose: "For a member without the app: pick the member (every check, with reasons), then product, amount, duration and purpose with the quote; saves a DRAFT the member accepts within 7 days", notes: ["26"], codes: ["loans.prepare"], phase: 16, href: G + "loans/prepare.html" },
+          { id: "LN3", title: "Loan", kind: "detail", purpose: "The request and the quote as accepted, the checks now with a fresh score, the score, override, KYC, circle and spaces, declarations and consents it relies on, reviews and history; approve, reject, cancel; accept a draft by SMS code; forwarding shown as the next step (L4)", notes: ["26", "22"], codes: ["loans.view"], phase: 16, href: G + "loans/loan.html?l=ln-105" },
+          { id: "LN4", title: "Approve or reject", kind: "dialog", purpose: "Each approval by a different person, never the drafter or the borrower; the last needed makes it APPROVED; any one rejection ends it, with a reason code and words, prefilled when a check fails", notes: ["26"], codes: ["loans.review"], phase: 16, href: G + "loans/loan.html?l=ln-105" },
+          { id: "LN5", title: "Accept a draft by SMS code", kind: "dialog", purpose: "The quote read out from a script, the declarations confirmed, an SMS carrying the key figures, the code read back", notes: ["26", "22"], codes: ["loans.prepare"], phase: 16, href: G + "loans/loan.html?l=ln-104" },
+          { id: "LN6", title: "Pauses", kind: "list", purpose: "Pauses in force and ended, for everyone, a cooperative, a cluster or a circle, with the reason and what members see in both languages; start and end (everyone: Owner only)", notes: ["26"], codes: ["loans.view"], phase: 16, href: G + "loans/pauses.html" }
+        ] },
+        { label: "Consents (phase 15, note 22)", dest: "consents", screens: [
+          { id: "CN1", title: "Consent documents", kind: "list", purpose: "GroFunder's documents and each lender's, with the slots they are bound to and the version in force in English and Swahili; flags languages out of step; where members are asked", notes: ["22"], codes: ["consents.view"], phase: 15, href: G + "consents/index.html" },
+          { id: "CN2", title: "Consent document", kind: "detail", purpose: "Owner, kind, slots bound; every version per language, in force, scheduled, past, archived or draft; members' decisions; write a new version, bind a lender's document", notes: ["22"], codes: ["consents.view"], phase: 15, href: G + "consents/document.html?d=cd-lending" },
+          { id: "CN3", title: "Consent version", kind: "detail", purpose: "One version's wording per language: title, summary, body, change note, whether members agree again, when it was in force, its hash; edit a draft, compare with the version in force", notes: ["22"], codes: ["consents.view"], phase: 15, href: G + "consents/version.html?d=cd-lending&n=2" },
+          { id: "CN4", title: "Publish, schedule, take down, archive", kind: "dialog", purpose: "The owner alone: both languages together, now or from a date; refused while one language has no draft; taking down brings back the version before", notes: ["22"], codes: ["consents.publish"], phase: 15, href: G + "consents/version.html?d=cd-lending&n=2" },
+          { id: "CN5", title: "Take consent by SMS code", kind: "dialog", purpose: "From the member panel (G10) or the start of a visit (K6): the summary read out in the member's language, a code to the phone on record that says what it is for, the code read back", notes: ["22"], codes: ["consents.record"], phase: 15, href: G + "cooperatives/detail.html?c=co-kijani&m=m-kij-0164" },
+          { id: "CN6", title: "Withdraw for a member", kind: "dialog", purpose: "On the member's request, from the member panel: what stops and what carries on, how they asked (phone call, in person) and why", notes: ["22"], codes: ["consents.withdraw"], phase: 15, href: G + "cooperatives/detail.html?c=co-kijani&m=m-kij-0088" }
+        ] },
+        { label: "My circles (Farmer Support Agent)", dest: "circles", screens: [
+          { id: "GC4", title: "My circles", kind: "list", purpose: "The agent's circles: meeting, members' names and phones, and whose KYC visit is still to do", notes: ["23", "20"], codes: ["groups.assigned"], phase: 12, href: G + "groups/agent.html" }
+        ] },
         { label: "My visits (Farmer Support Agent)", dest: "visits", screens: [
           { id: "K5", title: "My visits", kind: "list", purpose: "The agent's open visits, those sent back with the reason, and those waiting for review", notes: ["20"], codes: ["kyc.capture"], phase: 11, href: G + "kyc/agent.html" },
-          { id: "K6", title: "Visit", kind: "flow", purpose: "Phone-first: the checklist of items, each captured or confirmed in a panel (ID, portrait, phone, farms with their points and photos, declared items); submit", notes: ["20"], codes: ["kyc.capture"], phase: 11, href: G + "kyc/capture.html?v=v-102" },
-          { id: "K7", title: "Farm (panel)", kind: "sheet", purpose: "Stand on the farm: take its point, size, tenure and what's growing, photos; confirm or correct what the member declared", notes: ["20"], codes: ["kyc.capture"], phase: 11, href: G + "kyc/capture.html?v=v-102&show=farm" }
+          { id: "K6", title: "Visit", kind: "flow", purpose: "Phone-first: lending consent by SMS code first (22), then the checklist of items, each captured or confirmed in a panel (ID, portrait, phone, farms with their points and photos, declared items); submit", notes: ["20"], codes: ["kyc.capture"], phase: 11, href: G + "kyc/capture.html?v=v-102" },
+          { id: "K7", title: "Farm (panel)", kind: "sheet", purpose: "Stand on the farm: take its point, size, tenure, whether it is farmed, photos; confirm or correct what the member declared", notes: ["20"], codes: ["kyc.capture"], phase: 11, href: G + "kyc/capture.html?v=v-102&show=farm" }
         ] }
       ] },
 
@@ -111,7 +165,7 @@
         { label: "Members", dest: "members", screens: [
           { id: "C9", title: "Members", kind: "list", purpose: "The register: search by name, number, ID or phone; filter by cluster, status and gender", notes: ["05"], codes: ["members.view"], phase: 6, href: "coop/members/index.html" },
           { id: "C10", title: "Add a member", kind: "flow", purpose: "ID type and number (duplicate check), names, phone, cluster, joined date, suggested member number, nominees adding up to 100%", notes: ["05"], codes: ["members.manage"], phase: 6, href: "coop/members/new.html" },
-          { id: "C11", title: "Member", kind: "detail", purpose: "Identity, status, figures; tabs for details, deliveries, payouts and history; positions and nominees", notes: ["05", "07", "08"], codes: ["members.view"], phase: 6, href: "coop/members/member.html?m=m-kij-0142" },
+          { id: "C11", title: "Member", kind: "detail", purpose: "Identity, status, figures, and GroFunder's verification and loan standing only; tabs for details, deliveries, payouts and history; positions and nominees", notes: ["05", "07", "08", "20"], codes: ["members.view"], phase: 6, href: "coop/members/member.html?m=m-kij-0142" },
           { id: "C12", title: "Edit a member", kind: "sheet", purpose: "Staff-held details; the member edits their own phone, preferred name, email and language in the app", notes: ["05"], codes: ["members.manage"], phase: 6, href: "coop/members/member.html?m=m-kij-0142" },
           { id: "C13", title: "Change a member's status", kind: "dialog", purpose: "Suspend, reactivate, record an exit (withdrew, expelled, died, transferred), rejoin; reasons as the rules say", notes: ["05", "03"], codes: ["members.manage"], phase: 6, href: "coop/members/member.html?m=m-kij-0412" },
           { id: "C14", title: "Assign or end a position", kind: "dialog", purpose: "Within the position's scope and holder limit", notes: ["05"], codes: ["members.manage"], phase: 6, href: "coop/members/member.html?m=m-kij-0142&tab=positions" },
@@ -168,8 +222,26 @@
           { id: "M17", title: "Terms and privacy", kind: "detail", purpose: "What the member accepted at sign-up", notes: ["06"], codes: [], phase: 9, href: "member/account/terms.html" }
         ] },
         { label: "Verification for loans (KYC, phase 11, note 20 draft)", dest: "account", screens: [
-          { id: "MK1", title: "Get verified for loans", kind: "detail", purpose: "From Account: what GroFunder holds on you, item by item, what's verified, what's still needed, and your visit", notes: ["20"], codes: [], phase: 11, href: "member/kyc/index.html" },
-          { id: "MK2", title: "Your farm and money", kind: "flow", purpose: "Declare background, farms, crops, other income, loans and regular payments, next of kin; review; crops already delivered come in verified", notes: ["20"], codes: [], phase: 11, href: "member/kyc/declare.html" }
+          { id: "MK1", title: "Get verified for loans", kind: "detail", purpose: "From Account: what GroFunder holds on you, item by item, what's verified, what's still needed, your visit, and your lending consent", notes: ["20", "22"], codes: [], phase: 11, href: "member/kyc/index.html" },
+          { id: "MK2", title: "Your farm and money", kind: "flow", purpose: "Agree to lending first if you haven't (22); declare background, farms, crops, other income, loans and regular payments, next of kin; review; crops already delivered come in verified", notes: ["20"], codes: [], phase: 11, href: "member/kyc/declare.html" }
+        ] },
+        { label: "Borrowing (phase 14, note 25)", dest: "home", screens: [
+          { id: "MB1", title: "What can I borrow", kind: "detail", purpose: "Your limit, your growth stage and the next stage's limit, and how to grow it; never the score", notes: ["25"], codes: [], phase: 14, href: "member/credit/index.html" }
+        ] },
+        { label: "Loans (phase 16, note 26 part 1)", dest: "home", screens: [
+          { id: "ML1", title: "Borrow", kind: "detail", purpose: "From What can I borrow: each product offered, its lender and the most you can borrow from it; or every reason you can't yet, each with what to do", notes: ["26"], codes: [], phase: 16, href: "member/loans/index.html" },
+          { id: "ML2", title: "Ask for a loan", kind: "flow", purpose: "How much, how long, what for; the quote with every charge and the total cost; your declarations confirmed; the loan agreement and sharing with the named lender. Also accepting a GroFunder draft", notes: ["26", "22"], codes: [], phase: 16, href: "member/loans/request.html?pr=pr-mav-dairy" },
+          { id: "ML3", title: "Your loan", kind: "detail", purpose: "Where it stands in plain words, the quote as agreed and our reference; cancel a request; accept or decline a draft", notes: ["26"], codes: [], phase: 16, href: "member/loans/loan.html?state=requested" }
+        ] },
+        { label: "Consents (phase 15, note 22)", dest: "account", screens: [
+          { id: "MS1", title: "Consents", kind: "list", purpose: "From Account: what you've agreed to, per cooperative, then your login's terms; the version, when and how (in the app, or with whom by SMS code)", notes: ["22"], codes: [], phase: 15, href: "member/consents/index.html" },
+          { id: "MS2", title: "Read and agree", kind: "detail", purpose: "The version in force in your language, with the other a tap away; what changed when asked again; agree, or say no to a consent. At the first KYC step, a Home prompt, What can I borrow and Consents", notes: ["22"], codes: [], phase: 15, href: "member/consents/agree.html?d=cd-terms&for=prompt" },
+          { id: "MS3", title: "A decision and withdrawing", kind: "sheet", purpose: "What you agreed to, the exact wording, and Withdraw for a consent, with what stops and what carries on", notes: ["22"], codes: [], phase: 15, href: "member/consents/index.html" }
+        ] },
+        { label: "Growth Circle (phase 12, note 23)", dest: "home", screens: [
+          { id: "MC1", title: "Your Growth Circle", kind: "detail", purpose: "From Home or Account: your circle for the membership shown, its meeting, agent and members (joining dates, didn't join, left); object while someone is joining; leave; the leader invites, edits, removes members, hands over and dissolves. With no circle: your invitations and Start a circle", notes: ["23"], codes: [], phase: 12, href: "member/circle/index.html" },
+          { id: "MC2", title: "Start a circle", kind: "flow", purpose: "Name, weekly meeting, and at least 4 people you know from your cluster to invite", notes: ["23"], codes: [], phase: 12, href: "member/circle/start.html" },
+          { id: "MC3", title: "Invitation", kind: "detail", purpose: "Who invited you, the meeting and everyone in or invited; accepting vouches for them, and you join after 5 days unless someone objects; or decline", notes: ["23"], codes: [], phase: 12, href: "member/circle/invitation.html?p=cp-105" }
         ] }
       ] }
   ];
@@ -185,6 +257,6 @@
   }
 
   /* Flows whose screens are drawn for real; other links are phase 2 pattern samples. */
-  var DRAWN = [4, 5, 6, 7, 8, 9, 11];
+  var DRAWN = [4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16];
   root.GF_SCREENS = { ROLES: ROLES, SURFACES: SURFACES, rolesFor: rolesFor, DRAWN: DRAWN };
 })(typeof window !== "undefined" ? window : globalThis);

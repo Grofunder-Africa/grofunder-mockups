@@ -90,6 +90,8 @@
     { id: "vc-tea", name: "Tea", status: "ACTIVE", details: { name_sw: "Chai", description: "Green tea leaf" } },
     { id: "vc-cereals", name: "Cereals and pulses", status: "ACTIVE", details: { name_sw: "Nafaka", description: "Maize, beans and other grains" } },
     { id: "vc-horti", name: "Horticulture", status: "ACTIVE", details: { name_sw: "Kilimo cha bustani", description: "Fruit and vegetables" } },
+    { id: "vc-poultry", name: "Poultry", status: "ACTIVE", details: { name_sw: "Kuku", description: "Chickens kept for eggs or meat. Added by GroFunder for KYC (note 20); no cooperative handles it yet" } },
+    { id: "vc-livestock", name: "Livestock", status: "ACTIVE", details: { name_sw: "Mifugo", description: "Cattle, goats and sheep kept for sale. Added by GroFunder for KYC (note 20); no cooperative handles it yet" } },
     { id: "vc-pyrethrum", name: "Pyrethrum", status: "ARCHIVED", details: { name_sw: "Pareto", description: "No cooperative works in it any more" } }
   ];
   var products = [

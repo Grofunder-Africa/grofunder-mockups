@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Borrow · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../assets/app.js"></script>
+<script src="loans-app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Borrow" data-dest="home" data-back="../credit/index.html" data-compact>
+
+  <p class="proto-note"><b>ML1 · Borrow (note 26, step 1).</b> For the membership shown: each product that covers the cooperative (<code>products_for</code>, 24), with the lender named and the most the member can borrow from it, the smaller of their limit and the product's maximum. When they can't borrow, every reason in plain words, each with what to do next (note 26, Eligibility).</p>
+  <p class="proto-note"><b>The terms (G100).</b> Until the member agrees to a terms version in force, no loan starts: <i>termsblock</i>. A loan they already have carries on and stays visible.</p>
+  <p class="proto-note"><b>State switcher.</b> <i>loaded</i> is Wanjiku today: at Kijani her visit waits for review and Umoja Gathiru has 2 members; at Mawingu no loan is offered either. <i>offers</i> shows the screen once she can borrow; <i>paused</i>, <i>live</i> and <i>suspended</i> show other answers.</p>
+
+  <div data-roles="out" class="empty"><span class="mdi mdi-account-lock-outline" aria-hidden="true"></span><span class="text-headline-sm">You're signed out</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a></div>
+
+  <div data-state="loaded offers paused live suspended termsblock" class="col gap-6" data-roles="in" id="main"></div>
+
+  <div data-state="loading" class="col gap-4" data-roles="in"><div class="skeleton-card" style="height:200px"></div></div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">What you can borrow shows again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var A = MemberApp, Lo = GF.loans, f = GF.fmt, esc = A.esc, me = A.current, coop = A.coopName(me), LA = LoansApp;
+var NEXT = { TERMS_FIRST: ["../consents/agree.html?d=cd-terms&for=prompt", "Read and agree"], CONSENT: ["../consents/agree.html?d=cd-lending&for=account", "Read and agree"], KYC: ["../kyc/index.html", "Get verified"], NO_CIRCLE: ["../circle/index.html", "Growth Circles"], CIRCLE_NOT_READY: ["../circle/index.html", "Your circle"],
+  NO_SPACE: ["../circle/index.html", "Your circle"], CIRCLE_BEHIND: ["../circle/index.html", "Your circle"], NO_LIMIT: ["../credit/index.html", "How to grow your limit"], LIVE_LOAN: ["loan.html", "Your loan"] };
+var ICON = { CONSENT: "file-sign", NOT_ACTIVE: "account-cancel-outline", COOPERATIVE: "office-building-outline", PAUSED: "pause-circle-outline", KYC: "shield-check-outline", NO_CIRCLE: "account-group-outline", CIRCLE_NOT_READY: "account-group-outline",
+  CIRCLE_BEHIND: "account-clock-outline", NO_SPACE: "account-cash-outline", LIVE_LOAN: "cash-clock", NO_LIMIT: "sprout-outline", NO_PRODUCT: "cash-remove", LENDING_OFF: "clock-outline" };
+function refusal(failed) {
+  return '<div class="col gap-1"><h1 class="text-headline-sm">You can\'t ask for a loan yet</h1><span class="text-body-md tone-muted">With ' + esc(coop) + ". Here's what's needed:</span></div>" +
+    '<div class="list rowcards">' + failed.map(function (x) {
+      var n = NEXT[x.code], inner = '<span class="mdi mdi-' + (ICON[x.code] || "information-outline") + '" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">' + esc(x.text) + "</span>" + (n ? '<span class="text-body-md tone-primary">' + n[1] + "</span>" : "") + "</span>";
+      return n ? '<a class="rowcard" href="' + n[0] + '">' + inner + '<span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>' : '<div class="rowcard">' + inner + "</div>";
+    }).join("") + "</div>";
+}
+function offers() {
+  var D = LA.DEMO; if (!D) return refusal([{ code: "NO_PRODUCT", text: "No loan is offered to you right now." }]);
+  var t = D.terms;
+  return '<div class="col gap-1"><h1 class="text-headline-sm">What you can borrow</h1><span class="text-body-md tone-muted">With ' + esc(coop) + ". Your limit is GroFunder's; the lender decides on each request.</span></div>" +
+    '<a class="rowcard card-outlined" href="request.html?pr=' + D.product.id + '" style="align-items:flex-start"><span class="mdi mdi-cash-plus" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">' + esc(D.product.name) + "</span>" +
+      '<span class="text-body-md tone-muted">From ' + esc(D.partner.name) + ". " + esc(D.product.details.description) + "</span>" +
+      '<span class="text-title-md tabular">Up to ' + LA.money(D.max_cents) + "</span>" +
+      '<span class="text-body-sm tone-muted">' + t.min_duration + " to " + t.max_duration + " " + GF.partners.L.unit[t.duration_unit][1] + ", repaid " + GF.partners.L.freq[t.repayment_frequency].toLowerCase() + "</span></span>" +
+      '<span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>' +
+    '<p class="text-body-sm tone-muted">See every charge and the total before you decide. Asking doesn\'t commit you until you agree.</p>';
+}
+function draw(state) {
+  var e = Lo.eligibility(me.id), el = document.getElementById("main");
+  if (state === "offers") el.innerHTML = offers();
+  else if (state === "paused") el.innerHTML = refusal([{ code: "PAUSED", text: Lo.pauses[0].details.message.en }]);
+  else if (state === "live") el.innerHTML = refusal([{ code: "LIVE_LOAN", text: "You already have a loan that's with GroFunder for review." }]);
+  else if (state === "termsblock" || GF.consents.termsState(A.login.id).state === "BLOCKED") el.innerHTML = refusal([{ code: "TERMS_FIRST", text: "Agree to our new terms first. Until you do, nothing new starts." }]);
+  else if (state === "suspended") el.innerHTML = refusal([{ code: "NOT_ACTIVE", text: "Your membership is not active. Talk to your cooperative." }]);
+  else el.innerHTML = e.ok ? offers() : refusal(e.failed);
+}
+draw("loaded");
+document.addEventListener("proto:state", function (ev) { if (["loaded", "offers", "paused", "live", "suspended", "termsblock"].indexOf(ev.detail) > -1) draw(ev.detail); });
+</script>
+</body>
+</html>

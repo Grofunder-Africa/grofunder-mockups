@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Remittances · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../assets/console.js"></script>
+<script src="partners-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Lending partners" data-dest="partners" data-wide
+     data-action='{"label":"Record a remittance","icon":"plus","roles":"owner full","on":"record()"}'>
+
+  <p class="proto-note"><b>LP7 · Remittances (note 24, <code>PartnerRemittance</code>; <code>GET remittances/</code>, <code>remittances/totals/</code>).</b> What each partner has paid GroFunder of its share, by the period of collections it covers. Staff record each one from the bank statement (Q6), with <code>settle</code> (Full and Owner); from L4 the partner's <code>share.remitted</code> event records it. A mistake is voided with a reason, never deleted or edited.</p>
+  <p class="proto-note"><b>What a partner owes isn't here yet.</b> It is worked out by loans (26) from each payment's split and each charge's GroFunder share, and set beside these totals then. In part 1 the console shows what was remitted, by period, only.</p>
+  <p class="proto-note"><b>Recording checks:</b> received today or earlier; a reference not already recorded for this partner (allowed again once the first is voided); a breakdown, if given, adds up to the amount and names charges on the partner's published terms.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="partners" data-current="remittances" data-label="Lending partners"></div>
+    <div class="section">
+      <div class="section-toolbar"><div class="row gap-3 wrap">
+        <select class="field-input" id="f-partner" aria-label="Partner" style="width:auto"><option value="">All partners</option></select>
+        <label class="check"><input type="checkbox" id="f-void"><span>Show voided</span></label>
+      </div></div>
+      <div class="section-band" id="band"></div>
+      <div class="col gap-1" style="padding:16px 16px 0"><span class="text-title-md">By period</span></div>
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Partner</th><th>Period</th><th class="num">Remittances</th><th class="num">Remitted</th></tr></thead>
+        <tbody id="totals"></tbody>
+      </table></div>
+      <div class="col gap-1" style="padding:16px 16px 0"><span class="text-title-md">Each remittance</span><span class="text-body-sm tone-muted">Newest first</span></div>
+      <div class="rowcards" id="list"></div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:40px"></div><div class="skeleton-card" style="height:300px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-bank-transfer-in" aria-hidden="true"></span>
+    <span class="text-headline-sm">No remittances yet</span><span class="text-body-md">When a partner pays GroFunder its share, record it here from the bank statement.</span>
+    <button class="btn btn-filled" type="button" data-roles="owner full" onclick="record()">Record a remittance</button></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load remittances</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var P = GF.partners, U = PartnersUI, esc = U.esc, icon = U.icon, L = P.L, f = GF.fmt;
+var sel = document.getElementById("f-partner");
+sel.insertAdjacentHTML("beforeend", P.partners.map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + "</option>"; }).join(""));
+sel.value = new URLSearchParams(location.search).get("p") || "";
+function draw() {
+  var partner = sel.value, voided = document.getElementById("f-void").checked;
+  var tot = P.totals().filter(function (t) { return !partner || t.partner === partner; });
+  var list = P.remittances.filter(function (r) { return (!partner || r.partner === partner) && (voided || r.status === "RECORDED"); }).sort(function (a, b) { return a.received_on < b.received_on ? 1 : a.received_on > b.received_on ? -1 : (a.created_at < b.created_at ? 1 : -1); });
+  var sum = tot.reduce(function (s, t) { return s + t.amount_cents; }, 0), year = tot.filter(function (t) { return t.period_start >= "2026-01-01"; }).reduce(function (s, t) { return s + t.amount_cents; }, 0);
+  document.getElementById("band").innerHTML = '<div class="section-figure lg"><span class="k">Remitted in 2026</span><span class="v tabular">' + f.money(year, { whole: true }) + "</span></div>" +
+    '<div class="section-figure"><span class="k">Periods</span><span class="v">' + tot.length + '</span></div><div class="section-figure"><span class="k">Last received</span><span class="v tabular">' + (list.length ? f.date(list.filter(function (r) { return r.status === "RECORDED"; })[0].received_on, "short") : "–") + "</span></div>";
+  document.getElementById("totals").innerHTML = tot.map(function (t) {
+    return '<tr><td>' + esc(P.get(t.partner).name) + '</td><td class="tabular">' + f.date(t.period_start, "short") + " to " + f.date(t.period_end) + '</td><td class="num">' + t.count + '</td><td class="num">' + f.money(t.amount_cents) + "</td></tr>";
+  }).join("") || '<tr><td colspan="4" class="tone-muted">Nothing remitted.</td></tr>';
+  document.getElementById("list").innerHTML = list.map(function (r) {
+    var v = r.status === "VOIDED", b = r.details.breakdown;
+    return '<div class="rowcard" style="align-items:flex-start"><span class="grow"><span class="text-body-lg tabular' + (v ? " struck tone-muted" : "") + '">' + f.money(r.amount_cents) + " · " + esc(P.get(r.partner).name) + "</span>" +
+      '<span class="text-body-md tone-muted tabular">Received ' + f.date(r.received_on) + " · ref " + esc(r.reference) + " · for " + f.date(r.period_start, "short") + " to " + f.date(r.period_end, "short") + "</span>" +
+      (b.length ? '<span class="text-body-sm tone-muted">' + b.map(function (x) { return esc(x.charge_name) + " " + f.money(x.amount_cents, { whole: true }); }).join(" · ") + "</span>" : '<span class="text-body-sm tone-muted">No breakdown by charge</span>') +
+      (r.details.note ? '<span class="text-body-sm">' + esc(r.details.note) + "</span>" : "") +
+      (v ? '<span class="text-body-sm">Voided: "' + esc(r.details.void_reason) + '"</span>' : "") +
+      '<span class="text-body-sm tone-muted">' + L.source[r.source] + (r.recorded_by ? " · " + esc(U.who(r.recorded_by)) + ", " + U.when(r.created_at) : "") + "</span></span>" +
+      (v ? U.chip(["neutral", "Voided"]) : '<button class="btn btn-text btn-sm" type="button" data-roles="owner full" onclick="voidIt(\'' + r.id + '\')">Void</button>') + "</div>";
+  }).join("") || '<p class="text-body-md tone-muted" style="padding:16px">No remittances.</p>';
+}
+["f-partner", "f-void"].forEach(function (id) { document.getElementById(id).addEventListener("change", draw); });
+draw();
+/* From the partner's page: ?record=1 opens the form (settle). */
+if (new URLSearchParams(location.search).get("record")) document.addEventListener("DOMContentLoaded", function () { setTimeout(record, 0); });
+
+function record() {
+  var el = Proto.dialog({ title: "Record a remittance",
+    body: '<div class="field"><label class="field-label" for="rp">Partner</label><select class="field-input" id="rp">' + P.partners.map(function (p) { return '<option value="' + p.id + '"' + (p.id === (sel.value || "lp-tegemeo") ? " selected" : "") + ">" + esc(p.name) + "</option>"; }).join("") + "</select></div>" +
+      '<div class="form-grid"><div class="field"><label class="field-label" for="ra">Amount (Ksh)</label><input class="field-input tabular" id="ra" inputmode="decimal"></div>' +
+      '<div class="field"><label class="field-label" for="rd">Received on</label><input class="field-input tabular" id="rd" type="date" max="' + GF.TODAY + '" value="' + GF.TODAY + '"></div></div>' +
+      '<div class="form-grid"><div class="field"><label class="field-label" for="r1">For collections from</label><input class="field-input tabular" id="r1" type="date" value="2026-10-01"></div>' +
+      '<div class="field"><label class="field-label" for="r2">to</label><input class="field-input tabular" id="r2" type="date" value="2026-10-31"></div></div>' +
+      '<div class="field"><label class="field-label" for="rr">Bank or M-Pesa reference</label><input class="field-input tabular" id="rr"></div>' +
+      '<span class="text-title-sm">Breakdown by charge (optional)</span><span class="text-body-sm tone-muted">If the partner states one. It must add up to the amount.</span><div class="col gap-2" id="rb"></div>' +
+      '<div class="field"><label class="field-label" for="rn">Note (optional)</label><input class="field-input" id="rn"></div>',
+    submit: "Record", onSubmit: function (d) {
+      var g = function (id) { return d.querySelector("#" + id).value.trim(); }, amt = Math.round(+g("ra") * 100), pid = g("rp");
+      if (!(amt > 0)) return Proto.snack("Enter the amount received");
+      if (!g("rd") || g("rd") > GF.TODAY) return Proto.snack("Received on can't be in the future");
+      if (!g("r1") || !g("r2") || g("r1") > g("r2")) return Proto.snack("The period's start must be on or before its end");
+      if (!g("rr")) return Proto.snack("Enter the reference");
+      var dup = P.remittances.find(function (r) { return r.partner === pid && r.status === "RECORDED" && r.reference.toLowerCase() === g("rr").toLowerCase(); });
+      if (dup) return Proto.snack("Already recorded: " + f.money(dup.amount_cents) + " on " + f.date(dup.received_on, "short") + ". Void that one first if it's wrong");
+      var parts = [].map.call(d.querySelectorAll("#rb input"), function (i) { return Math.round(+i.value * 100) || 0; }), sum = parts.reduce(function (s, v) { return s + v; }, 0);
+      if (sum && sum !== amt) return Proto.snack("The breakdown adds up to " + f.money(sum) + ", not " + f.money(amt));
+      Proto.snack(f.money(amt) + " recorded for " + P.get(pid).name);
+    } });
+  function names() {
+    var pid = el.querySelector("#rp").value, seen = {};
+    P.productsOf(pid).forEach(function (x) { P.termsOf(x.id).filter(function (t) { return t.status === "PUBLISHED"; }).forEach(function (t) { t.charges.forEach(function (c) { seen[c.name] = 1; }); }); });
+    var list = Object.keys(seen);
+    el.querySelector("#rb").innerHTML = list.length ? '<div class="form-grid">' + list.map(function (n, i) { return '<div class="field"><label class="field-label" for="rb' + i + '">' + esc(n) + ' (Ksh)</label><input class="field-input tabular" id="rb' + i + '" inputmode="decimal"></div>'; }).join("") + "</div>"
+      : '<span class="text-body-sm tone-muted">This partner has no published charges yet.</span>';
+  }
+  el.querySelector("#rp").addEventListener("change", names); names();
+}
+function voidIt(id) {
+  var r = P.get(id);
+  Proto.dialog({ title: "Void this remittance?", body: '<p class="text-body-md tone-muted">' + f.money(r.amount_cents) + ", ref " + esc(r.reference) + ". It stops counting and stays in the list, marked voided. Its reference can then be recorded again.</p>" +
+    '<div class="field"><label class="field-label" for="vr">Reason</label><textarea class="field-input" id="vr"></textarea></div>',
+    submit: "Void", onSubmit: function (d) { if (!d.querySelector("#vr").value.trim()) return Proto.snack("A reason is needed"); Proto.snack("Remittance voided"); } });
+}
+</script>
+</body>
+</html>

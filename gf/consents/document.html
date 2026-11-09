@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Consent document · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../assets/console.js"></script>
+<script src="consents-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen id="screen" data-title="Consent document" data-dest="consents" data-back="index.html" data-wide>
+
+  <p class="proto-note"><b>CN2 · Consent document (note 22; the kit's <code>admin/documents/{id}/</code>).</b> One document: whose it is, what kind, which slots it is bound to, and every version in each language, marked in force, scheduled, past, archived or draft. A version opens its wording (CN3). Published wording never changes; a change is a new version.</p>
+  <p class="proto-note"><b>Writing a new version</b> (Full and Owner) starts a draft in both languages, each copied from the one in force (the kit's <code>start_draft</code>). One draft per language at a time. <b>Binding</b> (Full and Owner) points a slot at this document: for a lender's sharing document, <code>loan.sharing</code> for that lender; for a lender's own agreement, <code>loan.agreement</code> for that lender, which then wins over GroFunder's.</p>
+  <p class="proto-note"><b>Try:</b> <code>?d=cd-lending</code> (English draft, no Swahili), <code>?d=cd-terms</code> (v2 needs re-consent), <code>?d=cd-loan</code> (v2 scheduled), <code>?d=cd-share-shamba</code> (draft, not bound), <code>?d=cd-loan-tegemeo</code> (a lender's own agreement).</p>
+
+  <div data-state="loaded" class="col gap-6">
+    <div class="col gap-1"><div class="row gap-2 wrap"><span class="row gap-2 wrap" id="chips"></span>
+      <span class="row gap-1 wrap" data-roles="owner full" id="doc-acts"><button class="btn btn-text btn-sm" type="button" onclick="editDoc()">Edit</button></span></div><span class="text-body-md tone-muted" id="sub"></span></div>
+    <div id="differ"></div>
+    <div class="card card-outlined"><dl class="facts" id="facts"></dl></div>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Versions</span><span class="text-body-md tone-muted">English and Swahili are versioned apart; they are published together</span></div>
+      <button class="btn btn-tonal" type="button" data-roles="owner full" id="newv" onclick="newVersion()">Write a new version</button></div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Version</th><th>English</th><th>Swahili</th><th>Agree again</th><th>In force</th><th>Published</th><th></th></tr></thead><tbody id="versions"></tbody></table></div></section>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Decisions</span><span class="text-body-md tone-muted">Members' records on this document; each opens on the member's panel</span></div></div>
+      <div class="rowcards" id="records"></div></section>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:140px"></div><div class="skeleton-card" style="height:220px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the document</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var C = GF.consents, U = ConsentsUI, esc = U.esc, f = GF.fmt;
+var d = C.doc(new URLSearchParams(location.search).get("d") || "cd-lending") || C.doc("cd-lending");
+document.getElementById("screen").setAttribute("data-title", d.name);
+var en = C.live(d.id, "en"), sw = C.live(d.id, "sw"), differ = C.languagesDiffer(d.id);
+document.getElementById("chips").innerHTML = '<span class="status status-neutral">' + C.L.kind[d.kind] + "</span>" + (en || sw ? U.chip(C.L.vstate.LIVE) : '<span class="status status-warning">Nothing in force</span>');
+document.getElementById("sub").textContent = U.owner(d) + " · " + d.description;
+if (differ) document.getElementById("differ").innerHTML = '<div class="banner banner-warning"><span class="mdi mdi-translate" aria-hidden="true"></span><div class="grow"><span class="text-body-md">' + esc(differ) + ". Members are asked again only in the language they agreed in, so both languages are published together (22, concern 4).</span></div></div>";
+var owner = d.owner ? GF.partners.get(d.owner) : null;
+document.getElementById("facts").innerHTML =
+  "<dt>Owner</dt><dd>" + (owner ? '<a href="../partners/partner.html?p=' + owner.id + '">' + esc(owner.name) + "</a>" : "GroFunder (platform-wide)") + "</dd>" +
+  "<dt>Slug</dt><dd><code>" + d.slug + "</code>" + (d.owner ? " (unique per owner)" : "") + "</dd>" +
+  "<dt>Kind</dt><dd>" + (d.kind === "AGREEMENT" ? "Agreement: accepted to go ahead; can't be withdrawn" : "Consent: members agree, decline or withdraw") + "</dd>" +
+  "<dt>Bound to</dt><dd>" + (C.slotsOf(d.id).length ? C.slotsOf(d.id).map(function (b, i) { return "<code>" + b.slot + "</code>" + (b.owner ? " for " + esc(GF.partners.get(b.owner).name) : "") +
+      ' <button class="btn btn-text btn-sm" type="button" data-roles="owner full" onclick="unbind(' + i + ')">Unbind</button>'; }).join("<br>") : "Not bound to any slot") +
+    (d.owner && !C.slotsOf(d.id).length ? ' <button class="btn btn-text btn-sm" type="button" data-roles="owner full" onclick="bind()">Bind</button>' : "") + "</dd>" +
+  "<dt>Created</dt><dd>" + f.date(d.created_at) + "</dd>";
+var nums = []; C.versionsOf(d.id).forEach(function (v) { if (nums.indexOf(v.number) === -1) nums.push(v.number); });
+document.getElementById("versions").innerHTML = nums.map(function (n) {
+  var any = C.versions.filter(function (v) { return v.document === d.id && v.number === n; }), v0 = any[0];
+  var pub = any.find(function (v) { return v.published_at; });
+  return '<tr><td class="primary-cell"><a href="version.html?d=' + d.id + "&amp;n=" + n + '">Version ' + n + "</a></td><td>" + U.langCell(d.id, n, "en") + "</td><td>" + U.langCell(d.id, n, "sw") + "</td><td>" + (v0.requires_reconsent ? "Yes" : "No") +
+    '</td><td class="text-body-sm">' + (pub ? esc(U.periodLine(pub)) : "–") + '</td><td class="text-body-sm">' + (pub ? f.date(pub.published_at, "short") + " by " + esc(U.who(pub.published_by)) : "Drafted by " + esc(U.who(v0.created_by))) + "</td>" +
+    '<td class="row gap-1 wrap">' + rowActs(n, any) + "</td></tr>";
+}).join("");
+if (C.versionsOf(d.id).some(function (v) { return v.status === "DRAFT"; })) { var b = document.getElementById("newv"); b.textContent = "Open the draft"; b.setAttribute("onclick", "location.href='version.html?d=" + d.id + "&n=" + C.versionsOf(d.id).find(function (v) { return v.status === "DRAFT"; }).number + "'"); }
+/* Explicit records on this document (the implied 1 Oct agreements aren't listed). */
+var recs = C.records.filter(function (r) { return r.document === d.id; }).sort(function (a, b) { return a.occurred_at < b.occurred_at ? 1 : -1; });
+document.getElementById("records").innerHTML = recs.length ? recs.map(function (r) {
+  var m = r.on_behalf_of ? GF.get(r.on_behalf_of) : null, v = C.version(r.version);
+  var holder = !m && r.user ? GF.q.recordsOf(r.user)[0] : null;
+  var name = m ? m.full_name + " · " + GF.get(m.cooperative).profile.short_name : holder ? holder.full_name + " · their login" : r.user;
+  var inner = '<span class="grow"><span class="text-body-lg">' + esc(name) + '</span><span class="text-body-md tone-muted">Version ' + v.number + " (" + C.L.locale[v.locale] + ") · " + U.when(r.occurred_at) + " · " + esc(C.how(r)) + "</span></span>" + U.chip(C.L.decision[r.decision]);
+  return m ? '<a class="rowcard" href="' + Console.memberUrl(m.id) + '">' + inner + "</a>" : '<div class="rowcard">' + inner + "</div>";
+}).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">No decisions yet.</span></div>';
+
+/* Each version's actions, on its row (the kit: discard a draft; publish, cancel a schedule, take down, archive are the owner's). */
+function rowActs(n, any) {
+  var st = any.map(function (v) { return C.state(v); }), has = function (x) { return st.indexOf(x) > -1; };
+  var b = function (label, on, roles, cls) { return '<button class="btn btn-text btn-sm' + (cls ? " " + cls : "") + '" type="button" data-roles="' + roles + '" onclick="' + on + '">' + label + "</button>"; };
+  var href = "version.html?d=" + d.id + "&amp;n=" + n;
+  if (has("DRAFT")) return '<a class="btn btn-text btn-sm" data-roles="owner full" href="' + href + '">Edit</a>' + b("Publish", "rowPublish(" + n + ")", "owner") + b("Discard", "rowDo(" + n + ",'discard')", "owner full", "tone-error");
+  if (has("SCHEDULED")) return b("Cancel the schedule", "rowDo(" + n + ",'cancel')", "owner");
+  if (has("LIVE")) return b("Take down", "rowDo(" + n + ",'down')", "owner", "tone-error");
+  if (has("PAST")) return b("Archive", "rowDo(" + n + ",'archive')", "owner");
+  return "";
+}
+function rowPublish(n) {
+  var en = C.versions.find(function (v) { return v.document === d.id && v.number === n && v.locale === "en" && v.status === "DRAFT"; }), sw = C.versions.find(function (v) { return v.document === d.id && v.number === n && v.locale === "sw" && v.status === "DRAFT"; });
+  if (!en || !sw) return Proto.dialog({ title: "Can't publish yet", body: '<p class="text-body-md">' + (en ? "Swahili" : "English") + " has no draft of version " + n + ". Both languages go into force together (22, concern 4).</p>" +
+    '<div class="actions"><a class="btn btn-tonal" href="version.html?d=' + d.id + "&amp;n=" + n + "&amp;l=" + (en ? "sw" : "en") + '">Write it</a></div>' });
+  location.href = "version.html?d=" + d.id + "&n=" + n;
+}
+function rowDo(n, what) {
+  var prev = C.versions.filter(function (v) { return v.document === d.id && v.number < n && v.status === "PUBLISHED"; }).length;
+  var T = { discard: ["Discard the drafts of version " + n + "?", "They were never shown to anyone, so they go for good, in both languages.", "Discard", true],
+    cancel: ["Cancel the schedule?", "Version " + n + " won't come into force, in either language. The version in force stays, with no end date.", "Cancel the schedule", false],
+    down: ["Take version " + n + " down?", prev ? "The version before comes back into force, in both languages." : "Nothing would be in force. Members can't be asked, and every check on this document refuses with \"nothing published\".", "Take down", true],
+    archive: ["Archive version " + n + "?", "It is kept as evidence of what members agreed to, but can never be put back in force.", "Archive", false] }[what];
+  Proto.confirm({ title: T[0], message: T[1], confirm: T[2], destructive: T[3], onConfirm: function () { Proto.snack({ discard: "Drafts discarded", cancel: "Schedule cancelled", down: "Version " + n + " taken down", archive: "Archived" }[what]); } });
+}
+/* The kit's PATCH admin/documents/{id}: name and description (the slug can't change); DELETE only if never published, bound or agreed to. */
+function editDoc() {
+  var never = !C.versionsOf(d.id).some(function (v) { return v.status !== "DRAFT"; }) && !C.slotsOf(d.id).length && !C.records.some(function (r) { return r.document === d.id; });
+  Proto.dialog({ title: "Edit " + esc(d.name), body:
+    '<div class="field"><label class="field-label" for="dn">Name</label><input class="field-input" id="dn" value="' + esc(d.name) + '"><span class="field-help">For staff. Members see each version\'s title</span></div>' +
+    '<div class="field"><label class="field-label" for="dd">Description <span class="optional">(optional)</span></label><textarea class="field-input" id="dd" rows="2">' + esc(d.description) + "</textarea></div>" +
+    '<p class="text-body-sm tone-muted">The slug, <code>' + d.slug + "</code>, can't change.</p>" +
+    (never ? '<div class="actions actions-start"><button class="btn btn-text btn-sm tone-error" type="button" id="ddel">Delete this document</button></div>' : '<p class="text-body-sm tone-muted">It can\'t be deleted: it has been published, bound or agreed to, so it is evidence.</p>'),
+    submit: "Save", onSubmit: function (dl) { if (!dl.querySelector("#dn").value.trim()) return Proto.snack("Not saved: a name is needed"); Proto.snack("Saved"); } });
+  var del = document.getElementById("ddel");
+  if (del) del.addEventListener("click", function () { Proto.confirm({ title: "Delete " + esc(d.name) + "?", message: "It was never published, bound or agreed to, so it goes for good.", confirm: "Delete", destructive: true, onConfirm: function () { Proto.snack("Deleted"); setTimeout(function () { location.href = "index.html"; }, 900); } }); });
+}
+function unbind(i) {
+  var b = C.slotsOf(d.id)[i], who = b.owner ? GF.partners.get(b.owner).name : "";
+  var msg = b.slot === "loan.sharing" ? "Members can't be asked to share with " + who + ", and " + who + " can't be activated or stay usable for new loans until it is bound again." :
+    b.slot === "loan.agreement" && b.owner ? who + "'s loans use GroFunder's loan agreement again." : "Members can't be asked at " + b.slot + " until a document is bound to it, and checks on it refuse with \"nothing published\".";
+  Proto.confirm({ title: "Unbind " + b.slot + (who ? " for " + esc(who) : "") + "?", message: msg + " Decisions already recorded stay.", confirm: "Unbind", destructive: true, onConfirm: function () { Proto.snack(b.slot + " unbound"); } });
+}
+function newVersion() {
+  var n = Math.max.apply(null, nums) + 1;
+  Proto.dialog({ title: "Write version " + n, body: '<p class="text-body-md">Starts a draft in English and in Swahili, each a copy of the version in force in that language. Edit them, then the owner publishes both together.</p>',
+    submit: "Start the drafts", onSubmit: function () { Proto.snack("Drafts of version " + n + " started in English and Swahili"); } });
+}
+function bind() {
+  var slot = d.slug === "partner-sharing" ? "loan.sharing" : "loan.agreement";
+  Proto.confirm({ title: "Bind " + slot + " for " + esc(owner.name) + "?", message: (slot === "loan.sharing" ? "Members are asked to share with " + owner.name + " using this document, once a version is in force. Until then " + owner.name + " can't be activated." : "This replaces GroFunder's loan agreement for " + owner.name + "'s loans.") ,
+    confirm: "Bind", onConfirm: function () { Proto.snack(slot + " bound for " + owner.name); } });
+}
+</script>
+</body>
+</html>

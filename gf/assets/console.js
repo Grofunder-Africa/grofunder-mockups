@@ -161,12 +161,156 @@
       '<dl class="facts"><dt>ID</dt><dd class="tabular">' + ID[m.id_type] + " " + m.id_number + '</dd><dt>Phone</dt><dd class="tabular">' + f.phone(m.phone) + "</dd><dt>Gender</dt><dd>" + GENDER[m.gender] +
       '</dd><dt>Born</dt><dd class="tabular">' + (m.date_of_birth ? f.date(m.date_of_birth) + age : "–") + "</dd><dt>Lives in</dt><dd>" + [m.profile.address.village, m.profile.address.ward, GF.get(m.area).name].filter(Boolean).join(", ") +
       "</dd><dt>Positions</dt><dd>" + (pos.join("; ") || "–") + "</dd><dt>Nominees</dt><dd>" + (m.profile.nominees.map(function (n) { return esc(n.name) + " (" + n.relationship.toLowerCase() + ", " + n.share_pct + "%)"; }).join("; ") || "–") + "</dd></dl>" +
+      kycSection(m) + circleSection(m) + creditSection(m) + loanSection(m) + consentSection(m) +
       '<div class="divider"></div><span class="text-title-sm">Member app login</span>' + login +
       '<div class="divider"></div><span class="text-title-sm">Status history</span><div class="rowcards">' + q.statusHistory(m.id).map(function (h) {
         return '<div class="rowcard" style="padding-left:0;padding-right:0">' + chip(MEMBER, h.to_status) + '<span class="grow"><span class="text-body-md">' + (h.from_status ? (h.details.reason ? '"' + esc(h.details.reason) + '"' : "Back to " + LABEL[h.to_status].toLowerCase()) : "Joined") +
           '</span><span class="text-body-sm tone-muted">' + f.date(h.changed_at) + (h.changed_by ? " · " + h.changed_by : " · imported") + "</span></span></div>";
       }).join("") + "</div>" +
       '<p class="proto-note proto-gap"><b>G2:</b> where the reason for disabling a login is kept (note 06 leaves it to the audit trail).</p>' });
+  }
+  /* Verification for loans (note 20): where this record stands, its live or last
+   * visit, and Open a verification (kyc.assign, note 20 Q3). Pages that don't
+   * load kyc.js leave it out. */
+  function kycSection(m) {
+    var K = GF.kyc;
+    if (!K) return "";
+    var st = K.standing(m.id), live = K.liveVisit(m.id), last = K.visitsOf(m.id)[0], v = live || last;
+    var until = st.verified ? st.rows.filter(function (r) { return K.TYPES[r.type].need === "VERIFIED" || K.TYPES[r.type].need === "ONE_VERIFIED"; })
+      .map(function (r) { return r.items.filter(function (i) { return K.counts(i); }).map(function (i) { return K.validUntil(i); }).sort().pop(); }).filter(Boolean).sort()[0] : null;
+    /* Suspended: the checks stay, but don't count while suspended (note 23, gap 1). */
+    var held = st.complete && st.suspended;
+    var word = st.verified ? '<span class="status status-success">Verified</span>' : held ? '<span class="status status-warning">Not counted while suspended</span>' : live ? '<span class="status status-' + (live.status === "SUBMITTED" ? "warning" : "info") + '">' + (live.status === "SUBMITTED" ? "Visit to review" : "Visit open") + "</span>" : '<span class="status status-neutral">Not verified</span>';
+    var line = st.verified ? "Verified for loans until " + f.date(until) + "." : held ? "The checks are in date, but a suspended member doesn't count as verified. They count again once the cooperative makes the record active." : live ? (live.agent ? "With " + esc(K.staffName(live.agent)) + "." : "No agent assigned yet.") : last ? "The last visit was " + K.L.visitStatus[last.status][1].toLowerCase() + "." : "No visit yet.";
+    var cs = GF.get(m.cooperative).status, canOpen = m.status === "ACTIVE" && !live && (cs === "ACTIVE" || cs === "ONBOARDING");
+    /* The member's current items, with Reject for reviewers (kyc.review): anything found false (audit, 2026-11-08). */
+    var items = K.current(m.id).filter(function (i) { return i.status !== "REJECTED"; });
+    var ST = { UNVERIFIED: ["neutral", "Declared"], VERIFIED: ["success", "Verified"], DIFFERS: ["warning", "Differs"] };
+    var list = items.length ? '<div class="rowcards" id="kyc-items">' + items.map(function (i) {
+      return '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="grow"><span class="text-body-md">' + K.TYPES[i.data_type].label + '</span><span class="text-body-sm tone-muted">' + K.L.source[i.source] + "</span></span>" +
+        chip(ST, i.status) + '<button class="btn btn-text btn-sm" type="button" data-roles="owner full ops" onclick="Console.rejectItem(\'' + i.id + '\')">Reject</button></div>';
+    }).join("") + "</div>" : "";
+    return '<div class="divider"></div><span class="text-title-sm">Verification for loans</span>' +
+      '<span class="text-body-sm tone-muted">For this record at ' + esc(GF.get(m.cooperative).profile.short_name) + ' only. The cooperative sees whether it is verified, nothing more.</span>' +
+      '<div class="row gap-2 wrap">' + word + '<span class="text-body-md">' + line + "</span></div>" +
+      list + (m.status === "ACTIVE" && !live && !canOpen ? '<span class="text-body-sm tone-muted">' + esc(GF.get(m.cooperative).profile.short_name) + " is " + cs.toLowerCase().replace("_", " ") + ": no new verification can be opened.</span>" : "") +
+      '<div class="actions actions-start">' + (v ? '<a class="btn btn-outlined" href="../kyc/visit.html?v=' + v.id + '">' + (live ? "Open the visit" : "See the last visit") + "</a>" : "") +
+      (canOpen ? '<a class="btn btn-tonal" data-roles="owner full ops" href="../kyc/index.html?open=1&amp;m=' + m.id + '">Open a verification</a>' : "") + "</div>";
+  }
+  /* Growth Circle (note 23: the member page shows the circle through circles/?member=).
+   * Pages that don't load groups.js leave it out. */
+  function circleSection(m) {
+    var G = GF.groups;
+    if (!G) return "";
+    var x = G.placeOf(m.id), inv = G.invitationsOf(m.id), c = x && G.get(x.circle);
+    var line = c ? '<a href="' + R + 'groups/circle.html?c=' + c.id + '">' + esc(c.name) + "</a> · " + (x.role === "LEADER" ? "leader" : x.status === "JOINING" ? "joining on " + f.date(x.objection_ends_at, "short") : "member since " + f.date(x.joined_at, "short")) +
+      " · circle " + G.L.status[c.status][1].toLowerCase() + (m.status === "SUSPENDED" ? ". Suspended: keeps the place, but can't borrow" : "")
+      : inv.length ? "Not in a circle; invited to " + inv.map(function (i) { return '<a href="' + R + 'groups/circle.html?c=' + i.circle + '">' + esc(G.get(i.circle).name) + "</a>"; }).join(", ")
+      : "Not in a circle";
+    return '<div class="divider"></div><span class="text-title-sm">Growth Circle</span><span class="text-body-md" id="circle-line">' + line + "</span>";
+  }
+  /* Credit (note 25): the limit that counts, and a link to the member's credit (CR2). */
+  function creditSection(m) {
+    var C = GF.credit;
+    if (!C) return "";
+    var l = C.limit(m.id), s = l.score;
+    var line = !l.eligible ? (l.reason === "PAUSED" ? "Borrowing blocked" : C.L.reason[l.reason]) : f.money(l.limit_cents, { whole: true }) + (l.override ? " (override)" : "") + (s ? " · score " + s.score + ", step " + s.ladder_step : "");
+    return '<div class="divider"></div><span class="text-title-sm">Credit</span><span class="text-body-md" id="credit-line">' + esc(line) + ' · <a href="' + R + 'credit/member.html?m=' + m.id + '">Open</a></span>';
+  }
+  /* Loans (note 26 part 1; phase 16, UI-110): this record's loans, newest first, and Prepare a loan (loans.prepare). */
+  function loanSection(m) {
+    var Lo = GF.loans;
+    if (!Lo) return "";
+    var list = Lo.ofMember(m.id);
+    return '<div class="divider"></div><span class="text-title-sm">Loans</span>' +
+      '<div class="rowcards" id="loan-rows">' + (list.length ? list.map(function (l) {
+        return '<a class="rowcard" style="padding-left:0;padding-right:0" href="' + R + 'loans/loan.html?l=' + l.id + '"><span class="grow"><span class="text-body-md tabular">' + l.reference + " · " + f.money(l.amount_cents, { whole: true }) + '</span><span class="text-body-sm tone-muted">' +
+          esc(GF.partners.get(l.product).name) + " · " + f.date(l.created_at, "short") + "</span></span>" + chip(Lo.L.status, l.status) + "</a>";
+      }).join("") : '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="text-body-md tone-muted">No loans.</span></div>') + "</div>" +
+      (m.status === "ACTIVE" && !list.some(Lo.isLive) ? '<div class="actions actions-start" data-roles="owner full ops"><a class="btn btn-tonal" href="' + R + "loans/prepare.html?m=" + m.id + '">Prepare a loan</a></div>' : "");
+  }
+  /* Consents (note 22; phase 15, UI-100): this record's lending consents and the login's terms.
+   * consents.view for every office role; taking one by SMS code (consents.record) and withdrawing
+   * (consents.withdraw) are Operations and up. Pages that don't load consents.js leave it out. */
+  function consentSection(m) {
+    var C = GF.consents;
+    if (!C) return "";
+    var u = q.loginOf(m), lend = C.allows(m.id, "LENDING"), recs = C.recordsOf(m.id);
+    var verLine = function (r) { var v = C.version(r.version); return "Version " + v.number + " (" + C.L.locale[v.locale] + ")"; };
+    var row = function (title, r, extra, action) {
+      return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start"><span class="grow"><span class="text-body-md">' + esc(title) + '</span><span class="text-body-sm tone-muted">' +
+        (r ? verLine(r) + " · " + f.date(r.occurred_at, "short") + ", " + r.occurred_at.slice(11, 16) + " · " + esc(C.how(r)) + (r.metadata.withdrawal ? ': "' + esc(r.metadata.withdrawal.reason) + '"' : "") : "No decision yet") +
+        (extra ? "<br>" + extra : "") + "</span></span>" + (r ? chip(C.L.decision, r.decision) : '<span class="status status-neutral">Not agreed</span>') + (action || "") + "</div>";
+    };
+    var live = function (r) { var lv = r && C.live(r.document, C.version(r.version).locale); return lv ? lv : null; };
+    var lendRec = C.current(m.id, "cd-lending");
+    var lendExtra = !lend.ok && lend.reason === "NEEDS_RECONSENT" ? '<span class="tone-warning">Version ' + live(lendRec).number + " needs them to agree again before anything new.</span>" : "";
+    var canTake = m.status === "ACTIVE" && (!lend.ok);
+    var rows = [row("Lending", lendRec, lendExtra, lendRec && lendRec.decision === "GRANTED" ? '<button class="btn btn-text btn-sm" type="button" data-roles="owner full ops" onclick="Console.withdrawConsent(\'' + m.id + '\',\'cd-lending\')">Withdraw</button>' : "")];
+    /* Sharing with each lender, and loan agreements, as loans (26) records them. */
+    var seen = {};
+    recs.filter(function (r) { return r.document !== "cd-lending" && !seen[r.document] && (seen[r.document] = true); }).forEach(function (r) {
+      var d = C.doc(r.document), withdrawable = d.kind === "CONSENT" && r.decision === "GRANTED";
+      rows.push(row(d.name, r, r.context && r.context.indexOf("loan:") === 0 ? esc(C.L.context(r.context)) : "", withdrawable ? '<button class="btn btn-text btn-sm" type="button" data-roles="owner full ops" onclick="Console.withdrawConsent(\'' + m.id + '\',\'' + d.id + '\')">Withdraw</button>' : ""));
+    });
+    var terms = u ? C.currentTerms(u.id) : null;
+    var termsLine = !u ? "" : '<span class="text-body-sm tone-muted">Their login\'s terms of use: ' + (terms ? verLine(terms) + ", " + f.date(terms.occurred_at, "short") + (C.needsReconsent(terms) ? '. <span class="tone-warning">Version ' + C.live("cd-terms", C.version(terms.version).locale).number + " waits for them to agree in the app.</span>" : "") : "not recorded") + "</span>";
+    var ledger = recs.filter(function (r) { return !r.implied; });
+    return '<div class="divider"></div><span class="text-title-sm">Consents</span>' +
+      '<span class="text-body-sm tone-muted">What this record at ' + esc(c(m).profile.short_name) + " has agreed to (22). Kept per membership. The cooperative sees none of it.</span>" +
+      '<div class="rowcards" id="consent-rows">' + rows.join("") + "</div>" + termsLine +
+      (canTake ? '<div class="actions actions-start" data-roles="owner full ops"><button class="btn btn-tonal" type="button" onclick="Console.takeConsent(\'' + m.id + '\',\'account\')">Take consent by SMS code</button></div>' : "") +
+      (ledger.length ? '<div class="disclosure" style="flex:none"><div class="disclosure-item"><button class="disclosure-trigger" type="button" aria-expanded="false">Every decision (' + ledger.length + ')</button><div class="disclosure-panel" hidden><div class="rowcards">' + ledger.map(function (r) {
+        return '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="grow"><span class="text-body-sm">' + esc(C.doc(r.document).name) + " · " + verLine(r) + '</span><span class="text-body-sm tone-muted">' + f.date(r.occurred_at, "short") + ", " + r.occurred_at.slice(11, 16) + " · " + esc(C.how(r)) + " · " + esc(C.L.context(r.context)) + "</span></span>" + chip(C.L.decision, r.decision) + "</div>";
+      }).join("") + "</div></div></div></div>" : "");
+  }
+  var c = function (m) { return GF.get(m.cooperative); };
+  /* Taking consent by SMS code (22, step 4; consents.record): the summary read aloud, a code to the
+   * phone on record that names what is agreed, and the code the member reads back. An agent may do it
+   * only for the member of a visit assigned to them. */
+  function takeConsent(memberId, context, done) {
+    var C = GF.consents, m = GF.get(memberId), first = m.full_name.split(" ")[0], lang = (m.profile && m.profile.language) || GF.get(m.cooperative).profile.default_language || "en";
+    var draw = function (l) { var v = C.live("cd-lending", l); return '<span class="text-title-sm">' + esc(v.title) + '</span><span class="text-body-md">' + esc(v.summary) + '</span><span class="text-body-sm tone-muted">Version ' + v.number + " · " + C.L.locale[l] + "</span>"; };
+    var d = Proto.dialog({ title: "Ask " + esc(first) + " to agree to lending",
+      body: '<p class="text-body-md tone-muted">Read this out, then send the code. ' + esc(first) + " reads it back only if they agree.</p>" +
+        '<div class="chip-row" data-choice role="radiogroup" aria-label="Language" id="cl">' + ["sw", "en"].map(function (l) { return '<button class="chip" type="button" role="radio" data-l="' + l + '" aria-checked="' + (l === lang) + '">' + C.L.locale[l] + "</button>"; }).join("") + "</div>" +
+        '<div class="card card-outlined col gap-2" id="ctext">' + draw(lang) + "</div>" +
+        '<p class="text-body-sm tone-muted">The code goes to the phone on the record, ' + f.phone(m.phone) + ', and says what it is for. It works for 10 minutes.</p>',
+      submit: "Send the code", onSubmit: function () { askCode(); } });
+    d.querySelector("#cl").addEventListener("click", function (e) { var b = e.target.closest("[data-l]"); if (!b) return; lang = b.getAttribute("data-l"); d.querySelector("#ctext").innerHTML = draw(lang); });
+    function askCode() {
+      var v = C.live("cd-lending", lang);
+      var e = Proto.dialog({ title: "Enter " + esc(first) + "'s code",
+        body: '<div class="card col gap-1"><span class="text-label-md tone-muted">The SMS ' + esc(first) + " got</span><span class=\"text-body-md\">" + (lang === "sw" ? "GroFunder: unakubali GroFunder kutumia taarifa zako kwa mikopo (toleo " + v.number + "). Nambari yako ni 482913. Itoe tu kama unakubali."
+          : "GroFunder: you are agreeing to GroFunder using your details for loans (version " + v.number + "). Your code is 482913. Share it only if you agree.") + "</span></div>" +
+          '<div class="field"><label class="field-label" for="ccode">Code</label><input class="field-input tabular" id="ccode" inputmode="numeric" maxlength="6" placeholder="6 digits">' +
+          '<span class="field-help">In the prototype any 6 digits work except 000000.</span><span class="field-error hidden" id="ccode-e">That code isn\'t right. 2 tries left.</span></div>',
+        submit: "Record consent", onSubmit: function (dl) {
+          var code = dl.querySelector("#ccode").value.replace(/\D/g, "");
+          if (code.length !== 6 || code === "000000") { Proto.snack("That code isn't right. Nothing was recorded"); return; }
+          Proto.snack(first + " agreed to lending, by SMS code");
+          if (done) done();
+        } });
+    }
+  }
+  /* Withdrawing for a member who asks (22, step 7; KC2; consents.withdraw): how they asked and why,
+   * after saying what stops and what carries on. */
+  function withdrawConsent(memberId, docId) {
+    var C = GF.consents, m = GF.get(memberId), d = C.doc(docId), p = C.PURPOSES[d.slug === "lending" ? "LENDING" : "PARTNER_SHARING"], first = m.full_name.split(" ")[0];
+    var K = GF.kyc, open = K && d.slug === "lending" ? K.liveVisit(m.id) : null;
+    var li = function (a) { return "<ul class=\"text-body-md\" style=\"margin:0;padding-left:20px\">" + a.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>"; };
+    Proto.dialog({ title: "Withdraw " + esc(first) + "'s consent?",
+      body: '<p class="text-body-md">' + esc(d.name) + ". Only on " + esc(first) + "'s own request.</p>" +
+        '<span class="text-title-sm">Stops now</span>' + li(p.stops.concat(open && open.status === "OPEN" ? ["Visit " + open.id + " is cancelled"] : [])) +
+        '<span class="text-title-sm">Carries on</span>' + li(p.carries) +
+        '<div class="field"><span class="field-label">How they asked</span><div class="chip-row" data-choice role="radiogroup" aria-label="How they asked"><button class="chip" type="button" role="radio" aria-checked="true" data-via="PHONE_CALL">Phone call</button><button class="chip" type="button" role="radio" aria-checked="false" data-via="IN_PERSON">In person</button></div></div>' +
+        '<div class="field"><label class="field-label" for="cwhy">Reason</label><textarea class="field-input" id="cwhy" rows="2" placeholder="What they said"></textarea><span class="field-help">Required. Kept with the record.</span></div>' +
+        '<p class="text-body-sm tone-muted">' + esc(first) + " is told by SMS. They can agree again later, in the app or with an agent.</p>",
+      submit: "Withdraw", onSubmit: function (dl) { if (!dl.querySelector("#cwhy").value.trim()) return Proto.snack("Nothing changed: a reason is needed"); Proto.snack("Withdrawn. " + first + " is told by SMS"); } });
+  }
+  function rejectItem(id) {
+    Proto.dialog({ title: "Reject this item?", body: '<p class="text-body-md tone-muted">For something found false, whoever entered it. Any check on it stops counting; the rest stands.</p><div class="field"><label class="field-label" for="rj">Reason</label><textarea class="field-input" id="rj"></textarea></div>',
+      submit: "Reject", onSubmit: function (d) { if (!d.querySelector("#rj").value.trim()) return Proto.snack("A reason is needed"); Proto.snack("Item rejected"); } });
   }
   function disableLogin(memberId) {
     var m = GF.get(memberId);
@@ -176,5 +320,6 @@
   }
 
   window.Console = { STATUS: STATUS, MEMBER: MEMBER, MOVES: MOVES, chip: chip, esc: esc, coopUrl: coopUrl, memberUrl: memberUrl, accepted: accepted,
-    changeStatus: changeStatus, invite: invite, handOver: handOver, revoke: revoke, remove: remove, search: search, memberPanel: memberPanel, disableLogin: disableLogin, R: R };
+    changeStatus: changeStatus, invite: invite, handOver: handOver, revoke: revoke, remove: remove, search: search, memberPanel: memberPanel, disableLogin: disableLogin, rejectItem: rejectItem, R: R,
+    takeConsent: takeConsent, withdrawConsent: withdrawConsent };
 })();

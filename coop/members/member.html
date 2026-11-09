@@ -11,6 +11,12 @@
 <link rel="stylesheet" href="../../assets/tokens.css">
 <link rel="stylesheet" href="../../assets/kit.css">
 <script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
 <script src="../assets/portal.js"></script>
 <script src="../assets/members.js"></script>
 <script src="../assets/produce.js"></script>
@@ -22,11 +28,13 @@
 
 <div data-screen data-title="Member" data-dest="members" data-back="index.html" data-wide id="screen">
 
+  <p class="proto-note"><b>Loan standing (phase 16, note 26; 21 Q4).</b> Under the GroFunder verification line: no loan, has a loan, behind on a loan, or loan in default. Never the amount, the lender or the terms. Samuel Kariuki (M-0031) has a loan with GroFunder for review.</p>
   <p class="proto-note"><b>C11 · From notes 05, 07 and 08 (UI-35).</b> A member's full record is a page, because it is a place with tabs of its own (design system §3.0). The header holds who they are, their status with a visible <b>Change status</b>, and three figures. The tabs hold the details, deliveries, payouts, positions and history.</p>
   <p class="proto-note"><b>C12 · Edit is on each card</b> and opens a panel with that card's fields (UI-13, as G6 does for a cooperative). The ID can't change once the member's login is linked, because the login's username was built from it (05). Phone, preferred name, email and language are also the member's to change in the app. The card says so, and staff can still correct them.</p>
+  <p class="proto-note"><b>Verification for loans (note 20 Q5, UI-63).</b> The cooperative sees only where the member stands with GroFunder: <i>Verified by GroFunder</i>, <i>GroFunder visit pending</i>, or <i>Not verified by GroFunder</i>. Never the photos, farm points, what the member declared, or why a visit failed. Try <a href="member.html?m=m-kij-0031">Samuel, verified</a>.</p>
   <p class="proto-note"><b>C13 and C14 are dialogs on this page.</b> The status dialog offers only the moves note 05 allows. It asks for a reason where one is needed, and counts the positions a move would end. Assigning a position applies the scope, the member's own cluster and the holder limit, which is counted per cluster, and names who holds a full position.</p>
   <p class="proto-note">Try <a href="member.html?m=m-kij-0142">Wanjiku</a> (uses the app, a cluster leader, nominees), <a href="member.html?m=m-kij-0412">Jane, suspended</a>, <a href="member.html?m=m-kij-0077">Daniel, exited</a>, and <a href="member.html?m=m-kij-0001">the chair</a>.</p>
-  <p class="proto-note proto-gap"><b>G40 · Unlinking a login.</b> Note 05 says staff unlink a member's login before correcting a wrong ID, and calls unlinking "a phase 5 service". Note 06 doesn't design it: who may do it, what the member is told, and whether the member's other records stay linked. The Identity panel points at it without offering it.</p>
+  <p class="proto-note"><b>G40 · Unlinking a login (decided 2026-10-29).</b> Only GroFunder frees an ID: it disables the login, then releases the ID (06), which unlinks the member's records. The cooperative's Identity panel keeps the ID locked and says to ask GroFunder.</p>
 
   <!-- LOADED -->
   <div data-state="loaded" class="col gap-4" id="page"></div>
@@ -108,6 +116,20 @@ document.addEventListener("DOMContentLoaded", function () {
   var owed = q.balance(q.deliveries({ member: m.id }));
   var draft = q.payouts({ member: m.id, status: "DRAFT" })[0];
 
+  /* Standing only (note 20 Q5): no item, visit or reason reaches the cooperative. */
+  function kycStanding() {
+    if (!GF.kyc) return "";
+    /* A suspended member doesn't count as verified while suspended (note 23). */
+    var st = GF.kyc.standing(m.id), ok = st.verified, held = st.complete && st.suspended, live = GF.kyc.liveVisit(m.id);
+    return '<span class="text-body-md tone-muted" id="kyc-standing"><span class="mdi mdi-' + (ok ? "shield-check-outline" : live ? "shield-sync-outline" : "shield-outline") + '" aria-hidden="true"></span> ' +
+      (ok ? "Verified by GroFunder for loans" : held ? "Not verified by GroFunder while suspended" : live ? "GroFunder visit pending" : "Not verified by GroFunder") + "</span>";
+  }
+  /* Loans (note 26, 21 Q4): the standing only, under members.view: no amount, lender or terms. */
+  function loanStanding() {
+    if (!GF.loans) return "";
+    var s = GF.loans.standing(m.id);
+    return '<span class="text-body-md tone-muted" id="loan-standing"><span class="mdi mdi-' + (s === "NONE" ? "cash-remove" : s === "LIVE" ? "cash-clock" : "cash-alert") + '" aria-hidden="true"></span> ' + GF.loans.L.standing[s] + "</span>";
+  }
   var header =
     '<div class="card card-outlined card-lg"><div class="row-top gap-4 wrap">' +
       '<span class="avatar" style="width:64px;height:64px;font-size:22px" aria-hidden="true">' + f.initials(m.full_name) + "</span>" +
@@ -116,6 +138,7 @@ document.addEventListener("DOMContentLoaded", function () {
         '<span class="text-body-md tone-muted tabular">' + (m.member_no || "No member number") + " · " + M.clusterName(m.cluster) + " · member since " + f.date(m.joined_on) + "</span>" +
         (m.status !== "ACTIVE" && last ? '<span class="text-body-md">' + M.STATUS[m.status][1] + " since " + f.date(last.changed_at) + (last.details.reason ? ': "' + esc(last.details.reason) + '"' : "") + "</span>" : "") +
         '<span class="text-body-md tone-muted">' + (login ? (login.is_active ? '<span class="mdi mdi-cellphone-check" aria-hidden="true"></span> Uses the member app' : '<span class="mdi mdi-cellphone-off" aria-hidden="true"></span> Member app login disabled by GroFunder') : "Not on the member app yet") + "</span>" +
+        kycStanding() + loanStanding() +
       "</div></div>" +
       '<div class="stats-grid">' +
         '<div class="stat-card"><span class="stat-text"><span class="stat-label">Delivered this month</span><span class="stat-value">' + (perProduct.join(" · ") || "Nothing yet") + '</span><span class="stat-caption">' + thisMonth.length + " deliveries in " + ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][+month.slice(5) - 1] + "</span></span></div>" +
@@ -254,7 +277,7 @@ document.addEventListener("DOMContentLoaded", function () {
         fld("e-name", "Name as on ID", m.full_name) +
         '<div class="field"><span class="field-label" id="e-idt-l">ID type</span><div class="chip-row" data-choice role="radiogroup" aria-labelledby="e-idt-l">' + Object.keys(ID).map(function (k) {
           return '<button class="chip" type="button" role="radio" aria-checked="' + (k === m.id_type) + '"' + (login ? " disabled" : "") + ">" + ID[k] + "</button>"; }).join("") + "</div></div>" +
-        fld("e-id", "ID number", m.id_number, { tabular: true, disabled: !!login, help: login ? "Locked: " + m.full_name.split(" ")[0] + " signs in to the member app with it. If it is wrong, the login has to be unlinked first (G40)." : "Digits only for a national ID. It must not be on another member of this cooperative." }) +
+        fld("e-id", "ID number", m.id_number, { tabular: true, disabled: !!login, help: login ? "Locked: " + m.full_name.split(" ")[0] + " signs in to the member app with it. If it is wrong, ask GroFunder to release the login." : "Digits only for a national ID. It must not be on another member of this cooperative." }) +
         fld("e-gender", "Gender", "", { select: opts(GENDER, m.gender) }) +
         fld("e-dob", "Date of birth", m.date_of_birth || "", { type: "date", optional: true, help: "Used only for age-band reports." }) +
         '<div class="field"><span class="field-label">Photo <span class="optional">(optional)</span></span><div class="row gap-3"><span class="avatar" aria-hidden="true">' + f.initials(m.full_name) + '</span><button class="btn btn-outlined btn-sm" type="button" onclick="Proto.snack(\'Choose a photo\')">Add a photo</button></div></div>' };

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Consent documents · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../assets/console.js"></script>
+<script src="consents-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Consents" data-dest="consents" data-wide
+     data-action='{"label":"New lender document","icon":"plus","roles":"owner full","on":"newDoc()"}'>
+
+  <p class="proto-note"><b>CN1 · Consent documents (note 22, the kit's <code>admin/documents/</code> and <code>admin/slots/</code>).</b> GroFunder's own documents, then each lender's: the member terms (an agreement), lending (a consent), the loan agreement (an agreement), one sharing document per lender, and a lender's own loan agreement where it has one (Q9). Each shows which slots it is bound to and the version in force in English and Swahili.</p>
+  <p class="proto-note"><b>Languages kept in step (concern 4).</b> The kit versions each language on its own and re-asks a member only in the language they agreed in, so a document whose languages differ (different versions in force, a draft or a schedule in one only) is flagged here and on its page.</p>
+  <p class="proto-note"><b>Who does what (Q7).</b> Full and Owner create documents, write drafts and bind slots (<code>consents.manage</code>); only the owner publishes, schedules, takes down and archives (<code>consents.publish</code>), after legal review outside the system. Every office role reads. GroFunder's three documents exist from the first migration, so <i>New</i> is only for a lender.</p>
+  <p class="proto-note proto-gap"><b>G101:</b> the wording of every document, in both languages, is a placeholder. 22 concern 3 needs a lawyer to check it before launch.</p>
+
+  <div data-state="loaded" class="col gap-6">
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">GroFunder's documents</span><span class="text-body-md tone-muted">Platform-wide</span></div></div>
+      <div class="rowcards" id="platform"></div></section>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Lenders' documents</span><span class="text-body-md tone-muted">Each owned by the lender's account. <code>loan.sharing</code> is bound per lender, never platform-wide (Q8)</span></div></div>
+      <div class="rowcards" id="partners"></div></section>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Where members are asked</span><span class="text-body-md tone-muted">Slots, declared in code. A consent slot is never required: the kit won't make consent a condition</span></div></div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Slot</th><th>Kind</th><th>Asked at</th><th>Bound to</th></tr></thead><tbody id="slots"></tbody></table></div></section>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:200px"></div><div class="skeleton-card" style="height:200px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-file-sign" aria-hidden="true"></span>
+    <span class="text-headline-sm">No documents yet</span><span class="text-body-md">The first migration creates GroFunder's three. Until each has a version in force, members can't be asked and lending refuses with "nothing published".</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the documents</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var C = GF.consents, U = ConsentsUI, esc = U.esc, f = GF.fmt;
+function card(d) {
+  var en = C.live(d.id, "en"), sw = C.live(d.id, "sw"), differ = C.languagesDiffer(d.id);
+  var draft = C.versionsOf(d.id).some(function (v) { return v.status === "DRAFT"; }), sch = C.versionsOf(d.id).filter(function (v) { return C.state(v) === "SCHEDULED"; })[0];
+  var inForce = en || sw ? "In force: " + [en ? "English v" + en.number : "", sw ? "Swahili v" + sw.number : ""].filter(Boolean).join(", ") : "Nothing in force";
+  return '<a class="rowcard" href="document.html?d=' + d.id + '"><span class="grow"><span class="text-body-lg">' + esc(d.name) + "</span>" +
+    '<span class="text-body-md tone-muted">' + C.L.kind[d.kind] + " · " + inForce + (sch ? " · v" + sch.number + " from " + f.date(sch.periods[0].live_from, "short") : "") + "</span>" +
+    '<span class="text-body-sm tone-muted">' + U.boundLine(d) + "</span></span>" +
+    '<span class="col gap-1" style="align-items:flex-end">' + (differ ? '<span class="status status-warning">' + esc(differ) + "</span>" : "") + (draft ? U.chip(C.L.vstate.DRAFT) : "") + (!en && !sw ? '<span class="status status-neutral">Not published</span>' : "") + "</span></a>";
+}
+document.getElementById("platform").innerHTML = C.documents.filter(function (d) { return !d.owner; }).map(card).join("");
+document.getElementById("partners").innerHTML = GF.partners.partners.map(function (p) {
+  var docs = C.partnerDocs(p.id);
+  return '<div class="col gap-2"><span class="text-label-lg tone-muted" style="padding:12px 16px 0">' + esc(p.name) + " · " + GF.partners.L.status[p.status][1].toLowerCase() + (C.sharingReady(p.id) ? "" : ' · <span class="tone-warning">no sharing document in force: it can\'t be activated (24)</span>') + "</span>" +
+    (docs.length ? docs.map(card).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">No documents yet.</span></div>') + "</div>";
+}).join("");
+document.getElementById("slots").innerHTML = C.SLOTS.map(function (s) {
+  var binds = C.placements.filter(function (p) { return p.slot === s.key; });
+  var to = s.perPartner ? GF.partners.partners.map(function (p) { var d = C.boundTo(s.key, p.id), own = C.partnerDocs(p.id).find(function (x) { return x.slug === "partner-sharing"; });
+      return esc(p.name) + ": " + (d ? '<a href="document.html?d=' + d.id + '">' + esc(d.name) + "</a>" : '<span class="tone-warning">not bound</span>' +
+        (own ? ' <button class="btn btn-text btn-sm" type="button" data-roles="owner full" onclick="bindSlot(\'' + s.key + "','" + p.id + "','" + own.id + '\')">Bind</button>' : "")); }).join("<br>")
+    : binds.map(function (p) { var d = C.doc(p.document); return (p.owner ? esc(GF.partners.get(p.owner).name) + ": " : "") + '<a href="document.html?d=' + d.id + '">' + esc(d.name) + "</a>"; }).join("<br>");
+  return '<tr><td class="primary-cell"><code>' + s.key + "</code></td><td>" + C.L.kind[s.kind] + (s.required ? ", required" : "") + '</td><td class="text-body-sm">' + esc(s.asked) + '</td><td class="text-body-sm">' + to + "</td></tr>";
+}).join("");
+function bindSlot(slot, partnerId, docId) {
+  var p = GF.partners.get(partnerId), d = C.doc(docId);
+  Proto.confirm({ title: "Bind " + slot + " for " + esc(p.name) + "?", message: "Members are asked to share with " + p.name + " using \"" + d.name + "\", once a version is in force.", confirm: "Bind", onConfirm: function () { Proto.snack(slot + " bound for " + p.name); } });
+}
+function newDoc() {
+  var P = GF.partners.partners;
+  var d = Proto.dialog({ title: "New lender document", body:
+    '<p class="text-body-md tone-muted">Owned by the lender\'s account. It starts with no version: write the drafts in English and Swahili, bind it, and the owner publishes it.</p>' +
+    '<div class="field"><label class="field-label" for="np">Lender</label><select class="field-input" id="np">' + P.map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + "</option>"; }).join("") + "</select></div>" +
+    '<div class="col gap-2" role="radiogroup" aria-label="Which document">' +
+    '<label class="radio-card" style="flex-direction:row;gap:12px;align-items:flex-start"><input type="radio" name="nk" value="partner-sharing" checked style="margin-top:2px"><span class="col gap-1"><span class="text-title-sm">Sharing document</span><span class="text-body-sm tone-muted">A consent: what GroFunder sends this lender and what it may read. Needed before the lender can be activated</span></span></label>' +
+    '<label class="radio-card" style="flex-direction:row;gap:12px;align-items:flex-start"><input type="radio" name="nk" value="loan-agreement" style="margin-top:2px"><span class="col gap-1"><span class="text-title-sm">Its own loan agreement</span><span class="text-body-sm tone-muted">An agreement that replaces GroFunder\'s for this lender\'s loans (Q9)</span></span></label></div>' +
+    '<span class="field-error hidden" id="np-e"></span>',
+    submit: "Create", onSubmit: function (dl) {
+      var p = dl.querySelector("#np").value, k = (dl.querySelector('input[name="nk"]:checked') || {}).value;
+      if (C.partnerDocs(p).some(function (x) { return x.slug === k; })) return Proto.snack(GF.partners.get(p).name + " already has one. Write a new version of it instead");
+      Proto.snack((k === "partner-sharing" ? "Sharing document" : "Loan agreement") + " created for " + GF.partners.get(p).name + ". Write its drafts next");
+    } });
+}
+</script>
+</body>
+</html>

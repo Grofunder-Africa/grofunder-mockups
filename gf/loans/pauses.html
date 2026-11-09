@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lending pauses · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../assets/console.js"></script>
+<script src="loans-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Loans" data-dest="loans" data-wide
+     data-action='{"label":"Pause lending","icon":"pause","roles":"owner full","on":"startPause()"}'>
+
+  <p class="proto-note"><b>LN4 · Pauses (note 26, <code>LendingPause</code>).</b> A pause stops new drafts, requests, accepting a draft and approving, for everyone, a cooperative, a cluster or a circle. Requests already waiting stay until it ends, or are rejected or cancelled; approved loans still go to the lender, and later stages carry on. Members see the pause's message in English or Swahili; staff see the reason. One pause per target at a time. Lenders and products are paused on their own pages (24), not here.</p>
+  <p class="proto-note"><b>Who (Q6).</b> Full and Owner pause and end a cooperative, cluster or circle (<code>loans.pause</code>); only the Owner pauses everyone (<code>loans.pause_all</code>). Pauses are never edited: end one and start another.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="loans" data-current="pauses" data-label="Loans"></div>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">In force</span></div></div><div class="rowcards" id="active"></div></section>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Ended</span></div></div><div class="rowcards" id="ended"></div></section>
+  </div>
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:200px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-play-circle-outline" aria-hidden="true"></span><span class="text-headline-sm">No pauses</span><span class="text-body-md">Lending runs everywhere the other rules allow.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the pauses</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var Lo = GF.loans, U = LoansUI, esc = U.esc, f = GF.fmt, G = GF.groups;
+function target(p) { return p.scope === "ALL" ? "Everyone" : p.scope === "CIRCLE" ? G.get(p.circle).name + " (circle)" : p.scope === "CLUSTER" ? GF.get(p.cluster).name + " cluster" : GF.get(p.cooperative).profile.short_name; }
+function card(p) {
+  var held = p.status === "ACTIVE" ? Lo.loans.filter(function (l) { return l.status === "REQUESTED" && Lo.pauseFor(GF.get(l.member), l.circle) === p; }).length : 0;
+  return '<div class="rowcard" style="align-items:flex-start"><span class="mdi mdi-pause-circle-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">' + esc(target(p)) + "</span>" +
+    '<span class="text-body-md">' + esc(p.reason) + "</span>" +
+    '<span class="text-body-sm tone-muted">Members see: "' + esc(p.details.message.en) + '"</span>' +
+    '<span class="text-body-sm tone-muted">' + U.when(p.started_at) + " by " + esc(U.who(p.started_by)) + (p.ended_at ? " · ended " + U.when(p.ended_at) + " by " + esc(U.who(p.ended_by)) : "") + (held ? " · " + held + " request" + (held === 1 ? "" : "s") + " waiting" : "") + "</span></span>" +
+    (p.status === "ACTIVE" ? '<button class="btn btn-outlined btn-sm" type="button" data-roles="' + (p.scope === "ALL" ? U.ROLES.pause_all : U.ROLES.pause) + '" onclick="endPause(\'' + p.id + '\')">End</button>' : U.chip(["neutral", "Ended"])) + "</div>";
+}
+var act = Lo.pauses.filter(function (p) { return p.status === "ACTIVE"; }), done = Lo.pauses.filter(function (p) { return p.status === "ENDED"; }).sort(function (a, b) { return a.ended_at < b.ended_at ? 1 : -1; });
+document.getElementById("active").innerHTML = act.length ? act.map(card).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">None. Lending runs everywhere the other rules allow.</span></div>';
+document.getElementById("ended").innerHTML = done.map(card).join("");
+function endPause(id) {
+  var p = Lo.get(id);
+  Proto.confirm({ title: "End the pause on " + esc(target(p)) + "?", message: "New drafts, requests and approvals start again there. Requests that waited can be reviewed.", confirm: "End the pause", onConfirm: function () { Proto.snack("Pause ended"); } });
+}
+function startPause() {
+  var role = (function () { try { return localStorage.getItem("gf.role.gf") || "full"; } catch (e) { return "full"; } })();
+  var opt = function (v, l, dis) { return '<label class="radio-card" style="flex-direction:row;gap:12px;align-items:center' + (dis ? ";opacity:.5" : "") + '"><input type="radio" name="ps" value="' + v + '"' + (v === "CIRCLE" ? " checked" : "") + (dis ? " disabled" : "") + '><span class="text-title-sm">' + l + "</span>" + (dis ? '<span class="text-body-sm tone-muted">Owner only</span>' : "") + "</label>"; };
+  var d = Proto.dialog({ title: "Pause lending", wide: true, body:
+    '<div class="col gap-2" role="radiogroup" aria-label="For">' + opt("CIRCLE", "A circle") + opt("CLUSTER", "A cluster") + opt("COOPERATIVE", "A cooperative") + opt("ALL", "Everyone", role !== "owner") + "</div>" +
+    '<div class="field" id="tf"><label class="field-label" for="pt">Which</label><select class="field-input" id="pt"></select></div>' +
+    '<div class="field"><label class="field-label" for="pr">Reason</label><textarea class="field-input" id="pr" rows="2"></textarea><span class="field-help">For staff. Members never see it</span></div>' +
+    '<div class="field"><label class="field-label" for="pe">What members see, in English</label><textarea class="field-input" id="pe" rows="2">Borrowing is paused for now. We\'ll tell you when it opens again.</textarea></div>' +
+    '<div class="field"><label class="field-label" for="pw">In Swahili</label><textarea class="field-input" id="pw" rows="2">Kukopa kumesimamishwa kwa sasa. Tutakujulisha kikifunguliwa tena.</textarea></div>',
+    submit: "Pause", onSubmit: function (dl) {
+      var sc = dl.querySelector('input[name="ps"]:checked').value, tv = dl.querySelector("#pt").value;
+      if (!dl.querySelector("#pr").value.trim() || !dl.querySelector("#pe").value.trim() || !dl.querySelector("#pw").value.trim()) return Proto.snack("Nothing paused: the reason and both messages are needed");
+      if (Lo.pauses.some(function (p) { return p.status === "ACTIVE" && p.scope === sc && (p.circle === tv || p.cluster === tv || p.cooperative === tv || sc === "ALL"); })) return Proto.snack("Already paused there: end that pause first");
+      Proto.snack("Lending paused");
+    } });
+  var fill = function () {
+    var sc = d.querySelector('input[name="ps"]:checked').value, list = sc === "CIRCLE" ? G.circles.filter(function (c) { return c.status !== "DISSOLVED"; }).map(function (c) { return [c.id, c.name]; })
+      : sc === "CLUSTER" ? GF.clusters.filter(function (c) { return c.status === "ACTIVE"; }).map(function (c) { return [c.id, c.name + " · " + GF.get(c.cooperative).profile.short_name]; })
+      : sc === "COOPERATIVE" ? GF.cooperatives.filter(function (c) { return c.status !== "ENDED"; }).map(function (c) { return [c.id, c.profile.short_name]; }) : [];
+    d.querySelector("#tf").style.display = sc === "ALL" ? "none" : "";
+    d.querySelector("#pt").innerHTML = list.map(function (x) { return '<option value="' + x[0] + '">' + esc(x[1]) + "</option>"; }).join("");
+  };
+  d.addEventListener("change", fill); fill();
+}
+</script>
+</body>
+</html>

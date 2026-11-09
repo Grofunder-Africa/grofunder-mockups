@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Member credit · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../assets/console.js"></script>
+<script src="credit-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Member credit" data-dest="credit" data-wide data-back="index.html" id="screen">
+
+  <p class="proto-note"><b>CR2 · A member's credit (note 25; <code>GET members/{id}/</code>, <code>…/scores/</code>).</b> The limit answer in full: eligibility, the latest score with each factor's sub-score, weight, points and the raw figures behind it, the rule set used, the override, and the limit that counts. Then the override history and every score, newest first, so a decision can be traced to its numbers.</p>
+  <p class="proto-note"><b>Overrides</b> replace the limit, never the score. <b>Set a limit</b> or <b>Block</b> needs <code>credit.override</code> (Operations and up); a limit above the member's ladder limit needs <code>credit.publish</code> too (Full and Owner, Q2), and so does ending one early. A new override ends the active one. It starts now (C4) and can lapse on a date. The member isn't told (S3): a block reads "Borrowing is paused. Contact GroFunder".</p>
+  <p class="proto-note"><b>Overrides for any member (audit, 2026-11-08):</b> the note doesn't limit them by status, so a suspended member's override can be set or ended too. Recalculating needs an active member.</p>
+  <p class="proto-note"><b>Recalculate</b> (<code>credit.recalculate</code>, Operations and up) works a fresh score out now (STAFF), with an audit entry.</p>
+  <p class="proto-note"><b>Try:</b> <a href="?m=m-kij-0142">Wanjiku, step 2</a> · <a href="?m=m-kij-0031">Samuel, raised above the ladder</a> · <a href="?m=m-kij-0164">Esther, blocked</a> · <a href="?m=m-maw-MCG-0005">Stephen, lowered</a> · <a href="?m=m-kij-0412">Jane, suspended</a></p>
+
+  <div data-state="loaded" class="col gap-4" id="page"></div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:72px"></div><div class="skeleton-card" style="height:320px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load this member's credit</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var C = GF.credit, U = CreditUI, esc = U.esc, icon = U.icon, f = GF.fmt, L = C.L, R = U.ROLES;
+var m = GF.get(new URLSearchParams(location.search).get("m")) || GF.get("m-kij-0142");
+var l = C.limit(m.id), s = l.score, o = l.override, rs = s ? C.get(s.rule_set) : C.inForce(), first = m.full_name.split(" ")[0];
+var screen = document.getElementById("screen");
+screen.setAttribute("data-title", m.full_name);
+screen.setAttribute("data-sub", "Credit · " + U.coopName(m) + " · " + m.member_no);
+if (m.status === "ACTIVE") screen.setAttribute("data-action", JSON.stringify({ label: "Recalculate", icon: "refresh", roles: R.recalculate, on: "recalc()", variant: "btn-tonal" }));
+{
+  var menu = [{ label: "Set a limit", icon: "tune-variant", roles: R.override, on: "override('SET')" }, { label: "Block borrowing", icon: "cancel", roles: R.override, on: "override('BLOCK')" }];
+  if (o) menu.push({ label: "End the override", icon: "close-circle-outline", roles: o.kind === "SET" && o.limit_cents > (s ? s.limit_cents : 0) ? R.publish : R.override, on: "endOverride()", destructive: true, sep: true });
+  screen.setAttribute("data-menu", JSON.stringify(menu));
+}
+
+function head() {
+  var big = l.eligible ? U.money(l.limit_cents) : l.reason === "PAUSED" ? "Blocked" : "Not eligible";
+  return '<div class="section"><div class="section-body"><div class="section-band" style="border:0;padding:0">' +
+    '<div class="section-figure lg"><span class="k">Limit that counts</span><span class="v tabular">' + big + "</span></div>" +
+    '<div class="section-figure"><span class="k">Score</span><span class="v tabular">' + (s ? s.score : "–") + "</span></div>" +
+    '<div class="section-figure"><span class="k">Step</span><span class="v">' + (s ? s.ladder_step + " of " + rs.rules.ladder.length : "–") + "</span></div>" +
+    '<div class="section-figure"><span class="k">Ladder limit</span><span class="v tabular">' + (s ? U.money(s.limit_cents) : "–") + "</span></div></div>" +
+    '<span class="text-body-sm tone-muted">' + (s ? "Worked out " + U.when(s.computed_at) + " · " + L.trigger[s.trigger] + ' · <a href="rule-set.html?r=' + rs.id + '">rules version ' + rs.version + "</a>" : "No score") +
+    " · loans offer the smaller of this limit and the product's largest loan (24)</span></div></div>";
+}
+function banners() {
+  var out = "";
+  if (!l.eligible && l.reason !== "PAUSED") out += '<div class="banner banner-warning">' + icon("account-cancel-outline") + '<div class="grow"><span class="text-title-sm">Not eligible: ' + L.reason[l.reason].toLowerCase() + "</span>" +
+    '<span class="text-body-md">' + (l.reason === "SUSPENDED" ? esc(U.coopName(m)) + " has suspended " + esc(first) + ". A suspended member isn't scored and can't borrow (23, gap 1); past scores stay readable." : "No score is worked out.") + "</span></div></div>";
+  if (o) out += '<div class="banner ' + (o.kind === "BLOCK" ? "banner-error" : "banner-info") + '">' + icon(o.kind === "BLOCK" ? "cancel" : "tune-variant") + '<div class="grow"><span class="text-title-sm">' +
+    (o.kind === "BLOCK" ? "Borrowing blocked" : "Limit set to " + U.money(o.limit_cents) + (s && o.limit_cents > s.limit_cents ? ", above the ladder's " + U.money(s.limit_cents) : s && o.limit_cents < s.limit_cents ? ", below the ladder's " + U.money(s.limit_cents) : "")) + "</span>" +
+    '<span class="text-body-md">"' + esc(o.reason) + '"</span><span class="text-body-sm tone-muted">' + esc(U.who(o.created_by)) + ", " + U.when(o.created_at) + " · " + (o.expires_at ? "lapses " + f.date(o.expires_at) : "no end date") + ". The member isn't told" + (o.kind === "BLOCK" ? ": they see \"Borrowing is paused\"" : "") + ".</span></div></div>";
+  return out;
+}
+function guidance() {
+  if (!s) return "";
+  return '<div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">What ' + esc(first) + ' sees</span><span class="text-body-sm tone-muted">The limit and one sentence per factor, weakest first; never the score or the numbers (Q4)</span>' +
+    '<ol class="text-body-md" style="margin:0;padding-left:20px">' + s.guidance.map(function (g) { return "<li>" + esc(g.text) + "</li>"; }).join("") + "</ol></div></div>";
+}
+function overridesCard() {
+  var list = C.overridesOf(m.id);
+  return '<div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">Overrides</span>' + (list.length ? '<div class="rowcards">' + list.map(function (x) {
+    var ended = x.status === "ENDED", how = !ended ? "Active" : x.ended_by ? "Ended by " + U.who(x.ended_by) : x.expires_at && x.ended_at >= x.expires_at ? "Lapsed" : "Replaced";
+    return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start"><span class="grow"><span class="text-body-md">' + (x.kind === "BLOCK" ? "Blocked" : "Limit " + U.money(x.limit_cents)) + ' · "' + esc(x.reason) + '"</span>' +
+      '<span class="text-body-sm tone-muted">' + esc(U.who(x.created_by)) + ", " + U.when(x.created_at) + (x.expires_at ? " · lapses " + f.date(x.expires_at, "short") : "") + (ended ? " · " + how.toLowerCase() + " " + U.when(x.ended_at) : "") + "</span></span>" +
+      U.chip(ended ? ["neutral", how] : x.kind === "BLOCK" ? ["error", "Blocked"] : ["warning", "Active"]) +
+      (!ended ? '<span class="row gap-1"><button class="btn btn-text btn-sm" type="button" data-roles="' + R.override + '" onclick="override(\'SET\')">Replace</button>' +
+        '<button class="btn btn-text btn-sm tone-error" type="button" data-roles="' + (x.kind === "SET" && s && x.limit_cents > s.limit_cents ? R.publish : R.override) + '" onclick="endOverride()">End</button></span>' : "") + "</div>";
+  }).join("") + "</div>" : '<p class="text-body-md tone-muted" style="margin:0">None. The limit comes from the ladder.</p>') + "</div></div>";
+}
+function historyCard() {
+  var h = C.history(m.id);
+  return '<div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">Score history</span><span class="text-body-sm tone-muted">Every score is kept with its inputs; newest first</span>' +
+    (h.length ? '<div class="table-wrap"><table class="table"><thead><tr><th>Worked out</th><th>Why</th><th class="num">Score</th><th>Step</th><th class="num">Ladder limit</th><th>Rules</th></tr></thead><tbody>' + h.map(function (x, i) {
+      var prev = h[i + 1], d = prev ? x.score - prev.score : 0;
+      return '<tr><td class="tabular">' + U.when(x.computed_at) + "</td><td>" + L.trigger[x.trigger] + '</td><td class="num">' + x.score + (d ? ' <span class="text-body-sm tone-muted">(' + (d > 0 ? "+" : "") + d + ")</span>" : "") + "</td><td>" + x.ladder_step +
+        '</td><td class="num">' + U.money(x.limit_cents) + "</td><td>v" + C.get(x.rule_set).version + "</td></tr>";
+    }).join("") + "</tbody></table></div>" : '<p class="text-body-md tone-muted" style="margin:0">No scores yet.</p>') + "</div></div>";
+}
+/* Visible actions (audit, 2026-11-09): nothing lives only in the ⋮ menu. */
+function actions() {
+  return '<div class="actions actions-start" id="credit-acts">' +
+    (m.status === "ACTIVE" ? '<button class="btn btn-tonal" type="button" data-roles="' + R.recalculate + '" onclick="recalc()">' + icon("refresh") + "Recalculate</button>" : "") +
+    '<button class="btn btn-outlined" type="button" data-roles="' + R.override + '" onclick="override(\'SET\')">' + icon("tune-variant") + (o && o.kind === "SET" ? "Change the limit" : "Set a limit") + "</button>" +
+    (o && o.kind === "BLOCK" ? "" : '<button class="btn btn-outlined tone-error" type="button" data-roles="' + R.override + '" onclick="override(\'BLOCK\')">' + icon("cancel") + "Block borrowing</button>") +
+    (o ? '<button class="btn btn-text tone-error" type="button" data-roles="' + (o.kind === "SET" && s && o.limit_cents > s.limit_cents ? R.publish : R.override) + '" onclick="endOverride()">End the ' + (o.kind === "BLOCK" ? "block" : "override") + "</button>" : "") + "</div>";
+}
+document.getElementById("page").innerHTML = head() + actions() + banners() +
+  '<div class="two-col"><div class="col gap-4">' +
+    (s ? '<div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">How the score was worked out</span><span class="text-body-sm tone-muted">300 + 550 × the weighted average of the sub-scores, rounded</span>' + U.factorsTable(s) + "</div></div>" : "") +
+    historyCard() +
+  '</div><div class="col gap-4">' + guidance() + overridesCard() + "</div></div>";
+
+/* -------------------------------------------------------------- actions */
+function recalc() { Proto.snack("Score worked out again: " + (s ? s.score : "–") + ", step " + (s ? s.ladder_step : 0)); }
+function override(kind) {
+  var ladder = s ? s.limit_cents : 0;
+  var el = Proto.dialog({ title: kind === "BLOCK" ? "Block " + esc(first) + "'s borrowing?" : "Set " + esc(first) + "'s limit",
+    body: '<p class="text-body-md tone-muted">' + (kind === "BLOCK" ? "The limit becomes 0 until you end it or it lapses. " : "This limit replaces the ladder's " + U.money(ladder) + " until you end it or it lapses. Above the ladder needs Full or Owner. ") +
+      "It starts now, replaces any active override, and never changes the score. " + esc(first) + " isn't told" + (kind === "BLOCK" ? '; the app says "Borrowing is paused. Contact GroFunder."' : ".") + "</p>" +
+      (kind === "SET" ? '<div class="field"><label class="field-label" for="ol">Limit (Ksh)</label><input class="field-input tabular" id="ol" inputmode="numeric" value="' + ladder / 100 + '" style="max-width:200px"><span class="field-help" id="ol-h"></span></div>' : "") +
+      '<div class="field"><label class="field-label" for="or">Reason</label><textarea class="field-input" id="or" placeholder="Seen by GroFunder staff only"></textarea></div>' +
+      '<div class="field"><label class="field-label" for="oe">Lapses on (optional)</label><input class="field-input tabular" id="oe" type="date" min="' + GF.TODAY + '" style="max-width:200px"><span class="field-help">Leave empty for no end date</span></div>',
+    submit: kind === "BLOCK" ? "Block" : "Set limit", onSubmit: function (d) {
+      if (!d.querySelector("#or").value.trim()) return Proto.snack("A reason is needed");
+      var e = d.querySelector("#oe").value; if (e && e <= GF.TODAY) return Proto.snack("The lapse date must be in the future");
+      if (kind === "SET") {
+        var v = Math.round(+d.querySelector("#ol").value * 100);
+        if (!(v >= 0)) return Proto.snack("Enter a limit of 0 or more");
+        var role = (function () { try { return localStorage.getItem("gf.role.gf") || "owner"; } catch (x) { return "owner"; } })();
+        if (v > ladder && ["owner", "full"].indexOf(role) === -1) return Proto.snack("Above the ladder's " + U.money(ladder) + " needs Full or Owner (credit.publish)");
+        return Proto.snack("Limit set to " + U.money(v));
+      }
+      Proto.snack("Borrowing blocked");
+    } });
+  var inp = el.querySelector("#ol");
+  if (inp) { var h = el.querySelector("#ol-h"), upd = function () { var v = Math.round(+inp.value * 100); h.textContent = v > ladder ? "Above the ladder: needs Full or Owner" : v < ladder ? "Below the ladder" : "The same as the ladder"; }; inp.addEventListener("input", upd); upd(); }
+}
+function endOverride() {
+  Proto.dialog({ title: "End the override?", body: '<p class="text-body-md tone-muted">The limit goes back to the ladder\'s ' + (s ? U.money(s.limit_cents) : "–") + ".</p>" +
+    '<div class="field"><label class="field-label" for="en">Note (optional)</label><input class="field-input" id="en" placeholder="Kept in the audit trail"></div>',
+    submit: "End override", onSubmit: function () { Proto.snack("Override ended"); } });
+}
+</script>
+</body>
+</html>

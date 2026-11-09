@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Start a circle · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Start a circle" data-flow data-back="index.html" data-compact>
+
+  <p class="proto-note"><b>MC2 · Start a circle (note 23, "How it works" 1; <code>POST circle/</code>).</b> You lead it: name it, say when and where it meets each week, and invite at least 4 other members of your cooperative and cluster. Only an ACTIVE member with no circle can start one, in a cooperative taking new work.</p>
+  <p class="proto-note"><b>Finding people (S1):</b> the search shows name and member number only, within your cluster, at most 20 results. Never phones or anything else.</p>
+  <p class="proto-note"><b>Suspended (G74, decided 2026-11-08):</b> a member whose cooperative has suspended them sees the app as usual with a "suspended" banner, but can't start a circle. See <i>suspended</i>.</p>
+  <p class="proto-note"><b>Drawn as if Wanjiku had no circle yet.</b> In the data she already leads Umoja Gathiru, so starting would be refused ("You're already in a circle"). Starting cancels your open invitations elsewhere (gap 3).</p>
+
+  <div data-roles="out" class="empty"><span class="mdi mdi-account-lock-outline" aria-hidden="true"></span><span class="text-headline-sm">You're signed out</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a></div>
+
+  <div data-state="loaded" class="col gap-6" data-roles="in">
+    <section class="col gap-4">
+      <span class="text-title-lg">Your circle</span>
+      <div class="field"><label class="field-label" for="name">Name</label><input class="field-input" id="name" maxlength="60" placeholder="For example Tumaini Gathiru"><span class="field-error hidden" id="name-e"></span></div>
+      <div class="field"><label class="field-label" for="desc">About it (optional)</label><textarea class="field-input" id="desc" placeholder="What brings you together"></textarea></div>
+    </section>
+    <section class="col gap-4">
+      <span class="text-title-lg">Weekly meeting</span>
+      <span class="text-body-md tone-muted">Your Farmer Support Agent comes to it, so say where to find you.</span>
+      <div class="chip-row scroll" data-choice role="radiogroup" aria-label="Day" id="day"></div>
+      <div class="field"><label class="field-label" for="time">Time</label><input class="field-input tabular" id="time" type="time" value="14:00" style="max-width:160px"></div>
+      <div class="field"><label class="field-label" for="place">Where</label><input class="field-input" id="place" placeholder="A collection centre, school or church"></div>
+      <div class="row gap-2 wrap"><button class="btn btn-outlined btn-sm" type="button" id="here"><span class="mdi mdi-crosshairs-gps" aria-hidden="true"></span>Use where I am now</button><span class="text-body-sm tone-muted" id="here-t">Optional</span></div>
+    </section>
+    <section class="col gap-4">
+      <span class="text-title-lg">Invite people you know</span>
+      <span class="text-body-md tone-muted" id="ihelp"></span>
+      <div class="field search"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span><input class="field-input" id="iq" type="search" placeholder="Name or member number" aria-label="Find members to invite"></div></div>
+      <div class="list rowcards" id="picked"></div>
+      <div class="list rowcards" id="found"></div>
+    </section>
+    <div class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">Each person gets an SMS and has 14 days to answer. Accepting means they know the circle's members and vouch for them. The circle is complete at 5 members.</span></div></div>
+    <div class="actions"><a class="btn btn-text" href="index.html">Cancel</a><button class="btn btn-filled" type="button" id="go">Start and send invitations</button></div>
+  </div>
+  <div data-state="suspended" class="empty" data-roles="in" id="suspended"><span class="mdi mdi-account-cancel-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">You can't start a circle for now</span><span class="text-body-md" id="sus-text"></span>
+    <a class="btn btn-tonal" href="index.html">Your Growth Circle</a></div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Nothing was sent. Try again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var A = MemberApp, G = GF.groups, f = GF.fmt, esc = A.esc, me = A.current;
+var picked = [], day = "TUE";
+document.getElementById("sus-text").textContent = A.coopName(me) + " has suspended your membership. Once it is active again you can start one, or accept an invitation.";
+document.getElementById("day").innerHTML = Object.keys(G.L.day).map(function (k) { return '<button class="chip" type="button" role="radio" aria-checked="' + (k === day) + '" data-d="' + k + '">' + G.L.day[k].slice(0, 3) + "</button>"; }).join("");
+document.getElementById("day").addEventListener("click", function (e) { var b = e.target.closest("[data-d]"); if (b) day = b.getAttribute("data-d"); });
+document.getElementById("here").addEventListener("click", function () { document.getElementById("here-t").textContent = "Point taken, ±9 m"; });
+function draw() {
+  var need = G.RULES.MIN_SIZE - 1, t = document.getElementById("iq").value.trim();
+  document.getElementById("ihelp").textContent = "At least " + need + " from " + (me.cluster ? "the " + GF.get(me.cluster).name + " cluster" : A.coopName(me)) + ". " + (picked.length ? picked.length + " picked." : "");
+  document.getElementById("picked").innerHTML = picked.map(function (id) {
+    var m = GF.get(id);
+    return '<div class="rowcard"><span class="avatar" aria-hidden="true">' + f.initials(m.full_name) + '</span><span class="grow"><span class="text-body-lg">' + esc(m.full_name) + '</span><span class="text-body-sm tone-muted tabular">' + m.member_no + "</span></span>" +
+      '<button class="icon-btn" type="button" aria-label="Remove ' + esc(m.full_name) + '" onclick="drop(\'' + id + '\')"><span class="mdi mdi-close" aria-hidden="true"></span></button></div>';
+  }).join("");
+  document.getElementById("found").innerHTML = t.length < 2 ? "" : G.candidates(me.cooperative, me.cluster, t, picked.concat([me.id])).map(function (m) {
+    return '<button class="rowcard" type="button" onclick="add(\'' + m.id + '\')"><span class="mdi mdi-account-plus-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">' + esc(m.full_name) + '</span><span class="text-body-sm tone-muted tabular">' + m.member_no + "</span></span></button>";
+  }).join("") || '<p class="text-body-md tone-muted">No one matches. Only members not in a circle can be invited.</p>';
+}
+function add(id) { if (picked.length >= G.RULES.MAX_SIZE - 1) return Proto.snack("A circle has at most " + G.RULES.MAX_SIZE + " members"); picked.push(id); document.getElementById("iq").value = ""; draw(); }
+function drop(id) { picked.splice(picked.indexOf(id), 1); draw(); }
+document.getElementById("iq").addEventListener("input", draw);
+draw();
+document.getElementById("go").addEventListener("click", function () {
+  var name = document.getElementById("name").value.trim(), e = document.getElementById("name-e");
+  var clash = G.circles.find(function (x) { return x.cooperative === me.cooperative && x.status !== "DISSOLVED" && x.name.toLowerCase() === name.toLowerCase(); });
+  e.classList.toggle("hidden", !clash); if (clash) e.textContent = "There's already a circle called " + clash.name + " in " + A.coopName(me) + ". Choose another name.";
+  if (!name) return Proto.snack("Give your circle a name");
+  if (clash) return;
+  if (!document.getElementById("place").value.trim()) return Proto.snack("Say where the circle meets");
+  if (picked.length < G.RULES.MIN_SIZE - 1) return Proto.snack("Invite at least " + (G.RULES.MIN_SIZE - 1) + " people");
+  Proto.snack(name + " started. " + picked.length + " invitations sent");
+});
+</script>
+</body>
+</html>

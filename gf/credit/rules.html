@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scoring rules · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../assets/console.js"></script>
+<script src="credit-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Credit" data-dest="credit" data-wide
+     data-action='{"label":"Draft a new version","icon":"plus","roles":"owner full","on":"newDraft()"}'>
+
+  <p class="proto-note"><b>CR4 · Rule sets (note 25, <code>GET rule-sets/</code>).</b> Every version of the scoring rules, newest first, marked in force, scheduled, past, withdrawn or draft. The version in force is the latest published one that has started. Published versions never change; every score names the version it used. Drafting, publishing and withdrawing need <code>credit.publish</code> (Full and Owner, Q1). One draft at a time (C1): a new draft starts as a copy of the version in force.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="credit" data-current="rules" data-label="Credit"></div>
+    <div class="section"><div class="rowcards" id="list"></div></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:240px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-scale-balance" aria-hidden="true"></span>
+    <span class="text-headline-sm">No scoring rules yet</span><span class="text-body-md">The first draft starts from the agreed defaults: the ladder Ksh 5,000 at 500 to Ksh 20,000 at 750, and weights 40/30/20/10. Nobody is scored until a version is published and takes effect.</span>
+    <button class="btn btn-filled" type="button" data-roles="owner full" onclick="newDraft()">Draft the first rules</button></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the rules</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var C = GF.credit, U = CreditUI, esc = U.esc, f = GF.fmt;
+var list = C.ruleSets.slice().sort(function (a, b) { return b.version - a.version; });
+document.getElementById("list").innerHTML = list.map(function (r) {
+  var st = C.state(r), ladder = r.rules.ladder, w = r.rules.factors.filter(function (x) { return x.weight; }).map(function (x) { return C.L.factor[x.key].split(" ")[0] + " " + x.weight; }).join(" · ");
+  var sub = st === "DRAFT" ? "Drafted " + U.when(r.created_at) + " by " + esc(U.who(r.created_by)) : st === "WITHDRAWN" ? "Was to start " + f.date(r.effective_from, "short") + ", withdrawn " + f.date(r.withdrawn.at, "short") :
+    (st === "SCHEDULED" ? "Takes effect " : "From ") + f.date(r.effective_from) + " · published by " + esc(U.who(r.published_by));
+  return '<a class="rowcard" href="rule-set.html?r=' + r.id + '"><span class="grow"><span class="text-body-lg">Version ' + r.version + "</span>" +
+    '<span class="text-body-md tone-muted">' + ladder.length + " steps, " + U.money(ladder[0].limit_cents) + " at " + ladder[0].min_score + " to " + U.money(ladder[ladder.length - 1].limit_cents) + " at " + ladder[ladder.length - 1].min_score + " · " + w + "</span>" +
+    '<span class="text-body-sm tone-muted">' + sub + "</span></span>" + U.chip(C.L.rs[st]) + "</a>";
+}).join("");
+function newDraft() {
+  var d = C.ruleSets.find(function (r) { return r.status === "DRAFT"; });
+  if (d) return Proto.dialog({ title: "A draft is already open", body: '<p class="text-body-md">Version ' + d.version + " is a draft. Finish or delete it first: one draft at a time.</p>" +
+    '<div class="actions"><a class="btn btn-filled" href="rule-set.html?r=' + d.id + '">Open version ' + d.version + "</a></div>" });
+  Proto.dialog({ title: "Draft a new version", body: '<div class="field"><label class="field-label" for="fromv">Copy</label><select class="field-input" id="fromv">' +
+    list.filter(function (x) { return x.status !== "DRAFT"; }).map(function (x) { return '<option value="' + x.id + '"' + (x === C.inForce() ? " selected" : "") + ">Version " + x.version + " · " + C.L.rs[C.state(x)][1].toLowerCase() + "</option>"; }).join("") + "</select></div>",
+    submit: "Draft", onSubmit: function (d) { Proto.snack("Draft opened from version " + C.get(d.querySelector("#fromv").value).version); } });
+}
+</script>
+</body>
+</html>

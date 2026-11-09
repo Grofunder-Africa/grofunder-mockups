@@ -21,7 +21,7 @@
 <div data-screen data-title="Import members" data-flow data-back="index.html" id="screen">
 
   <p class="proto-note"><b>C15 · From note 05's draft services (UI-35).</b> A CSV of members, imported all or nothing (<code>import_members</code>). Every row is checked first. If any row fails, nothing is saved and every problem is listed as row, column and message, so the file is fixed in one go. The check is the service's <code>dry_run</code>. Up to 5,000 rows, UTF-8 with or without a BOM.</p>
-  <p class="proto-note"><b>Errors (05):</b> a row without an ID number; an ID or member number already in the register; one that appears twice in the file; an unknown cluster or area; an area name used in more than one place and written without its parent. An existing ID is an error in v1, so an import only ever adds (05, to decide 3).</p>
+  <p class="proto-note"><b>Errors (05):</b> a row without an ID number; a row without a cluster while the cooperative has clusters (G45); an ID or member number already in the register; one that appears twice in the file; an unknown cluster or area; an area name used in more than one place and written without its parent. An existing ID is an error in v1, so an import only ever adds (05, to decide 3).</p>
   <p class="proto-note"><b>Status gating (01):</b> refused while the cooperative is on hold or ended. While onboarding it's the usual way to load the register. Only Administrators and Managers import (<code>members.manage</code>). Each new member's first status change has the source "Imported".</p>
   <p class="proto-note"><b>The file in this mockup</b> is made up of new people, named from the shared data. Its problem rows point at real members, clusters and areas, so the messages match what the register holds.</p>
 
@@ -145,7 +145,7 @@ document.addEventListener("DOMContentLoaded", function () {
     ["gender", "F", "F, M, or empty for not given"],
     ["date_of_birth", "14/06/1981", "YYYY-MM-DD or DD/MM/YYYY"],
     ["joined_on", "03/03/2019", "Empty means today"],
-    ["cluster", CL[0] ? CL[0].name : "(none yet)", CL.length ? "A cluster's name: " + CL.map(function (c) { return c.name; }).join(", ") : "Leave empty: " + C.profile.short_name + " has no clusters yet"],
+    ["cluster", CL[0] ? CL[0].name : "(none yet)", CL.length ? "Required. A cluster's name: " + CL.map(function (c) { return c.name; }).join(", ") : "Leave empty: " + C.profile.short_name + " has no clusters yet"],
     ["area", "Ndumberi", "A county, sub-county or ward. A name used twice is written with its parent: Kiambu, Kiambu"],
     ["preferred_name", "Shiru", ""],
     ["email", "", ""],

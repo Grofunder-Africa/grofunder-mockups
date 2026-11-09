@@ -100,7 +100,12 @@
       <div class="phase"><span class="text-title-md tabular">8</span><span class="text-body-lg"><a href="#coop-payouts">Payouts</a></span><span class="status status-warning">For review</span></div>
       <div class="phase"><span class="text-title-md tabular">9</span><span class="text-body-lg"><a href="#member">Member app</a></span><span class="status status-warning">For review</span></div>
       <div class="phase"><span class="text-title-md tabular">10</span><span class="text-body-lg">Walk-through and handoff</span><span class="status status-neutral">Not started</span></div>
-      <div class="phase"><span class="text-title-md tabular">11</span><span class="text-body-lg"><a href="#gf-kyc">KYC for lending (note 20, draft)</a></span><span class="status status-warning">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">11</span><span class="text-body-lg"><a href="#gf-kyc">KYC for lending (note 20)</a></span><span class="status status-warning">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">12</span><span class="text-body-lg"><a href="#gf-groups">Growth Circles (note 23)</a></span><span class="status status-warning">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">13</span><span class="text-body-lg"><a href="#gf-partners">Lending partners set-up (note 24 part 1)</a></span><span class="status status-warning">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">14</span><span class="text-body-lg"><a href="#gf-credit">Credit scores and limits (note 25)</a></span><span class="status status-warning">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">15</span><span class="text-body-lg"><a href="#gf-consents">Consents (note 22)</a></span><span class="status status-warning">For review</span></div>
+      <div class="phase"><span class="text-title-md tabular">16</span><span class="text-body-lg"><a href="#gf-loans">Loans, part 1: asking and review (note 26)</a></span><span class="status status-warning">For review</span></div>
     </div>
 
     <h3 class="text-title-md">Phase 2 pattern samples</h3>
@@ -215,6 +220,86 @@
             { id: "K7", about: "Standing on the farm: its point, size, tenure, what's growing, and photos.",
               can: ["Confirm or correct what the member declared about the farm"],
               tries: [["a farm", "?v=v-102&show=farm"]] }
+          ] },
+        { id: "gf-groups", title: "Growth Circles: the office", status: "review", meta: "Phase 12 · note 23",
+          who: "Operations and up manage circles and assign agents; View only reads. Agents see their own circles (GC4). Cooperatives see nothing of circles (Q7).",
+          goal: "Help members into complete circles, give each a Farmer Support Agent, and look after them over time.",
+          path: [["MC2", "A member starts a circle"], ["GC1", "Needs an agent"], ["GC2", "Assign an agent"], ["K5", "The agent's visits"], ["GC4", "The agent's circles"]],
+          pages: [
+            { id: "GC1", about: "Every circle, open ones first. Needs an agent is the queue of complete circles without one.",
+              can: ["Filter by status, cooperative, cluster and agent; search by name", "Start a circle for members without the app (GC3)"],
+              tries: [["needs an agent", "?status=NEEDS_AGENT"], ["dissolved", "?status=DISSOLVED"], st("empty"), as("as View only", "gf.role.gf", "view")] },
+            { id: "GC2", about: "One circle: meeting, agent, borrowing spaces, every place from invitation to leaving, and the audit trail.",
+              can: ["Assign or change the agent, which opens KYC visits for unverified members", "Change borrowing spaces, with a reason", "Invite, or answer for a member without the app with an SMS code", "See who objected to whom (staff only)", "Remove a member, hand over, dissolve"],
+              tries: [["needs an agent", "?c=ci-kij-02"], ["a suspended member", "?c=ci-kij-03"], ["cooperative on hold", "?c=ci-rui-01"], ["emptied", "?c=ci-kij-04"], ["never completed", "?c=ci-gat-01"]] },
+            { id: "GC3", about: "Leader, name, weekly meeting, and at least 4 invitations from the leader's cluster.",
+              can: ["Start a circle for members without the app; they accept by SMS code"] },
+            { id: "GC4", about: "The agent's own circles, with each member's phone and whose visit is still to do.",
+              can: ["Call a member", "Open a member's visit"],
+              tries: [as("as Farmer Support Agent", "gf.role.gf", "agent")] }
+          ] },
+        { id: "gf-partners", title: "Set up lending partners", status: "review", meta: "Phase 13 · note 24 part 1",
+          who: "Full and Owner set up partners, products, terms and coverage, and record remittances; only the Owner touches connections and secrets. Operations and View only read.",
+          goal: "Add a lender, describe what it offers and at what price, say which cooperatives it serves, and track what it remits.",
+          path: [["LP2", "Add a partner"], ["LP3", "Its connection"], ["LP4", "A product"], ["LP5", "Terms and charges"], ["LP6", "Coverage"], ["LP3", "Activate (after L4 or L6)"], ["LP7", "Remittances"]],
+          pages: [
+            { id: "LP1", about: "Every partner, with its mode, status, environment, products in force and cooperatives covered.",
+              can: ["Filter by status and mode; search", "Add a partner (LP2)"], tries: [st("empty"), as("as View only", "gf.role.gf", "view")] },
+            { id: "LP3", about: "One partner: details, the activation checklist and status history; its connection; its products; what it has remitted.",
+              can: ["See why it can't be activated yet: API partners wait for the gateway (L4), portal partners for the portal (L6)", "As Owner: test the connection, replace secrets (never shown), disable it", "Pause or end the partner, with a reason"],
+              tries: [["portal partner", "?p=lp-shamba"], ["active (as after L4)", "?p=lp-tegemeo"], ["the connection", "?p=lp-mavuno&tab=connection"], as("as Full", "gf.role.gf", "full")] },
+            { id: "LP4", about: "A product's descriptions and purposes, every terms version and the cooperatives it covers.",
+              can: ["Draft a new version, which starts as a copy of the one in force", "Link cooperatives or end coverage", "Pause or retire the product"], tries: [["paused", "?pr=pr-mav-school"], ["a draft only", "?pr=pr-shb-harvest"]] },
+            { id: "LP5", about: "One dated version: limits, repayment, overdue and default days, and each charge with GroFunder's and the partner's shares.",
+              can: ["Edit a draft's limits and charges, with each charge rule checked", "Publish it from now or a later date (Full and Owner)", "Withdraw a scheduled version, with a reason"],
+              tries: [["scheduled", "?t=pt-dairy-3"], ["in force", "?t=pt-dairy-1"], ["withdrawn", "?t=pt-dairy-2"]] },
+            { id: "LP6", about: "Which products serve which cooperatives, and whether each is offered today." },
+            { id: "LP7", about: "Remittances by period and one by one.", can: ["Record one from the bank statement, with an optional breakdown by charge", "Void a mistake, with a reason"] }
+          ] },
+        { id: "gf-credit", title: "Credit: scores, limits and the rules", status: "review", meta: "Phase 14 · note 25",
+          who: "Every office role reads scores with their factors; Operations and up recalculate and set or block limits; Full and Owner publish rule sets and raise a limit above the ladder.",
+          goal: "See why a member can borrow what they can, step in by hand when needed, and change the rules with care.",
+          path: [["CR4", "Rule sets"], ["CR5", "Draft, preview, publish"], ["CR1", "Scores"], ["CR2", "A member's credit"], ["CR3", "Overrides"], ["MB1", "What the member sees"]],
+          pages: [
+            { id: "CR1", about: "Each scored member's latest score, step and limit, highest first, with counts per step.",
+              can: ["Filter by cooperative, step and score; search", "Open a member's credit"], tries: [st("empty"), as("as View only", "gf.role.gf", "view")] },
+            { id: "CR2", about: "The limit that counts, the score factor by factor with the figures behind it, what the member sees, overrides and every score.",
+              can: ["Recalculate (Operations and up)", "Set a limit or block borrowing, with a reason and an optional lapse date; above the ladder needs Full or Owner", "End an override"],
+              tries: [["raised above the ladder", "?m=m-kij-0031"], ["blocked", "?m=m-kij-0164"], ["suspended", "?m=m-kij-0412"], as("as Operations", "gf.role.gf", "ops")] },
+            { id: "CR3", about: "Every limit set by hand and every block.", can: ["Filter by status, kind, cooperative and lapse date"] },
+            { id: "CR5", about: "One version of the rules: factors and weights, the ladder, and the refresh time.",
+              can: ["Edit a draft's weights, settings and ladder, with the rules checked", "Preview ten members under the draft and the version in force", "Publish from now or later; withdraw a scheduled version"],
+              tries: [["scheduled", "?r=rs-3"], ["in force", "?r=rs-1"], ["withdrawn", "?r=rs-2"]] }
+          ] },
+        { id: "gf-loans", title: "Loans: asking, preparing and reviewing", status: "review", meta: "Phase 16 · note 26 part 1",
+          who: "Every office role reads; Operations and up prepare drafts and take a member's SMS code; Full and Owner approve, reject, cancel after approval and pause; only the Owner pauses everyone.",
+          goal: "Review each request on everything it rests on, with as many different reviewers as the product needs, and stop lending where it must stop.",
+          path: [["LN1", "The queue"], ["LN3", "A loan"], ["LN4", "Approve or reject"], ["LN2", "Prepare one"], ["LN5", "Accept by SMS code"], ["LN6", "Pauses"], ["LP5", "Worked example"]],
+          pages: [
+            { id: "LN1", about: "Requests oldest first with their approvals, drafts with their expiry, approved and ended loans.", can: ["Filter by where loans stand", "See what fails a check now"] },
+            { id: "LN3", about: "One loan and everything it relies on.",
+              can: ["Approve (a different person each time) or reject with a reason", "Accept a draft by SMS code (Operations and up)", "Cancel; after approval, Full and Owner only"],
+              tries: [["1 of 2 approvals", "?l=ln-105"], as("as the Owner: the second approval", "gf.role.gf", "owner", "?l=ln-105"), st("approved"), ["a draft", "?l=ln-104"], ["rejected", "?l=ln-103"], ["expired", "?l=ln-101"]] },
+            { id: "LN2", about: "Pick a member: every check runs, with reasons. Then the loan and its quote.",
+              tries: [["spaces in use", "?m=m-kij-M-0005"], ["not verified, circle forming", "?m=m-kij-0142"], ["circle paused", "?m=m-kij-M-0013"], st("loan")] },
+            { id: "LN6", about: "Pauses in force and ended.", can: ["Pause a cooperative, cluster or circle (Full and Owner); everyone (Owner)", "End a pause"] }
+          ] },
+        { id: "gf-consents", title: "Consents: the documents members agree to", status: "review", meta: "Phase 15 · note 22",
+          who: "Every office role reads; Operations and up take a consent by SMS code and withdraw one on a member's request; Full writes drafts and binds; only the Owner publishes. Agents take consent at the start of their own visits.",
+          goal: "Keep a versioned, two-language record of what each member agreed to, so no app collects or shares data without it.",
+          path: [["CN1", "Documents"], ["CN2", "A document"], ["CN3", "A version: edit, publish"], ["G10", "A member's consents"], ["K6", "Consent at a visit"]],
+          pages: [
+            { id: "CN1", about: "GroFunder's documents, then each lender's, with the slots they are bound to and what is in force in each language.",
+              can: ["Create a lender's sharing document or its own loan agreement (Full and Owner)", "See where members are asked: every slot and its binding"] },
+            { id: "CN2", about: "One document: its versions in English and Swahili, the slots it is bound to, and members' decisions.",
+              can: ["Write a new version: drafts in both languages (Full and Owner)", "Bind a lender's document to its slot"],
+              tries: [["draft in English only", "?d=cd-lending"], ["asks members again", "?d=cd-terms"], ["scheduled", "?d=cd-loan"], ["not bound", "?d=cd-share-shamba"], ["a lender's own agreement", "?d=cd-loan-tegemeo"]] },
+            { id: "CN3", about: "One version's wording, a language at a time, with its change note, its hash and when it was in force.",
+              can: ["Edit a draft (Full and Owner)", "Publish both languages together, now or from a date (Owner)", "Cancel a schedule, take down, archive (Owner)"],
+              tries: [["draft, Swahili missing", "?d=cd-lending&n=2"], ["in force, asks again", "?d=cd-terms&n=2"], ["scheduled", "?d=cd-loan&n=2"], as("as the Owner", "gf.role.gf", "owner")] },
+            { id: "G10", about: "The member panel's Consents section: lending for this membership, sharing and loan agreements, the login's terms, every decision.",
+              can: ["Take consent by SMS code (Operations and up)", "Withdraw on the member's request, with how they asked and why"],
+              tries: [["withdrawn by phone today", "?c=co-kijani&m=m-kij-0164"], ["agreed by SMS code at a visit", "?c=co-kijani&m=m-kij-0088"]] }
           ] }
       ] },
 
@@ -396,6 +481,51 @@
               tries: [st("approved"), st("visit"), st("pending"), st("empty")] },
             { id: "MK2", about: "One step at a time: background, farms, crops, other income, loans and regular payments, next of kin; review, then send.",
               can: ["Crops you've already delivered come in verified", "Change an answer: the old one is kept, and a verified item goes back to \"You told us\" until the next visit"] }
+          ] },
+        { id: "m-credit", title: "What can I borrow", status: "review", meta: "Phase 14 · note 25",
+          who: "Members, for each cooperative they belong to.",
+          goal: "Know how much you can borrow, and how to grow it, without seeing a score.",
+          path: [["M5", "Home"], ["MB1"]],
+          pages: [
+            { id: "MB1", about: "Your limit, your growth stage and the next stage's limit, and one sentence per factor, weakest first.",
+              can: ["Follow a sentence to your circle or your deliveries"],
+              tries: [as("Wanjiku at Mawingu: stage 1", "gf.memberCoop", "co-mawingu"), st("paused"), st("suspended"), st("consent"), st("off")] }
+          ] },
+        { id: "m-loans", title: "Ask for a loan", status: "review", meta: "Phase 16 · note 26 part 1",
+          who: "Members, for each cooperative they belong to.",
+          goal: "See what you can borrow and what it costs before you commit; know where your request stands.",
+          path: [["MB1", "What can I borrow"], ["ML1", "Borrow"], ["ML2", "Ask"], ["ML3", "Your loan"]],
+          pages: [
+            { id: "ML1", about: "What each product offers you, or why you can't ask yet.", tries: [st("offers"), st("paused"), st("live"), as("Wanjiku at Mawingu", "gf.memberCoop", "co-mawingu")] },
+            { id: "ML2", about: "How much, the quote, your declarations, the agreement and sharing with the lender.", tries: [["accepting a GroFunder draft", "?draft=1"]] },
+            { id: "ML3", about: "Where your loan stands.", tries: [st("requested"), st("draft"), st("approved"), st("sending"), st("rejected"), st("cancelled")] }
+          ] },
+        { id: "m-consents", title: "Consents: what you've agreed to", status: "review", meta: "Phase 15 · note 22",
+          who: "Members, for each cooperative they belong to, and for their login.",
+          goal: "Read what you agree to in your language, see what you agreed to and how, and change your mind.",
+          path: [["M5", "Home prompt"], ["MS2", "Read and agree"], ["M13", "Account"], ["MS1"], ["MS3", "Withdraw"]],
+          pages: [
+            { id: "MS1", about: "Per cooperative: lending, and later sharing with a lender and loan agreements; then the login's terms.",
+              can: ["Open a decision: the exact wording, when and how", "Withdraw a consent, after seeing what stops and what carries on"] },
+            { id: "MS2", about: "The version in force, in Kiswahili or English, with what changed when you're asked again.",
+              can: ["Agree; say no to a consent", "Switch language"],
+              tries: [["terms: asked again", "?d=cd-terms&for=prompt"], ["lending", "?d=cd-lending&for=account"], ["a version as agreed", "?d=cd-lending&v=cd-lending-en-1"]] },
+            { id: "M5", about: "Home asks when a version that asks members again comes into force.",
+              tries: [st("smsconsent")] }
+          ] },
+        { id: "m-circle", title: "Borrow as part of a Growth Circle", status: "review", meta: "Phase 12 · note 23",
+          who: "Members, for each cooperative they belong to.",
+          goal: "Start or join a circle of people you know, and keep it going.",
+          path: [["M5", "Home"], ["MC1"], ["MC2", "Start one"], ["MC3", "Or accept an invitation"], ["GC2", "GroFunder assigns an agent"]],
+          pages: [
+            { id: "MC1", about: "Your circle: meeting, agent, members with who is joining and when. With no circle, your invitations and Start a circle.",
+              can: ["Object while someone is joining, privately", "Leave the circle (not the leader)", "As leader: invite, edit, hand over, dissolve"],
+              tries: [as("Wanjiku at Mawingu: a complete circle", "gf.memberCoop", "co-mawingu"), st("none"), st("late"), st("suspended")] },
+            { id: "MC2", about: "Name, weekly meeting, and at least 4 people from your cluster.",
+              can: ["Find people by name or member number, in your cluster only"] },
+            { id: "MC3", about: "Who invited you, the meeting, and everyone in or invited.",
+              can: ["Accept, which vouches for them; you join after 5 days unless someone objects", "Decline"],
+              tries: [st("gone")] }
           ] }
       ] }
   ];

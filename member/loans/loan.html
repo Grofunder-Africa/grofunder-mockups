@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your loan · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../assets/app.js"></script>
+<script src="loans-app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Your loan" data-dest="home" data-back="index.html" data-compact>
+
+  <p class="proto-note"><b>ML3 · Your loan (note 26 part 1).</b> Where the member's loan stands, in plain words, with the quote as they accepted it and our reference. <i>requested</i>: with GroFunder for review; the member can cancel. <i>draft</i>: GroFunder prepared it; accept within 7 days (the request flow from the quote) or decline. <i>approved</i>: on its way to the lender; after a day, "We're sending your request to Mavuno Capital". <i>rejected</i> gives the reviewer's reason; <i>cancelled</i> says who ended it.</p>
+  <p class="proto-note"><b>Wanjiku has no loan today</b>: each state is her loan as it would be, on the real quote. Never shown: the score, the number of approvals, who reviewed.</p>
+
+  <div data-roles="out" class="empty"><span class="mdi mdi-account-lock-outline" aria-hidden="true"></span><span class="text-headline-sm">You're signed out</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a></div>
+
+  <div data-state="requested draft approved sending rejected cancelled" class="col gap-6" data-roles="in" id="main"></div>
+  <div data-state="loaded" class="empty" data-roles="in"><span class="mdi mdi-cash-remove" aria-hidden="true"></span><span class="text-headline-sm">No loan yet</span>
+    <span class="text-body-md">When you ask for one, or GroFunder prepares one for you, it shows here.</span><a class="btn btn-tonal" href="index.html">What can I borrow</a></div>
+  <div data-state="loading" class="col gap-4" data-roles="in"><div class="skeleton-card" style="height:200px"></div></div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Your loan shows again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var A = MemberApp, Lo = GF.loans, esc = A.esc, f = GF.fmt, LA = LoansApp, D = LA.DEMO, coop = A.coopName(A.current);
+var S = {
+  requested: ["info", "timer-sand", "With GroFunder", "GroFunder is checking your request. You'll get an SMS when it's decided.", '<button class="btn btn-outlined tone-error" type="button" onclick="cancelReq()">Cancel my request</button>'],
+  draft: ["warning", "file-document-edit-outline", "GroFunder prepared a loan for you", "Accept it by " + f.date(Lo.expiresAt({ created_at: GF.NOW }), "short") + ", or it lapses. Check the cost first.", '<a class="btn btn-filled" href="request.html?draft=1">See it and accept</a><button class="btn btn-text" type="button" onclick="decline()">Decline</button>'],
+  approved: ["success", "check-circle-outline", "GroFunder approved your request", "Next, it goes to " + (D ? D.partner.name : "the lender") + ", which makes its own decision.", ""],
+  sending: ["info", "send-clock-outline", "We're sending your request to " + (D ? D.partner.name : "the lender"), "It's taking longer than usual. You don't need to do anything.", ""],
+  rejected: ["error", "close-circle-outline", "GroFunder couldn't approve this loan", "\"Your school fees and other loan leave too little each month for this amount. Ask for less, or call GroFunder.\"", '<a class="btn btn-tonal" href="index.html">What can I borrow</a>'],
+  cancelled: ["neutral", "cancel", "Cancelled", "You cancelled this request on " + f.date(GF.NOW, "short") + ". Its borrowing space is free again.", '<a class="btn btn-tonal" href="index.html">What can I borrow</a>']
+};
+function draw(st) {
+  var x = S[st]; if (!x || !D) return;
+  var q = D.quote;
+  document.getElementById("main").innerHTML =
+    '<div class="banner banner-' + (x[0] === "neutral" ? "info" : x[0]) + '"><span class="mdi mdi-' + x[1] + '" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">' + esc(x[2]) + '</span><span class="text-body-md">' + esc(x[3]) + "</span></div></div>" +
+    '<div class="card card-outlined"><dl class="facts stack"><dt>Loan</dt><dd>' + LA.money(D.amount_cents) + " " + esc(D.product.name.toLowerCase()) + " from " + esc(D.partner.name) + '</dd><dt>Reference</dt><dd class="tabular">' + D.reference + "</dd>" +
+      "<dt>For</dt><dd>" + esc(D.purpose.en) + " · " + Lo.durationLine(D.duration, D.terms.duration_unit) + "</dd><dt>Membership</dt><dd>" + esc(coop) + "</dd></dl></div>" +
+    '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">' + (st === "draft" ? "What it would cost" : "What you agreed to") + "</span></div></div>" + LA.quoteHtml(q) + "</section>" +
+    (x[4] ? '<div class="actions actions-start">' + x[4] + "</div>" : "");
+}
+function cancelReq() { Proto.confirm({ title: "Cancel your request?", message: "GroFunder stops reviewing it, and your circle's borrowing space opens again. You can ask again later.", confirm: "Cancel the request", destructive: true, onConfirm: function () { Proto.snack("Request cancelled"); } }); }
+function decline() { Proto.confirm({ title: "Decline this loan?", message: "GroFunder's draft is cancelled. You can ask for a loan later.", confirm: "Decline", onConfirm: function () { Proto.snack("Declined"); } }); }
+document.addEventListener("proto:state", function (e) { draw(e.detail); });
+var st0 = new URLSearchParams(location.search).get("state"); if (st0) draw(st0);
+</script>
+</body>
+</html>

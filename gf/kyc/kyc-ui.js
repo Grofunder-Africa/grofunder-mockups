@@ -1,4 +1,4 @@
-/* kyc-ui.js: what the KYC screens share (phase 11, UI-60; note 20 draft).
+/* kyc-ui.js: what the KYC screens share (phase 11, UI-60, UI-63; note 20, signed off 2026-11-07).
  * Loaded after canon.js, kyc.js and console.js on gf/kyc/ pages.
  *
  * Photos and map points are drawn as placeholders: the prototype has no

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Loan product · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../assets/console.js"></script>
+<script src="partners-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Loan product" data-dest="partners" data-wide id="screen">
+
+  <p class="proto-note"><b>LP4 · Product (note 24; <code>GET products/{id}/</code>, <code>products/{id}/terms/</code>).</b> What members can borrow from one partner, under the partner's code: what it's for in English and Swahili, the purposes members pick (each <code>value</code> is sent as <code>loanPurpose</code>, P3), every terms version and the cooperatives it covers.</p>
+  <p class="proto-note"><b>Versions</b> are marked in force, scheduled, past, withdrawn or draft. The version in force is the latest published one that has taken effect, as produce's prices work. One draft at a time (P1); a new draft starts as a copy of the version in force.</p>
+  <p class="proto-note"><b>Draft a new version</b> asks which version to copy (<code>from_version</code>); the one in force is suggested.</p>
+  <p class="proto-note"><b>Coverage</b> (<code>manage</code>): which cooperatives' members are offered it, per cooperative only (Q4). Linking is allowed for an onboarding, active or on-hold cooperative (loans refuses quotes while it's on hold), never an ended one. Ending stops new quotes there; relinking adds a new row.</p>
+  <p class="proto-note"><b>Reviewers needed</b> (amendment to note 24, 2026-11-08: <code>reviews_required</code>, 1 to 3, default 1): how many GroFunder people approve each loan request for this product. The loan review itself is 26's (in review, not drawn).</p>
+  <p class="proto-note"><b>Every action is on the page</b> (2026-11-09, the owner's review): beside the status, <i>Edit</i>, <i>Pause</i> or <i>Make active again</i>, and <i>Retire</i>; <i>Change</i> beside the reviewers; <i>Edit</i> on What members see; <i>Draft a new version</i>, <i>Link</i> and each coverage's <i>End</i>. Full and Owner only (<code>manage</code>); nothing on a retired product or an ended partner's. A product is never deleted (note 24, lifecycle): retire it instead.</p>
+  <p class="proto-note"><b>Try:</b> <a href="?pr=pr-mav-dairy">Dairy input loan, four versions</a> · <a href="?pr=pr-mav-school">paused, coverage ended</a> · <a href="?pr=pr-shb-harvest">a draft only</a></p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div id="head"></div>
+    <div class="two-col">
+      <div class="col gap-4">
+        <div class="section"><div class="section-body" style="gap:8px">
+          <div class="section-header"><div class="grow"><span class="text-title-md">Terms versions</span><span class="text-body-sm tone-muted">Newest first. Published versions never change; a correction is a new version</span></div>
+            <button class="btn btn-outlined btn-sm" type="button" data-roles="owner full" id="draft-btn" onclick="newDraft()"><span class="mdi mdi-plus" aria-hidden="true"></span>Draft a new version</button></div>
+          <div class="rowcards" id="versions"></div>
+        </div></div>
+      </div>
+      <div class="col gap-4">
+        <div class="section"><div class="section-body" style="gap:8px">
+          <div class="section-header"><div class="grow"><span class="text-title-md">Cooperatives covered</span></div>
+            <button class="btn btn-outlined btn-sm" type="button" data-roles="owner full" id="link-btn" onclick="link()"><span class="mdi mdi-link-variant-plus" aria-hidden="true"></span>Link</button></div>
+          <div class="rowcards" id="coverage"></div>
+        </div></div>
+        <div class="section"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">What members see</span></div>
+          <button class="btn btn-outlined btn-sm" type="button" data-roles="owner full" id="about-edit" onclick="editProduct()"><span class="mdi mdi-pencil-outline" aria-hidden="true"></span>Edit</button></div><div id="about"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:72px"></div><div class="two-col"><div class="skeleton-card" style="height:300px"></div><div class="skeleton-card" style="height:200px"></div></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load this product</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var P = GF.partners, U = PartnersUI, esc = U.esc, icon = U.icon, L = P.L, f = GF.fmt, R = U.ROLES;
+var x = P.get(new URLSearchParams(location.search).get("pr")) || P.get("pr-mav-dairy");
+var p = P.get(x.partner), screen = document.getElementById("screen"), retired = x.status === "RETIRED", partnerEnded = p.status === "ENDED";
+screen.setAttribute("data-title", x.name);
+screen.setAttribute("data-sub", p.name + " · " + x.code);
+screen.setAttribute("data-back", "partner.html?p=" + p.id + "&tab=products");
+var menu = [];
+if (!retired && !partnerEnded) {
+  menu.push({ label: "Edit name, descriptions and purposes", icon: "pencil-outline", roles: R.manage, on: "editProduct()" });
+  menu.push({ label: "Reviewers needed", icon: "account-multiple-check-outline", roles: R.manage, on: "reviewers()" });
+  menu.push(x.status === "ACTIVE" ? { label: "Pause: stop new quotes", icon: "pause-circle-outline", roles: R.manage, on: "setStatus('PAUSED')" } : { label: "Make active again", icon: "play-circle-outline", roles: R.manage, on: "setStatus('ACTIVE')" });
+  menu.push({ label: "Retire", icon: "archive-outline", roles: R.manage, on: "setStatus('RETIRED')", destructive: true, sep: true });
+}
+if (menu.length) screen.setAttribute("data-menu", JSON.stringify(menu));
+
+var t = P.inForce(x.id), live = !retired && !partnerEnded;
+document.getElementById("head").innerHTML = '<div class="section"><div class="section-body">' +
+  '<div class="row gap-2 wrap" style="align-items:center">' + U.chip(L.product[x.status]) + '<span class="status status-neutral" id="reviewers">' + x.reviews_required + (x.reviews_required === 1 ? " reviewer" : " reviewers") + " per loan</span>" +
+    (live ? '<button class="btn btn-text btn-sm" type="button" data-roles="' + R.manage + '" id="reviewers-btn" onclick="reviewers()">Change</button>' : "") + "</div>" +
+  (live ? '<div class="actions actions-start" data-roles="' + R.manage + '" id="product-actions">' +
+    '<button class="btn btn-outlined btn-sm" type="button" id="edit-product-btn" onclick="editProduct()">' + icon("pencil-outline") + "Edit</button>" +
+    (x.status === "ACTIVE" ? '<button class="btn btn-outlined btn-sm" type="button" id="pause-btn" onclick="setStatus(\'PAUSED\')">' + icon("pause-circle-outline") + "Pause</button>"
+      : '<button class="btn btn-outlined btn-sm" type="button" id="activate-btn" onclick="setStatus(\'ACTIVE\')">' + icon("play-circle-outline") + "Make active again</button>") +
+    '<button class="btn btn-text btn-sm tone-error" type="button" id="retire-btn" onclick="setStatus(\'RETIRED\')">' + icon("archive-outline") + "Retire</button></div>" : "") +
+  (retired ? '<span class="text-body-sm tone-muted">Retired: final. No new quotes, and its coverage has ended. Live loans keep their terms.</span>' : partnerEnded ? '<span class="text-body-sm tone-muted">' + esc(p.name) + " has ended, so nothing here changes.</span>" : "") +
+  '<span class="text-body-md">' + (t ? "Version " + t.version + " in force: " + esc(U.termsLine(t)) : '<span class="tone-muted">No terms in force, so it isn\'t quoted</span>') + "</span>" +
+  (x.status === "PAUSED" ? '<span class="text-body-sm tone-muted">Paused: no new quotes. Live loans keep their terms.</span>' : "") + "</div></div>";
+
+var versions = P.termsOf(x.id), draft = P.draftOf(x.id);
+document.getElementById("versions").innerHTML = versions.map(function (v) {
+  var st = P.termsState(v), sub;
+  if (st === "DRAFT") sub = "Drafted " + U.when(v.created_at) + " by " + esc(U.who(v.created_by));
+  else if (st === "WITHDRAWN") sub = "Was to start " + f.date(v.effective_from, "short") + '. Withdrawn: "' + esc(v.terms.withdrawal.reason) + '"';
+  else sub = (st === "SCHEDULED" ? "Takes effect " : "From ") + f.date(v.effective_from) + " · published by " + esc(U.who(v.published_by));
+  var interest = v.charges.find(function (c) { return c.kind === "INTEREST"; });
+  return '<a class="rowcard" href="terms.html?t=' + v.id + '" style="padding-left:0;padding-right:0"><span class="grow"><span class="text-body-lg">Version ' + v.version + "</span>" +
+    '<span class="text-body-md tone-muted">' + esc(U.termsLine(v)) + (interest ? " · interest " + esc(U.chargeHow(interest)) : "") + '</span><span class="text-body-sm tone-muted">' + sub + "</span></span>" + U.stateChip(v) + "</a>";
+}).join("") || '<p class="text-body-md tone-muted">No terms yet. Draft the first version.</p>';
+if (draft || retired || partnerEnded) document.getElementById("draft-btn").remove();
+
+var cov = P.coverageOf(x.id, true).sort(function (a, b) { return a.status === b.status ? 0 : a.status === "ACTIVE" ? -1 : 1; });
+document.getElementById("coverage").innerHTML = cov.map(function (c) {
+  var co = GF.get(c.cooperative), hold = co.status === "ON_HOLD";
+  return '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="grow"><span class="text-body-lg">' + esc(co.profile.short_name) + '</span><span class="text-body-sm tone-muted">' +
+    (c.status === "ACTIVE" ? "Since " + f.date(c.started_at, "short") + (hold ? " · on hold: loans refuses quotes for now" : "") : "Ended " + f.date(c.ended_at, "short")) + "</span></span>" +
+    (c.status === "ACTIVE" ? '<button class="btn btn-text btn-sm" type="button" data-roles="' + R.manage + '" onclick="endCov(\'' + c.id + '\')">End</button>' : U.chip(["neutral", "Ended"])) + "</div>";
+}).join("") || '<p class="text-body-md tone-muted">No cooperative yet. Members only see products that cover their cooperative.</p>';
+if (retired || partnerEnded) { document.getElementById("link-btn").remove(); document.getElementById("about-edit").remove(); }
+
+document.getElementById("about").innerHTML = '<dl class="facts stack"><dt>English</dt><dd>' + esc(x.details.description) + "</dd><dt>Swahili</dt><dd>" + esc(x.details.description_sw) + "</dd>" +
+  "<dt>Purposes members pick</dt><dd>" + x.details.purposes.map(function (q) { return esc(q.en) + ' <span class="tone-muted">/ ' + esc(q.sw) + ' · <code>' + esc(q.value) + "</code></span>"; }).join("<br>") + "</dd></dl>";
+
+/* -------------------------------------------------------------- actions */
+/* Amendment to note 24 (2026-11-08): LoanProduct.reviews_required, 1 to 3, default 1. Loans' review (26) shows "1 of 2 approvals". */
+/* update_product: name, both descriptions, purposes (P3) and reviewers. The code is fixed. */
+function editProduct() {
+  var el = Proto.dialog({ title: "Edit " + esc(x.name), body: U.productForm(x),
+    submit: "Save", onSubmit: function (d) {
+      if (!d.querySelector("#pn").value.trim()) return Proto.snack("A name is needed");
+      var e = U.checkPurposes(d); if (e) return Proto.snack(e);
+      Proto.snack("Saved. Live loans keep what they were quoted");
+    } });
+  U.wirePurposes(el);
+}
+function reviewers() {
+  Proto.dialog({ title: "Reviewers needed", body: '<p class="text-body-md tone-muted">How many GroFunder people must approve each loan request for ' + esc(x.name) + " before it goes to " + esc(p.name) + ". The loan review (26) shows how many have.</p>" +
+    '<div class="chip-row" data-choice role="radiogroup" aria-label="Reviewers">' + [1, 2, 3].map(function (n) { return '<button class="chip" type="button" role="radio" aria-checked="' + (n === x.reviews_required) + '" data-n="' + n + '">' + n + "</button>"; }).join("") + "</div>",
+    submit: "Save", onSubmit: function (d) { var n = d.querySelector('[data-n][aria-checked="true"]').getAttribute("data-n"); Proto.snack(n + (n === "1" ? " reviewer" : " reviewers") + " per loan"); } });
+}
+/* draft_terms(from_version): a copy of the version chosen (the one in force by default), with its charges. */
+function newDraft() {
+  var pub = versions.filter(function (v) { return v.status !== "DRAFT"; });
+  if (!pub.length) return Proto.confirm({ title: "Draft version 1?", message: "It starts empty.", confirm: "Draft", onConfirm: function () { Proto.snack("Draft opened"); } });
+  Proto.dialog({ title: "Draft version " + (versions[0].version + 1),
+    body: '<p class="text-body-md tone-muted">It starts as a copy of the version you choose, with its charges. Nothing changes for members until it is published and takes effect.</p>' +
+      '<div class="field"><label class="field-label" for="fromv">Copy</label><select class="field-input" id="fromv">' + pub.map(function (v) {
+        return '<option value="' + v.id + '"' + (t && v.id === t.id ? " selected" : "") + ">Version " + v.version + " · " + L.terms[P.termsState(v)][1].toLowerCase() + "</option>"; }).join("") + "</select></div>",
+    submit: "Draft", onSubmit: function (d) { Proto.snack("Draft opened from version " + P.get(d.querySelector("#fromv").value).version); } });
+}
+function link() {
+  var covered = P.coverageOf(x.id).map(function (c) { return c.cooperative; });
+  Proto.dialog({ title: "Link cooperatives", body: '<p class="text-body-md tone-muted">Their members are offered ' + esc(x.name) + " once it has terms in force and " + esc(p.name) + " is active.</p>" +
+    '<div class="col gap-1">' + GF.cooperatives.map(function (co) {
+      var why = co.status === "ENDED" ? "ended" : covered.indexOf(co.id) > -1 ? "already covered" : "";
+      return '<label class="check"' + (why ? ' style="opacity:.55"' : "") + '><input type="checkbox" value="' + co.id + '"' + (why ? " disabled" : "") + "><span>" + esc(co.profile.short_name) + (why ? " · " + why : co.status === "ON_HOLD" ? " · on hold" : co.status === "ONBOARDING" ? " · onboarding" : "") + "</span></label>";
+    }).join("") + "</div>",
+    submit: "Link", onSubmit: function (d) { var n = d.querySelectorAll("input:checked").length; if (!n) return Proto.snack("Pick a cooperative"); Proto.snack(n === 1 ? "Cooperative linked" : n + " cooperatives linked"); } });
+}
+function endCov(id) {
+  var co = GF.get(P.get(id).cooperative);
+  Proto.confirm({ title: "Stop offering it to " + esc(co.profile.short_name) + "?", message: "No new quotes for its members. Live loans carry on. You can link it again later.", confirm: "End coverage", destructive: true, onConfirm: function () { Proto.snack("Coverage ended"); } });
+}
+function setStatus(to) {
+  var msg = { PAUSED: "No new quotes; live loans keep their terms. You can make it active again.", ACTIVE: "It's quoted again where it has terms in force and coverage.", RETIRED: "Final: no new quotes, and its coverage ends. Live loans keep their terms." }[to];
+  Proto.confirm({ title: { PAUSED: "Pause", ACTIVE: "Make active", RETIRED: "Retire" }[to] + " " + esc(x.name) + "?", message: msg, confirm: { PAUSED: "Pause", ACTIVE: "Make active", RETIRED: "Retire" }[to], destructive: to === "RETIRED",
+    onConfirm: function () { Proto.snack(x.name + " " + { PAUSED: "paused", ACTIVE: "is active", RETIRED: "retired" }[to]); } });
+}
+</script>
+</body>
+</html>

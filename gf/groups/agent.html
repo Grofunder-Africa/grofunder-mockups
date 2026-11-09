@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My circles · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../assets/console.js"></script>
+<script src="groups-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="My circles" data-dest="circles" data-compact>
+
+  <p class="proto-note"><b>GC4 · My circles (note 23, <code>groups.assigned</code>).</b> A Farmer Support Agent reads only the circles whose agent is them: the roster, the meeting, and members' names and phones, so they can find the circle and call ahead. They never see who objected to whom, and can't change a circle. Kevin Odhiambo sees Umoja Gathiru; Mercy Chebet's two are not here.</p>
+  <p class="proto-note"><b>With My visits (K5):</b> each member's visit opened by the assignment is in My visits; this list says which members still need one, so the agent can do them at the circle's meeting. Attendance at meetings isn't recorded in v1 (note 23, concern 4).</p>
+
+  <div data-state="loaded" class="col gap-4" id="list"></div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:200px"></div><div class="skeleton-card" style="height:200px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-account-group-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No circles yet</span><span class="text-body-md">When the office assigns you to a Growth Circle, it appears here with its meeting and members.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Your circles show again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var G = GF.groups, U = GroupsUI, f = GF.fmt, esc = U.esc, icon = U.icon, K = GF.kyc;
+var ME = "u-kevin";
+var mine = G.circles.filter(function (c) { return c.agent === ME && c.status !== "DISSOLVED"; });
+document.getElementById("list").innerHTML = mine.map(function (c) {
+  var g = c.details.meeting, open = G.placesOf(c.id, ["MEMBER", "JOINING"]);
+  return '<div class="section"><div class="section-body" style="gap:8px">' +
+    '<div class="row between gap-2"><span class="text-title-md">' + esc(c.name) + "</span>" + U.chip(G.L.status[c.status]) + "</div>" +
+    '<span class="text-body-md tone-muted">' + esc(U.where(c)) + "</span>" +
+    '<div class="row gap-2">' + icon("calendar-clock-outline", "tone-muted") + '<span class="text-body-md">' + G.L.day[g.day] + "s at " + g.time + " · " + esc(g.place) + "</span></div>" +
+    '<div class="rowcards">' + open.map(function (x) {
+      var m = GF.get(x.member), v = K.liveVisit(m.id), ok = K.standing(m.id).verified;
+      var word = ok ? "Verified" : v && v.agent === ME ? (v.status === "SUBMITTED" ? "Visit done, with the office" : "Visit to do") : x.status === "JOINING" ? "Joins on " + f.date(x.objection_ends_at, "short") : "No visit yet";
+      return '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="grow"><span class="text-body-lg">' + esc(m.full_name) + (x.role === "LEADER" ? ' <span class="text-body-sm tone-muted">· Leader</span>' : "") + "</span>" +
+        '<span class="text-body-sm tone-muted">' + word + "</span></span>" +
+        (v && v.agent === ME && v.status === "OPEN" ? '<a class="btn btn-text btn-sm" href="../kyc/capture.html?v=' + v.id + '">Open visit</a>' : "") +
+        '<a class="icon-btn" href="tel:' + m.phone + '" aria-label="Call ' + esc(m.full_name) + " on " + f.phone(m.phone) + '">' + icon("phone-outline") + "</a></div>";
+    }).join("") + "</div></div></div>";
+}).join("");
+</script>
+</body>
+</html>

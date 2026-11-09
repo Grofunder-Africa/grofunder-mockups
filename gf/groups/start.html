@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Start a circle · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../assets/console.js"></script>
+<script src="groups-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Start a circle for members" data-dest="groups" data-flow data-back="index.html">
+
+  <p class="proto-note"><b>GC3 · Start a circle for members (note 23 Q6; <code>POST circles/</code>, <code>groups.manage</code>).</b> For members without the app: staff name the leader, the circle and its meeting, and invite at least 4 others from the leader's cluster. The leader's place starts as LEADER and MEMBER; the invitees answer in the app or with an SMS code read to staff (GC2).</p>
+  <p class="proto-note"><b>UI-93:</b> the meeting can carry an optional map point, typed (staff aren't usually at the meeting); both coordinates or neither, as in MC2.</p>
+  <p class="proto-note"><b>Who can lead or be invited:</b> ACTIVE members with no current circle, of a cooperative that takes new work (not on hold or ended). The cluster comes from the leader. Starting cancels the leader's own open invitations elsewhere (gap 3). The name is unique in the cooperative among circles not dissolved, ignoring case.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div class="section"><div class="section-body">
+      <span class="text-title-md">Leader</span>
+      <div class="field"><label class="field-label" for="coop">Cooperative</label><select class="field-input" id="coop"></select></div>
+      <div class="field combo"><label class="field-label" for="lq">Leader</label><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>
+        <input class="field-input" id="lq" type="search" autocomplete="off" placeholder="Name or member number" role="combobox" aria-controls="llist"></div><div class="combo-list" id="llist" role="listbox" hidden></div>
+        <span class="field-help" id="lhelp">An active member who isn't in a circle.</span></div>
+    </div></div>
+    <div class="section"><div class="section-body">
+      <span class="text-title-md">The circle</span>
+      <div class="field"><label class="field-label" for="name">Name</label><input class="field-input" id="name" maxlength="60" placeholder="The name the members chose"><span class="field-error hidden" id="name-e"></span></div>
+      <div class="form-grid">
+        <div class="field"><label class="field-label" for="day">Meeting day</label><select class="field-input" id="day"></select></div>
+        <div class="field"><label class="field-label" for="time">Time</label><input class="field-input tabular" id="time" type="time" value="10:00"></div>
+      </div>
+      <div class="field"><label class="field-label" for="place">Where they meet</label><input class="field-input" id="place" placeholder="So the agent can find them"></div>
+      <div class="field"><span class="field-label">Map point (optional)</span>
+        <div class="form-grid"><div class="field"><label class="field-label" for="plat">Latitude</label><input class="field-input tabular" id="plat" inputmode="decimal" placeholder="-1.11893"></div>
+        <div class="field"><label class="field-label" for="plng">Longitude</label><input class="field-input tabular" id="plng" inputmode="decimal" placeholder="36.83521"></div></div>
+        <span class="field-help">Typed, from the leader or a map. Both or neither.</span></div>
+      <div class="field"><label class="field-label" for="desc">About the circle (optional)</label><textarea class="field-input" id="desc"></textarea></div>
+    </div></div>
+    <div class="section"><div class="section-body">
+      <div class="section-header"><div class="grow"><span class="text-title-md">Invite</span><span class="text-body-sm tone-muted" id="ihelp">Pick the leader first.</span></div></div>
+      <div class="field search"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span><input class="field-input" id="iq" type="search" placeholder="Name or member number" aria-label="Find members to invite" disabled></div></div>
+      <div class="rowcards" id="ilist"></div>
+    </div></div>
+    <div class="actions"><a class="btn btn-text" href="index.html">Cancel</a><button class="btn btn-filled" type="button" id="go">Start the circle</button></div>
+  </div>
+
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't start the circle</span><span class="text-body-md">Nothing was saved. Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var G = GF.groups, U = GroupsUI, f = GF.fmt, esc = U.esc;
+var leader = null, picked = [];
+var coopSel = document.getElementById("coop");
+coopSel.innerHTML = GF.cooperatives.map(function (c) {
+  var ok = c.status === "ACTIVE" || c.status === "ONBOARDING";
+  return '<option value="' + c.id + '"' + (ok ? "" : " disabled") + ">" + esc(c.profile.short_name) + (ok ? "" : " (" + c.status.toLowerCase().replace("_", " ") + ": nothing new starts)") + "</option>";
+}).join("");
+coopSel.value = "co-kijani";
+document.getElementById("day").innerHTML = Object.keys(G.L.day).map(function (k) { return '<option value="' + k + '">' + G.L.day[k] + "</option>"; }).join("");
+var lq = document.getElementById("lq"), llist = document.getElementById("llist");
+lq.addEventListener("input", function () {
+  var found = G.candidates(coopSel.value, null, lq.value).slice(0, 6);
+  llist.innerHTML = found.map(function (m) { return '<div class="combo-item" role="option" data-id="' + m.id + '"><span class="grow"><span class="text-body-lg">' + esc(m.full_name) + '</span><span class="text-body-sm tone-muted tabular">' + m.member_no + (m.cluster ? " · " + esc(GF.get(m.cluster).name) + " cluster" : "") + "</span></span></div>"; }).join("") ||
+    '<div class="combo-item"><span class="text-body-md tone-muted">No active member without a circle matches.</span></div>';
+  llist.hidden = lq.value.trim().length < 2;
+});
+llist.addEventListener("click", function (e) {
+  var b = e.target.closest("[data-id]"); if (!b) return;
+  leader = GF.get(b.getAttribute("data-id")); picked = [];
+  lq.value = leader.full_name + " · " + leader.member_no; llist.hidden = true;
+  var inv = G.invitationsOf(leader.id).length;
+  document.getElementById("lhelp").textContent = (leader.cluster ? GF.get(leader.cluster).name + " cluster" : "No clusters") + (inv ? " · their " + inv + " open invitation(s) elsewhere will be withdrawn" : "");
+  document.getElementById("iq").disabled = false; list();
+});
+coopSel.addEventListener("change", function () { leader = null; picked = []; lq.value = ""; document.getElementById("iq").disabled = true; list(); });
+function list() {
+  var help = document.getElementById("ihelp"), el = document.getElementById("ilist");
+  if (!leader) { help.textContent = "Pick the leader first."; el.innerHTML = ""; return; }
+  var need = G.RULES.MIN_SIZE - 1;
+  help.textContent = "At least " + need + ", at most " + (G.RULES.MAX_SIZE - 1) + ", from " + (leader.cluster ? "the " + GF.get(leader.cluster).name + " cluster" : "the cooperative") + ". " + picked.length + " picked.";
+  el.innerHTML = G.candidates(leader.cooperative, leader.cluster, document.getElementById("iq").value, [leader.id]).map(function (m) {
+    return '<label class="check" style="padding:8px 0"><input type="checkbox" value="' + m.id + '"' + (picked.indexOf(m.id) > -1 ? " checked" : "") + '><span class="grow"><span class="text-body-md">' + esc(m.full_name) +
+      '</span><span class="text-body-sm tone-muted tabular">' + m.member_no + (m.cluster ? " · " + esc(GF.get(m.cluster).name) : "") + "</span></span></label>";
+  }).join("") || '<p class="text-body-md tone-muted">No member matches.</p>';
+}
+document.getElementById("iq").addEventListener("input", list);
+document.getElementById("ilist").addEventListener("change", function (e) {
+  var id = e.target.value, i = picked.indexOf(id);
+  if (e.target.checked && i === -1) picked.push(id); if (!e.target.checked && i > -1) picked.splice(i, 1);
+  list();
+});
+document.getElementById("go").addEventListener("click", function () {
+  var name = document.getElementById("name").value.trim(), ne = document.getElementById("name-e");
+  var clash = leader && G.circles.find(function (x) { return x.cooperative === leader.cooperative && x.status !== "DISSOLVED" && x.name.toLowerCase() === name.toLowerCase(); });
+  ne.classList.toggle("hidden", !clash); if (clash) ne.textContent = GF.get(leader.cooperative).profile.short_name + " already has a circle called " + clash.name + ".";
+  if (!leader) return Proto.snack("Pick the leader");
+  if (!name || clash) return Proto.snack(clash ? "Choose another name" : "Give the circle a name");
+  if (!document.getElementById("place").value.trim()) return Proto.snack("Say where the circle meets");
+  var la = document.getElementById("plat").value.trim(), ln = document.getElementById("plng").value.trim();
+  if (!!la !== !!ln) return Proto.snack("Give both latitude and longitude, or neither");
+  if (la && (isNaN(+la) || isNaN(+ln) || Math.abs(+la) > 90 || Math.abs(+ln) > 180)) return Proto.snack("That isn't a map point");
+  if (picked.length < G.RULES.MIN_SIZE - 1) return Proto.snack("Invite at least " + (G.RULES.MIN_SIZE - 1) + " members");
+  Proto.snack(name + " started, led by " + leader.full_name + ". " + picked.length + " invitations sent");
+});
+</script>
+</body>
+</html>

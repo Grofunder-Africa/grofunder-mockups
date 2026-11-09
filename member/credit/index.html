@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>What can I borrow · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="What can I borrow" data-dest="home" data-back="../home/index.html" data-compact>
+
+  <p class="proto-note"><b>MB1 · What can I borrow (note 25, <code>GET credit/</code>).</b> For the membership shown: the limit, the growth stage (the ladder step, as a picture, of how many), the next stage's limit (S5), and one plain sentence per factor, weakest first. <b>Never the score,</b> the factors' numbers, the inputs or an override's reason (Q4). Opening it works the score out again when the last one is more than a day old.</p>
+  <p class="proto-note"><b>Ask for a loan (phase 16, note 26)</b> opens Borrow (ML1): what each product offers and why the member can't ask yet, if they can't.</p>
+  <p class="proto-note"><b>Not eligible</b> shows why, in plain words: a block reads only "Borrowing is paused. Contact GroFunder." (S3), with no reason, since a block often means a fraud check; a suspended membership can't borrow (23); without lending consent the consent step shows (22); while lending is switched off, nothing is scored.</p>
+  <p class="proto-note"><b>State switcher.</b> <i>loaded</i> is the membership shown: Wanjiku at Kijani (stage 2, Ksh 10,000); switch to Mawingu on Home for stage 1. <i>paused</i>, <i>suspended</i>, <i>consent</i> and <i>off</i> show the other answers.</p>
+  <p class="proto-note proto-gap"><b>G90:</b> note 25 gives each factor "a list of plain sentences, in English and Swahili" but not the sentences. The ten drafted here (credit.js, <code>GUIDANCE</code>) need the owner's wording and a Swahili translation.</p>
+  <p class="proto-note proto-gap"><b>F62:</b> the growth stage is "shown as a picture" (note 25). The kit has no illustration for it; drawn here with plant icons, seed to tree, as a placeholder.</p>
+  <p class="proto-note"><b>Consent (phase 15, note 22; closes G60).</b> Without a lending consent that counts for this membership, nothing is scored: <i>consent</i> shows the screen, and <i>Read and agree</i> opens the lending wording (MS2, context <code>prompt</code>).</p>
+
+  <div data-roles="out" class="empty"><span class="mdi mdi-account-lock-outline" aria-hidden="true"></span><span class="text-headline-sm">You're signed out</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a></div>
+
+  <div data-state="loaded" class="col gap-6" data-roles="in" id="ok"></div>
+  <div data-state="paused suspended consent off" class="col gap-6" data-roles="in" id="no"></div>
+
+  <div data-state="loading" class="col gap-4" data-roles="in"><div class="skeleton-card" style="height:180px"></div><div class="skeleton-card" style="height:200px"></div></div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Your limit shows again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var A = MemberApp, C = GF.credit, f = GF.fmt, esc = A.esc, me = A.current, coop = A.coopName(me);
+var icon = function (n, cls) { return '<span class="mdi mdi-' + n + (cls ? " " + cls : "") + '" aria-hidden="true"></span>'; };
+var money = function (c) { return f.money(c, { whole: true }); };
+var PLANT = ["seed-outline", "sprout-outline", "sprout", "tree-outline", "tree", "forest"];
+function stages(st) {
+  var out = "";
+  for (var i = 1; i <= st.steps; i++) {
+    var on = i <= st.step;
+    out += '<span class="col gap-1" style="align-items:center;flex:1"><span style="font-size:' + (i === st.step ? 40 : 28) + 'px;line-height:1" class="' + (on ? "tone-primary" : "tone-muted") + '">' + icon(PLANT[Math.min(i, PLANT.length - 1)]) + "</span>" +
+      '<span class="text-body-sm' + (on ? "" : " tone-muted") + '">' + i + "</span></span>";
+  }
+  return '<div class="row" style="align-items:flex-end;gap:4px" aria-label="Stage ' + st.step + " of " + st.steps + '">' + out + "</div>";
+}
+function draw() {
+  var l = C.limit(me.id), s = l.score;
+  if (!l.eligible || !s) { document.getElementById("ok").innerHTML = '<div class="empty"><span class="text-headline-sm">' + (l.reason === "PAUSED" ? "Borrowing is paused" : "Not available") + "</span></div>"; return; }
+  var st = C.stage(me.id), lim = l.limit_cents;
+  document.getElementById("ok").innerHTML =
+    '<div class="card card-outlined col gap-4"><span class="text-body-md tone-muted">With ' + esc(coop) + ", you can borrow up to</span>" +
+      '<span class="text-display-sm tabular" style="font-size:40px;line-height:48px;font-weight:600">' + money(lim) + "</span>" +
+      stages(st) +
+      '<span class="text-title-md">Stage ' + st.step + " of " + st.steps + "</span>" +
+      (st.next_limit_cents ? '<span class="text-body-md">Reach the next stage to borrow up to ' + money(st.next_limit_cents) + ".</span>" : '<span class="text-body-md">You\'re at the top stage.</span>') +
+      '<span class="text-body-sm tone-muted">Updated ' + f.date(s.computed_at, "short") + ", " + s.computed_at.slice(11, 16) + ". A loan offers this or the product's largest loan, whichever is smaller.</span></div>" +
+    '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">How to grow your limit</span><span class="text-body-md tone-muted">The most useful first</span></div></div>' +
+      '<div class="list rowcards">' + s.guidance.map(function (g) {
+        var ic = { repayment: "cash-check", delivery: "basket-outline", circle: "account-group-outline", tenure: "calendar-heart" }[g.key];
+        var href = { circle: "../circle/index.html", delivery: "../deliveries/index.html" }[g.key];
+        var inner = icon(ic) + '<span class="grow"><span class="text-body-lg">' + esc(g.text) + "</span></span>" + (href ? icon("chevron-right", "tone-muted") : "");
+        return href ? '<a class="rowcard" href="' + href + '">' + inner + "</a>" : '<div class="rowcard">' + inner + "</div>";
+      }).join("") + "</div></section>" +
+    '<a class="btn btn-filled btn-block" href="../loans/index.html" id="borrow">Ask for a loan</a>' +
+    '<p class="text-body-sm tone-muted">Your limit is GroFunder&#39;s; the lender makes its own decision on each request, and never sees this page.</p>';
+}
+var NO = {
+  paused: ["pause-circle-outline", "Borrowing is paused", "Contact GroFunder."],
+  suspended: ["account-cancel-outline", "You can't borrow for now", coop + " has suspended your membership. Once it is active again, your limit shows here."],
+  consent: ["file-sign", "Agree to lending first", "Before GroFunder works out what you can borrow, you agree to it using your deliveries, payments and the details you gave."],
+  off: ["clock-outline", "Borrowing isn't open yet", "GroFunder will tell you when you can ask for a loan."]
+};
+function drawNo(state) {
+  var x = NO[state]; if (!x) return;
+  document.getElementById("no").innerHTML = '<div class="empty"><span class="mdi mdi-' + x[0] + '" aria-hidden="true"></span><span class="text-headline-sm">' + x[1] + '</span><span class="text-body-md">' + esc(x[2]) + "</span>" +
+    (state === "consent" ? '<a class="btn btn-filled" href="../consents/agree.html?d=cd-lending&amp;for=credit">Read and agree</a>' : state === "suspended" ? '<a class="btn btn-tonal" href="../home/index.html">Home</a>' : "") + "</div>";
+}
+draw();
+document.addEventListener("proto:state", function (e) { drawNo(e.detail); });
+</script>
+</body>
+</html>

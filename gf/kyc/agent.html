@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="../../assets/kit.css">
 <script src="../../assets/data/canon.js"></script>
 <script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
 <script src="../assets/console.js"></script>
 <script src="kyc-ui.js"></script>
 <script src="../assets/nav.js" defer></script>
@@ -21,9 +22,9 @@
 
 <div data-screen data-title="My visits" data-dest="visits" data-compact>
 
-  <p class="proto-note"><b>K5 · My visits (note 20, draft revision 2).</b> A Farmer Support Agent holds only <code>kyc.capture</code>, which reaches the visits whose <code>agent</code> is them, and nothing else: no cooperatives, no register, no search. Kevin Odhiambo sees his three; Mercy Chebet's are not here.</p>
+  <p class="proto-note"><b>K5 · My visits (note 20, signed off 2026-11-07).</b> A Farmer Support Agent holds only <code>kyc.capture</code>, which reaches the visits whose <code>agent</code> is them, and nothing else: no cooperatives, no register, no search. Of each member they see the name, phone, cooperative, cluster and home area. Kevin Odhiambo sees his three; Mercy Chebet's are not here.</p>
+  <p class="proto-note"><b>Circles (note 23):</b> when the office assigns Kevin to a complete Growth Circle, a visit for each of its unverified members lands here, to be done at the circle's meeting, and the row names the circle (Wanjiku and Joseph, from Umoja Gathiru). The circle's own list (<code>groups.assigned</code>) is drawn with the groups app, after it is built.</p>
   <p class="proto-note"><b>Order:</b> sent back first (the office is waiting on him), then visits to make, then those waiting for review, which open read only. A row opens the visit (K6).</p>
-  <p class="proto-note proto-gap"><b>G62:</b> drawn from note 20 while it is still a draft (owner's request, 2026-10-24).</p>
   <p class="proto-note proto-gap"><b>G61:</b> agents work where the signal is poor. The list and each visit must be kept on the phone and sent when there's signal (note 20, concern 1 and Q8). See the offline state.</p>
 
   <div class="banner banner-info" data-roles="owner full ops view"><span class="mdi mdi-information-outline" aria-hidden="true"></span>
@@ -56,16 +57,16 @@
   var waiting = mine.filter(function (v) { return v.status === "SUBMITTED"; });
 
   function place(m) {
-    var a = m.profile.address || {}, cl = m.cluster ? GF.get(m.cluster).name + " cluster" : "";
-    return [a.village, cl].filter(Boolean).join(" · ");
+    var cl = m.cluster ? GF.get(m.cluster).name + " cluster" : "";
+    return [cl, GF.get(m.area).name].filter(Boolean).join(" · ");
   }
   function row(v, extra) {
     var m = GF.get(v.member), c = GF.get(m.cooperative), farms = K.current(m.id, "FARM").length;
     return '<div class="rowcard">' +
       '<a class="grow" href="capture.html?v=' + v.id + '" style="color:inherit;text-decoration:none">' +
         '<span class="text-body-lg">' + esc(m.full_name) + "</span>" +
-        '<span class="text-body-md tone-muted tabular">' + esc(c.profile.short_name) + " · " + m.member_no + "</span>" +
-        '<span class="text-body-sm tone-muted">' + esc(place(m) || GF.get(m.area).name) + " · " + (farms ? farms + (farms === 1 ? " farm" : " farms") + " declared" : "no farms declared yet") + "</span>" +
+        '<span class="text-body-md tone-muted tabular">' + esc(c.profile.short_name) + "</span>" +
+        '<span class="text-body-sm tone-muted">' + esc((v.circle ? K.circleName(v.circle) + " circle · " : "") + place(m)) + " · " + (farms ? farms + (farms === 1 ? " farm" : " farms") + " declared" : "no farms declared yet") + "</span>" +
         (extra ? '<span class="text-body-sm">' + extra + "</span>" : "") +
       "</a>" +
       '<a class="icon-btn" href="tel:' + m.phone + '" aria-label="Call ' + esc(m.full_name) + " on " + f.phone(m.phone) + '">' + U.icon("phone-outline") + "</a></div>";

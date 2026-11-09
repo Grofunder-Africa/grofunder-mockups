@@ -12,6 +12,10 @@
 <link rel="stylesheet" href="../../assets/kit.css">
 <script src="../../assets/data/canon.js"></script>
 <script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
 <script src="../assets/app.js"></script>
 <script src="../assets/nav.js" defer></script>
 <script src="../../assets/proto.js" defer></script>
@@ -22,6 +26,7 @@
 
   <p class="proto-note"><b>M13 · Account (notes 05, 06; UI-18).</b> One login, every membership it links. The member changes only their phone, preferred name, email and language (05); the cooperative sees the change at once. Everything else on the record stays with the cooperative's staff, so it's shown as facts, not disabled fields.</p>
   <p class="proto-note"><b>Memberships.</b> Each linked record, with its number, status, cluster, joining date and current positions. A suspended record is listed, but its deliveries and payments aren't opened: a member sees their ACTIVE records (05).</p>
+  <p class="proto-note"><b>Consents (phase 15, note 22).</b> <i>Consents</i> (MS1) lists what the member has agreed to, per cooperative, and lets them withdraw. <i>Terms and privacy</i> now reads the member's terms record, and says when a new version asks them to agree again.</p>
   <p class="proto-note"><b>M14 · Edit your details</b> is a dialog (three fields, UI-13); <code>?show=details</code> opens it. The phone changes in its own flow (M16), because the new number needs a code (06).</p>
 
   <div data-roles="out" class="empty">
@@ -54,6 +59,8 @@
       <div class="section-header"><div class="grow"><span class="text-title-lg">Verification</span></div></div>
       <div class="list rowcards">
         <a class="rowcard" href="../kyc/index.html"><span class="mdi mdi-shield-check-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Get verified for loans</span><span class="text-body-md tone-muted" id="kyc-line"></span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
+        <a class="rowcard" href="../credit/index.html"><span class="mdi mdi-sprout-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">What can I borrow</span><span class="text-body-md tone-muted" id="credit-line"></span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
+        <a class="rowcard" href="../circle/index.html"><span class="mdi mdi-account-group-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Your Growth Circle</span><span class="text-body-md tone-muted" id="circle-line"></span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
       </div>
     </section>
 
@@ -63,6 +70,7 @@
         <a class="rowcard" href="pin.html"><span class="mdi mdi-dialpad" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Change PIN</span><span class="text-body-md tone-muted">The 4 digits you sign in with</span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
         <a class="rowcard" href="phone.html"><span class="mdi mdi-cellphone" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Change phone</span><span class="text-body-md tone-muted tabular" id="phone-line"></span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
         <a class="rowcard" href="terms.html"><span class="mdi mdi-file-document-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Terms and privacy</span><span class="text-body-md tone-muted" id="terms-line"></span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
+        <a class="rowcard" href="../consents/index.html" id="consents-row"><span class="mdi mdi-file-sign" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Consents</span><span class="text-body-md tone-muted" id="consents-line">What you've agreed to, and withdrawing it</span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
         <a class="rowcard" href="../auth/welcome.html" id="sign-out" onclick="signOut();return false"><span class="mdi mdi-logout" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Sign out</span><span class="text-body-md tone-muted">You'll need your PIN and an SMS code to come back</span></span></a>
       </div>
     </section>
@@ -101,7 +109,17 @@ document.getElementById("staff-facts").innerHTML =
   dd("Born", me.date_of_birth ? f.date(me.date_of_birth) : '<span class="tone-muted">Not recorded</span>', "tabular") +
   dd("Gender", GENDER[me.gender] || "–");
 document.getElementById("phone-line").textContent = f.phone(login.phone);
-document.getElementById("terms-line").textContent = "Accepted on " + f.date(login.date_joined);
+/* M17 and MS1 (phase 15, note 22): the terms record, and whether a new version asks again. */
+(function () { var C = GF.consents, t = C.currentTerms(login.id), v = C.version(t.version);
+  var ts = C.termsState(login.id);
+  document.getElementById("terms-line").textContent = ts.state === "BLOCKED" ? "Agree to version " + ts.version.number + " to start anything new" : ts.state === "EARLY" ? "Version " + ts.version.number + " applies from " + f.date(ts.from, "short") + ": you can agree now" : "Version " + v.number + ", accepted on " + f.date(t.occurred_at); })();
+/* MB1 entry (phase 14, note 25). */
+(function () { var l = GF.credit.limit(me.id); document.getElementById("credit-line").textContent = l.eligible ? "Up to " + f.money(l.limit_cents, { whole: true }) : l.reason === "PAUSED" ? "Borrowing is paused" : "Not available yet"; })();
+/* MC1 entry (phase 12, note 23). */
+(function () {
+  var G = GF.groups, c = G.circleOf(me.id), inv = G.invitationsOf(me.id).length;
+  document.getElementById("circle-line").textContent = c ? c.name + " · " + G.L.status[c.status][1].toLowerCase() : inv ? inv + " invitation(s) for you" : "Not in a circle yet";
+})();
 /* MK1 entry (phase 11, note 20 draft): where the member's KYC stands, in one line. */
 (function () {
   var K = GF.kyc, live = K.liveVisit(me.id), last = K.visitsOf(me.id)[0], has = K.current(me.id).length;

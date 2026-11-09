@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Loan · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../assets/console.js"></script>
+<script src="loans-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen id="screen" data-title="Loan" data-dest="loans" data-back="index.html" data-wide>
+
+  <p class="proto-note"><b>LN3 · Loan (note 26 part 1).</b> Everything a decision rests on: the request and the quote as accepted, the checks run again now with a fresh score, the score and any override, the KYC standing and visit, the circle and its borrowing spaces, the re-confirmed declarations, the consents the acceptance wrote, every review and the status history.</p>
+  <p class="proto-note"><b>Reviewing (Q2, Q7).</b> Each product sets how many different people approve (copied onto the loan when the member accepts). Each approval runs the checks again; the last one needed makes it APPROVED and records what it relied on. Anyone may reject, with a reason, which ends it. Whoever prepared the draft, and the borrower, can't review; nor can someone who already approved. The amount can't be changed: to offer less, reject and prepare a new draft. If a check fails now, Approve is refused and the reason is prefilled.</p>
+  <p class="proto-note"><b>A draft</b> waits 7 days for the member. Without the app, staff send a code whose SMS carries the key figures, read the quote out from the script on screen, and enter the code the member reads back; the quote is worked out again from the terms in force first. <b>Approved</b> loans go to the lender with the gateway (L4): shown as the next step only. <i>approved</i> shows Samuel's loan after its second approval.</p>
+  <p class="proto-note proto-gap"><b>G110:</b> note 26 lets staff cancel a draft or a request (BY_GROFUNDER) but names a code only for cancelling after approval (<code>loans.manage</code>). Drawn: a draft by <code>loans.prepare</code>, a request by <code>loans.review</code>.</p>
+  <p class="proto-note"><b>Try:</b> <code>?l=ln-105</code> Samuel, 1 of 2 approvals (open it as the Owner to approve; as Full, Peter has approved already) · <code>?l=ln-104</code> Mary's draft · <code>?l=ln-103</code> rejected · <code>?l=ln-101</code> expired.</p>
+
+  <div data-state="loaded approved" class="col gap-6">
+    <div class="col gap-1"><div class="row gap-2 wrap" id="chips"></div><span class="text-body-md tone-muted" id="sub"></span></div>
+    <div id="banner"></div>
+    <div class="actions actions-start" id="acts"></div>
+    <div class="two-col">
+      <div class="col gap-4">
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">The request</span><dl class="facts" id="facts"></dl></div></div>
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md" id="q-title">The quote</span><span class="text-body-sm tone-muted" id="q-sub"></span><div id="quote"></div></div></div>
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">Reviews</span><div class="rowcards" id="reviews"></div></div></div>
+      </div>
+      <div class="col gap-4">
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">Checks now</span><span class="text-body-sm tone-muted">Run again with a fresh score, as an approval would</span><div class="rowcards" id="checks"></div></div></div>
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">What it relies on</span><dl class="facts stack" id="relies"></dl></div></div>
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">History</span><div class="rowcards" id="history"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:160px"></div><div class="skeleton-card" style="height:320px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the loan</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var Lo = GF.loans, U = LoansUI, esc = U.esc, f = GF.fmt, K = GF.kyc, C = GF.credit, P = GF.partners, G = GF.groups, CS = GF.consents;
+var l = Lo.get(new URLSearchParams(location.search).get("l") || "ln-105") || Lo.get("ln-105");
+var m = GF.get(l.member), first = m.full_name.split(" ")[0], t = P.get(l.terms), pr = P.get(l.product), partner = P.get(l.partner), c = l.circle && G.get(l.circle);
+var role = (function () { try { return localStorage.getItem("gf.role.gf") || "full"; } catch (e) { return "full"; } })();
+var ME = { owner: "u-amina", full: "u-peter", ops: "u-brian", view: "u-peter" }[role] || "u-peter";
+var scr = document.getElementById("screen"); scr.setAttribute("data-title", l.reference);
+var view = "loaded";
+function draw() {
+  var st = view === "approved" && l.status === "REQUESTED" ? "APPROVED" : l.status;
+  var ap = Lo.approvals(l), e = Lo.eligibility(l.member, { loan: l.id, product: l.product, amount: l.amount_cents, duration: l.duration, purpose: l.purpose, sharing: true });
+  document.getElementById("chips").innerHTML = U.chip(Lo.L.status[st]) + (st === "REQUESTED" && ap.of > 1 ? '<span class="status status-neutral">' + ap.done + " of " + ap.of + " approvals</span>" : "") + '<span class="status status-neutral">' + Lo.L.origin[l.origin] + "</span>";
+  document.getElementById("sub").innerHTML = '<a href="' + Console.memberUrl(m.id) + '">' + esc(m.full_name) + "</a> · " + esc(GF.get(m.cooperative).profile.short_name) + " · " + U.whole(l.amount_cents) + " from " + esc(partner.name);
+  var B = function (cls, ic, html) { return '<div class="banner banner-' + cls + '"><span class="mdi mdi-' + ic + '" aria-hidden="true"></span><div class="grow">' + html + "</div></div>"; };
+  var acts = "";
+  if (st === "DRAFT") {
+    document.getElementById("banner").innerHTML = B("info", "timer-sand", '<span class="text-body-md">Waiting for ' + esc(first) + " to accept, until " + U.when(Lo.expiresAt(l)) + ". " + (m.user ? esc(first) + " can accept in the app, or read you a code." : esc(first) + " has no app: send a code and take it on the phone or in person.") + "</span>");
+    acts = '<button class="btn btn-filled" type="button" data-roles="' + U.ROLES.prepare + '" onclick="acceptByCode()">Accept by SMS code</button><button class="btn btn-outlined tone-error" type="button" data-roles="' + U.ROLES.prepare + '" onclick="cancel()">Cancel the draft</button>';
+  } else if (st === "REQUESTED") {
+    var why = Lo.canReview(l, ME);
+    document.getElementById("banner").innerHTML = !e.ok ? B("error", "alert-circle-outline", '<span class="text-title-sm">Can\'t be approved now</span><span class="text-body-md">' + e.failed.map(function (x) { return esc(x.code) + ": " + esc(x.text); }).join("<br>") + "</span>") :
+      why ? B("info", "account-check-outline", '<span class="text-body-md">' + esc(why) + ". " + (ap.done ? "Approved so far by " + ap.by.map(U.who).join(", ") + "." : "") + "</span>") : "";
+    acts = '<button class="btn btn-filled" type="button" data-roles="' + U.ROLES.review + '" onclick="approve()"' + (why || !e.ok ? " disabled" : "") + ">Approve" + (ap.of > 1 ? " (" + (ap.done + 1) + " of " + ap.of + ")" : "") + "</button>" +
+      '<button class="btn btn-outlined tone-error" type="button" data-roles="' + U.ROLES.review + '" onclick="reject()"' + (why ? " disabled" : "") + ">Reject</button>" +
+      '<button class="btn btn-text" type="button" data-roles="' + U.ROLES.review + '" onclick="cancel()">Cancel</button>';
+  } else if (st === "APPROVED") {
+    document.getElementById("banner").innerHTML = B("success", "send-clock-outline", '<span class="text-title-sm">Next: sent to ' + esc(partner.name) + "</span>" +
+      '<span class="text-body-md">With ' + esc(first) + "'s KYC details, the product code " + esc(pr.code) + ", the amount, duration and purpose, under our reference " + l.reference + " (never the score). Sending comes with the gateway (L4); until then it waits here. After a day, " + esc(first) + " sees \"We're sending your request to " + esc(partner.name) + "\".</span>");
+    acts = '<button class="btn btn-outlined tone-error" type="button" data-roles="' + U.ROLES.manage + '" onclick="cancel(true)">Cancel the loan</button>';
+  } else {
+    var last = Lo.historyOf(l.id)[0];
+    document.getElementById("banner").innerHTML = B("neutral", "close-circle-outline", '<span class="text-title-sm">' + Lo.L.end[l.end_reason] + "</span>" + (last && last.details.reason ? '<span class="text-body-md">"' + esc(last.details.reason) + '"</span>' : "") +
+      '<span class="text-body-sm">' + U.when(last.changed_at) + (last.changed_by ? " · " + esc(U.who(last.changed_by)) : " · automatically") + "</span>");
+    if (l.status === "GF_REJECTED") acts = '<a class="btn btn-tonal" data-roles="' + U.ROLES.prepare + '" href="prepare.html?m=' + m.id + '">Prepare a new draft</a>';
+  }
+  document.getElementById("acts").innerHTML = acts;
+  var purpose = pr.details.purposes.find(function (p) { return p.value === l.purpose; });
+  document.getElementById("facts").innerHTML =
+    "<dt>Member</dt><dd>" + esc(m.full_name) + ' · <span class="tabular">' + m.member_no + "</span>" + (m.user ? "" : ' · <span class="tone-muted">no app</span>') + "</dd>" +
+    "<dt>Product</dt><dd>" + '<a href="../partners/product.html?pr=' + pr.id + '">' + esc(pr.name) + "</a> (" + esc(pr.code) + ") · " + esc(partner.name) + "</dd>" +
+    '<dt>Amount</dt><dd class="tabular">' + U.money(l.amount_cents) + " for " + Lo.durationLine(l.duration, t.duration_unit) + "</dd>" +
+    "<dt>Purpose</dt><dd>" + esc(purpose ? purpose.en : l.purpose) + "</dd>" +
+    "<dt>Terms</dt><dd>" + '<a href="../partners/terms.html?t=' + t.id + '">Version ' + t.version + "</a></dd>" +
+    "<dt>Prepared</dt><dd>" + (l.prepared_by ? U.when(l.created_at) + " by " + esc(U.who(l.prepared_by)) : "By the member, " + U.when(l.created_at)) + "</dd>" +
+    "<dt>Accepted</dt><dd>" + (l.accepted_at ? U.when(l.accepted_at) + " · " + Lo.L.via[l.accepted_via] + (l.accepted_via === "SMS_CODE" ? ", taken by " + esc(U.who(l.accepted_by)) + ', code sent to <span class="tabular">' + f.phone(l.details.acceptance.code_sent_to) + "</span>" : "") : '<span class="tone-muted">Not yet</span>') + "</dd>" +
+    "<dt>Approvals needed</dt><dd>" + (l.reviews_required || pr.reviews_required) + (l.reviews_required ? " (copied from the product when accepted)" : " (the product's, copied when accepted)") + "</dd>";
+  document.getElementById("q-title").textContent = st === "DRAFT" ? "The quote, as prepared" : "The quote, as accepted";
+  document.getElementById("q-sub").textContent = st === "DRAFT" ? "Worked out again from the terms in force when " + first + " accepts; if it changed, " + first + " sees the new one first." : "Kept on the loan exactly as " + first + " saw it.";
+  document.getElementById("quote").innerHTML = U.quoteCard(l.details.quote);
+  var rv = Lo.reviewsOf(l.id);
+  if (view === "approved" && l.status === "REQUESTED") rv = rv.concat([{ reviewer: "u-amina", decision: "APPROVE", note: "", reviewed_at: GF.NOW }]);
+  document.getElementById("reviews").innerHTML = rv.length ? rv.map(function (r) {
+    return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start">' + U.chip(r.decision === "APPROVE" ? ["success", "Approved"] : ["error", "Rejected"]) + '<span class="grow"><span class="text-body-md">' + esc(U.who(r.reviewer)) + (r.note ? ': "' + esc(r.note) + '"' : "") + '</span><span class="text-body-sm tone-muted">' + U.when(r.reviewed_at) + "</span></span></div>";
+  }).join("") : '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="text-body-md tone-muted">' + (l.status === "DRAFT" ? "Reviewed once " + esc(first) + " accepts." : "No reviews yet.") + "</span></div>";
+  var CODES = ["CONSENT", "NOT_ACTIVE", "COOPERATIVE", "PAUSED", "KYC", "NO_CIRCLE", "CIRCLE_NOT_READY", "CIRCLE_BEHIND", "NO_SPACE", "LIVE_LOAN", "NO_LIMIT", "NO_PRODUCT", "TERMS", "SHARING_CONSENT"];
+  var WORD = { CONSENT: "Lending consent", NOT_ACTIVE: "Active member", COOPERATIVE: "Cooperative takes new work", PAUSED: "No pause", KYC: "KYC verified", NO_CIRCLE: "In a circle", CIRCLE_NOT_READY: "Circle complete, all verified", CIRCLE_BEHIND: "Nobody in the circle behind",
+    NO_SPACE: "A borrowing space", LIVE_LOAN: "No other live loan", NO_LIMIT: "A credit limit", NO_PRODUCT: "A product offered", TERMS: "Within the terms and the limit", SHARING_CONSENT: "Sharing with " + partner.name };
+  var live = ["GF_REJECTED", "CANCELLED"].indexOf(l.status) === -1;
+  document.getElementById("checks").innerHTML = live ? CODES.map(function (code) {
+    var bad = e.failed.find(function (x) { return x.code === code; });
+    return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start"><span class="mdi mdi-' + (bad ? "close-circle-outline tone-error" : "check-circle-outline tone-primary") + '" aria-hidden="true"></span><span class="grow"><span class="text-body-md">' + WORD[code] + "</span>" + (bad ? '<span class="text-body-sm tone-error">' + esc(bad.text) + "</span>" : "") + "</span></div>";
+  }).join("") : '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="text-body-md tone-muted">Not run on an ended loan.</span></div>';
+  var s = C.latest(m.id), o = C.activeOverride(m.id), ks = K.standing(m.id), visit = l.kyc_verification ? K.get(l.kyc_verification) : K.visitsOf(m.id).find(function (v) { return v.status === "APPROVED"; });
+  var decl = ["INCOME", "OBLIGATION", "BACKGROUND"].map(function (tp) { return K.current(m.id, tp); }).reduce(function (a, b) { return a.concat(b); }, []);
+  var spaces = c ? Lo.liveIn(c.id).length : 0;
+  var recs = CS ? CS.recordsOf(m.id).filter(function (r) { return r.context === "loan:" + l.reference; }) : [];
+  document.getElementById("relies").innerHTML =
+    "<dt>Score</dt><dd>" + (s ? s.score + ", step " + s.ladder_step + " (" + U.whole(s.limit_cents) + ") · " + U.when(s.computed_at) + ' · <a href="../credit/member.html?m=' + m.id + '">Factors</a>' : "None") + "</dd>" +
+    "<dt>Override</dt><dd>" + (o ? (o.kind === "BLOCK" ? "Blocked" : "Limit set to " + U.whole(o.limit_cents)) + ': "' + esc(o.reason) + '"' : "None") + "</dd>" +
+    "<dt>KYC</dt><dd>" + (Lo.verified(m.id) ? "Verified" : "Not verified") + (visit ? ' · <a href="../kyc/visit.html?v=' + visit.id + '">Visit ' + visit.id + "</a>" : Lo.ASSUME.verified.indexOf(m.id) > -1 ? ' <span class="tone-muted">(the story assumes it)</span>' : "") + "</dd>" +
+    "<dt>Growth Circle</dt><dd>" + (c ? '<a href="../groups/circle.html?c=' + c.id + '">' + esc(c.name) + "</a> · " + G.L.status[c.status][1].toLowerCase() + " · borrowing spaces " + spaces + " of " + c.borrowing_spaces + " in use" : "None") + "</dd>" +
+    "<dt>Declarations</dt><dd>" + (decl.length ? decl.map(function (it) { var x = it.data || {}; return esc(K.TYPES[it.data_type].label) + (x.monthly_band ? ": " + K.L.band[x.monthly_band] + " a month" : x.monthly_cents ? ": " + U.whole(x.monthly_cents) + " a month" : ""); }).join("<br>") : "None declared") +
+      (l.details.acceptance && l.details.acceptance.declarations_confirmed_at ? '<br><span class="tone-muted">Confirmed ' + U.when(l.details.acceptance.declarations_confirmed_at) + "</span>" : "") + "</dd>" +
+    "<dt>Consents</dt><dd>" + (recs.length ? recs.map(function (r) { return esc(CS.doc(r.document).name) + ", version " + CS.version(r.version).number + " · " + esc(CS.how(r)); }).join("<br>") : '<span class="tone-muted">Written when ' + esc(first) + " accepts</span>") + "</dd>";
+  var hist = Lo.historyOf(l.id);
+  if (view === "approved" && l.status === "REQUESTED") hist = [{ from_status: "REQUESTED", to_status: "APPROVED", changed_at: GF.NOW, changed_by: "u-amina", source: "CONSOLE", details: {} }].concat(hist);
+  document.getElementById("history").innerHTML = hist.map(function (h) {
+    return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start">' + U.chip(Lo.L.status[h.to_status]) + '<span class="grow"><span class="text-body-md">' + (h.from_status ? "From " + Lo.L.status[h.from_status][1].toLowerCase() : "Created") + (h.details.reason ? ': "' + esc(h.details.reason) + '"' : "") +
+      '</span><span class="text-body-sm tone-muted">' + U.when(h.changed_at) + " · " + (h.changed_by ? esc(U.who(h.changed_by)) : "the system") + "</span></span></div>";
+  }).join("");
+  if (window.Proto) Proto.applyRoles(document.getElementById("acts"));
+}
+function approve() {
+  var ap = Lo.approvals(l), s = GF.credit.latest(m.id), lim = GF.credit.limit(m.id);
+  Proto.dialog({ title: "Approve " + l.reference + "?", body:
+    '<p class="text-body-md">Approval ' + (ap.done + 1) + " of " + ap.of + ". A fresh score: " + s.score + ", so " + esc(first) + "'s limit is " + U.whole(lim.limit_cents) + (lim.override ? " (an override)" : "") + ". Every check passes.</p>" +
+    (ap.done + 1 >= ap.of ? '<p class="text-body-md">This is the last approval needed: the loan is approved, and its score, override, visit and items are recorded on it.</p>' : '<p class="text-body-md">It stays to review until ' + (ap.of - ap.done - 1) + " more " + (ap.of - ap.done - 1 === 1 ? "person approves" : "people approve") + ".</p>") +
+    '<div class="field"><label class="field-label" for="an">Note <span class="optional">(optional)</span></label><textarea class="field-input" id="an" rows="2"></textarea></div>',
+    submit: "Approve", onSubmit: function () { Proto.snack(ap.done + 1 >= ap.of ? "Approved. Next: sending to " + partner.name + " (L4)" : "Approval recorded: " + (ap.done + 1) + " of " + ap.of); } });
+}
+function reject() {
+  var e = Lo.eligibility(l.member, { loan: l.id, product: l.product, amount: l.amount_cents, duration: l.duration, purpose: l.purpose, sharing: true });
+  var MAP = { KYC: "KYC", NO_LIMIT: "CREDIT", TERMS: "CREDIT", CIRCLE_NOT_READY: "CIRCLE", CIRCLE_BEHIND: "CIRCLE", NO_SPACE: "CIRCLE", NO_CIRCLE: "CIRCLE" };
+  var pre = e.failed[0], code = pre ? (MAP[pre.code] || "OTHER") : "";
+  Proto.dialog({ title: "Reject " + l.reference + "?", body:
+    '<p class="text-body-md">It ends here, whatever approvals it has. ' + esc(first) + " is told the reason.</p>" +
+    '<div class="field"><label class="field-label" for="rc">Reason</label><select class="field-input" id="rc">' + Lo.L.reject.map(function (k) { return '<option value="' + k + '"' + (k === code ? " selected" : "") + ">" + Lo.L.end[k] + "</option>"; }).join("") + "</select></div>" +
+    '<div class="field"><label class="field-label" for="rw">In words</label><textarea class="field-input" id="rw" rows="3">' + (pre ? esc(pre.text) : "") + '</textarea><span class="field-help">Required. To offer less, say so, then prepare a new draft with the lower amount</span></div>',
+    submit: "Reject", onSubmit: function (d) { if (!d.querySelector("#rw").value.trim()) return Proto.snack("Nothing changed: say why"); Proto.snack("Rejected. " + first + " is told"); } });
+}
+function cancel(after) {
+  Proto.dialog({ title: "Cancel " + l.reference + "?", body:
+    (after ? '<div class="field"><label class="field-label" for="cr">Why</label><select class="field-input" id="cr"><option value="BY_GROFUNDER">By GroFunder</option><option value="PARTNER_TERMS">Outside the lender\'s terms</option></select></div>' : "") +
+    '<div class="field"><label class="field-label" for="cw">Reason</label><textarea class="field-input" id="cw" rows="2"></textarea><span class="field-help">Required. Kept in its history; ' + esc(first) + " is told.</span></div>" +
+    '<p class="text-body-sm tone-muted">Its borrowing space in ' + esc(c ? c.name : "the circle") + " opens again.</p>",
+    submit: "Cancel the loan", onSubmit: function (d) { if (!d.querySelector("#cw").value.trim()) return Proto.snack("Nothing changed: a reason is needed"); Proto.snack(l.reference + " cancelled"); } });
+}
+/* Accepting a draft by SMS code (26, "Accepting by SMS code"): the quote again, the script, the code. */
+function acceptByCode() {
+  var q = Lo.quote(t, l.amount_cents, l.duration), e = Lo.eligibility(l.member, { loan: l.id, product: l.product, amount: l.amount_cents, duration: l.duration, purpose: l.purpose });
+  if (!e.ok) return Proto.dialog({ title: "Can't be accepted now", body: '<p class="text-body-md">' + e.failed.map(function (x) { return esc(x.text); }).join("<br>") + "</p>" });
+  var sms = "GroFunder: you are accepting a loan of " + U.whole(l.amount_cents) + " from " + partner.name + ". You repay " + U.whole(q.total_repayable_cents) + " over " + Lo.durationLine(l.duration, t.duration_unit) + ". Your code is 482913. Share it only if you agree.";
+  Proto.dialog({ title: "Accept for " + esc(first) + " by SMS code", wide: true, body:
+    '<span class="text-title-sm">1. Read this out</span><div class="card col gap-2"><span class="text-body-md">"' + esc(first) + ", you are borrowing " + U.whole(l.amount_cents) + " from " + esc(partner.name) + ". You receive " + U.whole(q.amount_received_cents) + ". You repay " +
+      U.whole(q.instalments.amount_cents) + " each " + ({ MONTHLY: "month", WEEKLY: "week" }[q.instalments.frequency] || "time") + " for " + Lo.durationLine(l.duration, t.duration_unit) + ", " + U.whole(q.total_repayable_cents) + " in all. The loan costs " + U.whole(q.total_cost_cents) + ". If you pay late: " + esc(q.late_penalties.map(function (x) { return x.rule; }).join("; ") || "no penalty") +
+      ". If the loan defaults, your cooperative may hold back your pay. While you are behind, your circle sees your name, the days late and the amount overdue. You also agree that GroFunder sends " + esc(partner.name) + ' your details."</span></div>' +
+    '<span class="text-title-sm">2. Check the declarations</span><p class="text-body-md">Ask whether their income, loans and regular payments are still as declared; correct them in the visit if not.</p>' +
+    '<label class="check"><input type="checkbox" id="dc"><span class="grow"><span class="text-body-md">' + esc(first) + " confirmed their declarations</span></span></label>" +
+    '<span class="text-title-sm">3. Send the code</span><div class="card col gap-1"><span class="text-label-md tone-muted">The SMS to ' + f.phone(m.phone) + '</span><span class="text-body-md">' + esc(sms) + "</span></div>" +
+    '<div class="field"><label class="field-label" for="ac">Code ' + esc(first) + ' reads back</label><input class="field-input tabular" id="ac" inputmode="numeric" maxlength="6" placeholder="6 digits"><span class="field-help">In the prototype any 6 digits work except 000000.</span></div>',
+    submit: "Accept the loan", onSubmit: function (d) {
+      if (!d.querySelector("#dc").checked) return Proto.snack("Nothing recorded: confirm the declarations first");
+      var code = d.querySelector("#ac").value.replace(/\D/g, "");
+      if (code.length !== 6 || code === "000000") return Proto.snack("That code isn't right. Nothing was recorded");
+      Proto.snack("Accepted. " + l.reference + " is with GroFunder for review");
+    } });
+}
+draw();
+document.addEventListener("proto:state", function (e) { if (e.detail === "loaded" || e.detail === "approved") { view = e.detail; draw(); } });
+</script>
+</body>
+</html>

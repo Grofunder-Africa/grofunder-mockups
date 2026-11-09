@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Your Growth Circle · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Your Growth Circle" data-dest="home" data-back="../home/index.html" data-compact>
+
+  <p class="proto-note"><b>MC1 · Your Growth Circle (note 23, signed off 2026-11-08; <code>GET circle/</code>).</b> The circle for the membership shown: one circle per cooperative membership. A circle is 5 to 10 members of one cooperative and cluster who know each other, vouch for each other and meet weekly. A member borrows as part of a circle.</p>
+  <p class="proto-note"><b>What members see of each other (<code>roster</code>):</b> names, who leads, who is joining and when, open invitations, and ended places only as "didn't join" or "left". Never who objected or why, and never anyone's loan: only, if someone falls behind, their name, days late and amount overdue (Q4; see <i>late</i>).</p>
+  <p class="proto-note"><b>Objecting:</b> while someone is joining (5 days from accepting), any member or joining member may object, privately. It's final: that person doesn't join this time. GroFunder sees who objected; the circle doesn't.</p>
+  <p class="proto-note"><b>UI-93 (owner's edit-surface audit, 2026-11-08):</b> the leader can <b>Remove</b> a member or someone joining (not themselves; refused while they have a live loan, see <i>late</i>); the circle sees it as "Left". A suspended leader can still edit the meeting, withdraw invitations and remove members; only inviting is refused. When the cooperative has <b>ended</b>, the circle is read only (<i>ended</i>).</p>
+  <p class="proto-note"><b>Edit name and meeting</b> (the leader; owner amendment, UI-92): name, day, time, place, the meeting's map point (optional: "Use where I am now" at the meeting, or typed; both coordinates or neither) and the description (<code>PATCH circle/</code>).</p>
+  <p class="proto-note"><b>Owner amendment UI-111 (note 26; closes G72 and G73 here).</b> The borrowing spaces row says how many are in use now (live loans through the circle). <i>late</i> uses note 26's proposed line, "Name is N days late, with Ksh X overdue.", then "No new loans in your circle until everyone is up to date."; notices (27, 28) settle the final words, and the days and amount come with loans part 2. Leaving is refused while you have a live loan.</p>
+  <p class="proto-note"><b>Owner amendment UI-113 (G100, the owner, 2026-11-09).</b> Until the member agrees to a terms version in force, nothing new starts in the circle: <i>termsblock</i> shows the banner and no Invite. The circle stays visible.</p>
+  <p class="proto-note"><b>State switcher.</b> <i>loaded</i> is the membership shown: Wanjiku leads Umoja Gathiru at Kijani (forming); switch to Mawingu on Home to see her as a member of Kahawa Bora (complete). <i>none</i>: no circle yet, with an invitation (Ruth Wachira's, borrowed: Wanjiku can't be invited while she's in a circle). <i>late</i>: Kahawa Bora with a member behind. <i>suspended</i>: the cooperative has suspended this membership.</p>
+  <p class="proto-note"><b>Ended places (G70, decided 2026-11-08):</b> the roster shows a declined invitation as "Declined" and one that ran out as "Didn't answer". An objection stays "Didn't join", with no names or reasons; leaving or being removed is "Left".</p>
+  <p class="proto-note"><b>How close to borrowing (G71, decided 2026-11-08):</b> every member sees how many members are verified ("0 of 2 verified"), with no names. The leader also sees which members aren't verified yet, so they can chase them. Spaces in use come with loans (26).</p>
+  <p class="proto-note"><b>A suspended membership (G74, decided 2026-11-08):</b> the app opens it with a "suspended" banner. The member reads their circle, leaves and objects, but can't start a circle, invite, accept or borrow. See <i>suspended</i> here, on Home, and on Start a circle and Invitation.</p>
+
+  <div data-roles="out" class="empty">
+    <span class="mdi mdi-account-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">You're signed out</span>
+    <span class="text-body-md">Sign in to see your Growth Circle.</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a>
+  </div>
+
+  <div data-state="loaded late suspended ended termsblock" class="col gap-6" data-roles="in" id="circle"></div>
+  <div data-state="none" class="col gap-6" data-roles="in" id="nocircle"></div>
+
+  <div data-state="loading" class="col gap-4" data-roles="in">
+    <div class="skeleton-card" style="height:140px"></div><div class="skeleton" style="width:50%;height:24px"></div><div class="skeleton-card" style="height:300px"></div>
+  </div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Your circle shows again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var A = MemberApp, G = GF.groups, K = GF.kyc, f = GF.fmt, esc = A.esc, me = A.current;
+var icon = function (n, cls) { return '<span class="mdi mdi-' + n + (cls ? " " + cls : "") + '" aria-hidden="true"></span>'; };
+var chip = function (p) { return '<span class="status status-' + p[0] + '">' + p[1] + "</span>"; };
+var short = function (iso) { return f.date(iso, "short"); };
+var first = function (m) { return m.full_name.split(" ")[0]; };
+var view = null, mine = null, c = null;
+
+/* ----------------------------------------------------------- a circle */
+function memberRow(x) {
+  var m = GF.get(x.member), you = x.id === mine.id, sub, act = "", ro = view === "ended", lead = mine.role === "LEADER" && mine.status === "MEMBER";
+  /* UI-93: the leader removes a joining member or a member (not themselves); POST circle/places/{id}/remove/. */
+  var removeBtn = lead && !you && !ro ? '<button class="btn btn-text btn-sm" type="button" onclick="removePlace(\'' + x.id + '\')">Remove</button>' : "";
+  if (x.status === "MEMBER") { sub = (x.role === "LEADER" ? "Leader · " : "") + "member since " + short(x.joined_at); act = removeBtn; }
+  else if (x.status === "JOINING") {
+    sub = "Joins on " + short(x.objection_ends_at) + " unless a member objects";
+    if (!you && !ro && (mine.status === "MEMBER" || mine.status === "JOINING")) act = '<button class="btn btn-text btn-sm" type="button" onclick="objectTo(\'' + x.id + '\')">Object</button>';
+    act += removeBtn;
+  } else if (x.status === "INVITED") {
+    var d = G.daysLeft(G.expiresAt(x)); sub = "Invited · " + d + (d === 1 ? " day" : " days") + " left to answer";
+    if (lead && !ro) act = '<button class="btn btn-text btn-sm" type="button" onclick="withdraw(\'' + x.id + '\')">Withdraw</button>';
+  } else sub = x.status === "OBJECTED" ? "Didn't join" : x.status === "DECLINED" ? "Declined" : x.status === "CANCELLED" ? "Didn't answer" : "Left";
+  var late = view === "late" && G.lateStandIn.member === x.member;
+  return '<div class="rowcard"><span class="avatar" aria-hidden="true">' + f.initials(m.full_name) + "</span>" +
+    '<span class="grow"><span class="text-body-lg">' + esc(m.full_name) + (you ? " (you)" : "") + '</span><span class="text-body-sm tone-muted">' + sub + "</span>" +
+    (late ? '<span class="text-body-sm tone-error">' + G.lateStandIn.days_late + " days late · " + f.money(G.lateStandIn.overdue_cents, { whole: true }) + " overdue</span>" : "") + "</span>" +
+    (x.status === "MEMBER" || G.OPEN.indexOf(x.status) === -1 ? "" : chip(G.L.place[x.status])) + act + "</div>";
+}
+function drawCircle(state) {
+  view = state;
+  var who = state === "late" ? GF.get("m-maw-0907") : me;
+  mine = G.placeOf(who.id); c = mine && G.get(mine.circle);
+  var host = document.getElementById("circle");
+  if (!c) { host.innerHTML = ""; if (window.Proto) Proto.go("none"); return; }
+  var coop = GF.get(c.cooperative).profile.short_name, n = G.count(c.id), lead = G.leaderOf(c.id);
+  var open = G.placesOf(c.id, G.OPEN), shown = G.placesOf(c.id).filter(function (x) { return G.OPEN.indexOf(x.status) > -1 || ["OBJECTED", "DECLINED", "LEFT", "REMOVED"].indexOf(x.status) > -1 || (x.status === "CANCELLED" && x.end_reason === "EXPIRED"); });
+  var RANK = { MEMBER: 0, JOINING: 1, INVITED: 2 };
+  shown.sort(function (a, b) { return (a.role === "LEADER" ? -1 : 0) - (b.role === "LEADER" ? -1 : 0) || (RANK[a.status] == null ? 9 : RANK[a.status]) - (RANK[b.status] == null ? 9 : RANK[b.status]); });
+  var joining = G.placesOf(c.id, ["JOINING"]), isLeader = mine.role === "LEADER" && mine.status === "MEMBER", sus = state === "suspended", ended = state === "ended";
+  var banner;
+  if (state === "late") {
+    var lm = GF.get(G.lateStandIn.member);
+    /* Note 26's proposed line (G72), for 27 and 28 to settle with the notices. */
+    banner = '<div class="banner banner-warning">' + icon("alert-outline") + '<div class="grow"><span class="text-title-sm" id="late-line">' + esc(GF.loans ? GF.loans.behindLine(lm.full_name, G.lateStandIn.days_late, G.lateStandIn.overdue_cents) : lm.full_name) + "</span>" +
+      '<span class="text-body-md">No new loans in your circle until everyone is up to date.</span></div></div>';
+  } else if (state === "termsblock") {
+    banner = '<div class="banner banner-warning"><span class="mdi mdi-file-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Agree to our new terms first</span><span class="text-body-md">Until you do, nothing new starts. You can still see everything you have.</span><div class="banner-actions"><a class="btn btn-text" href="../consents/agree.html?d=cd-terms&amp;for=prompt">Read and agree</a></div></div></div>';
+  } else if (ended) {
+    banner = '<div class="banner banner-info">' + icon("lock-outline") + '<div class="grow"><span class="text-title-sm">' + esc(coop) + " has ended</span>" +
+      '<span class="text-body-md">Your circle stays as a record, read only. Nothing in it can change now.</span></div></div>';
+  } else if (sus) {
+    banner = '<div class="banner banner-warning">' + icon("account-cancel-outline") + '<div class="grow"><span class="text-title-sm">' + esc(coop) + " has suspended your membership</span>" +
+      '<span class="text-body-md">You keep your place' + (isLeader ? " and still lead the circle" : "") + ", but can't borrow, invite or accept while suspended, and you don't count as verified. You can still object and leave" + (isLeader ? ", edit the meeting, withdraw invitations and remove members" : "") + ".</span></div></div>";
+  } else if (c.status === "FORMING") {
+    banner = '<div class="banner banner-info">' + icon("account-group-outline") + '<div class="grow"><span class="text-title-sm">' + n + " of " + G.RULES.MIN_SIZE + " members</span>" +
+      '<span class="text-body-md">' + esc(c.name) + " is complete once " + (G.RULES.MIN_SIZE - n) + " more " + (G.RULES.MIN_SIZE - n === 1 ? "joins" : "join") +
+      (joining.length ? ". " + joining.map(function (x) { return esc(first(GF.get(x.member))) + " joins on " + short(x.objection_ends_at); }).join(", ") + " unless someone objects" : "") + ". Until then no loan starts.</span></div></div>";
+  } else {
+    banner = '<div class="banner banner-success">' + icon("check-circle-outline") + '<div class="grow"><span class="text-title-sm">Your circle is complete</span>' +
+      '<span class="text-body-md">' + (c.agent ? esc(G.who(c.agent)) + " is your Farmer Support Agent, and meets you at the circle's meeting." : "GroFunder is choosing a Farmer Support Agent to meet you.") + "</span></div></div>";
+  }
+  var g = c.details.meeting, st = K.standing(who.id);
+  /* G71: a count for everyone; the leader also sees who isn't verified yet. */
+  var gs = G.standing(c.id), done = gs.rows.filter(function (r) { return r.verified; }).length;
+  var notYet = gs.rows.filter(function (r) { return !r.verified; }).map(function (r) { return r.member.id === who.id ? "you" : r.member.full_name; });
+  var countSub = isLeader && notYet.length ? "Not verified yet: " + notYet.join(", ") : "Every member is verified before the circle can borrow";
+  var verified = st.verified ? "You're verified" : sus ? "Not counted while suspended" : K.liveVisit(who.id) ? "Your visit is open" : "Not verified yet";
+  var actions = [];
+  if (isLeader && !ended) {
+    if (!sus && state !== "termsblock" && open.length < G.RULES.MAX_SIZE && G.newWork(c)) actions.push('<button class="btn btn-tonal" type="button" onclick="inviteMore()">' + icon("account-plus-outline") + "Invite</button>");
+    actions.push('<button class="btn btn-outlined" type="button" onclick="editMeeting()">Edit name and meeting</button>');
+  }
+  var more = [];
+  if (ended) more = [];
+  else if (isLeader) more.push('<button class="rowcard" type="button" onclick="handOver()">' + icon("account-star-outline") + '<span class="grow"><span class="text-body-lg">Hand over to another member</span><span class="text-body-md tone-muted">You stay in the circle as a member</span></span></button>',
+    '<button class="rowcard" type="button" onclick="dissolve()">' + icon("close-circle-outline", "tone-error") + '<span class="grow"><span class="text-body-lg tone-error">Dissolve the circle</span><span class="text-body-md tone-muted">Everyone\'s place ends</span></span></button>');
+  else more.push('<button class="rowcard" type="button" onclick="leave()">' + icon("logout-variant") + '<span class="grow"><span class="text-body-lg">Leave the circle</span><span class="text-body-md tone-muted">Not while you have a loan</span></span></button>');
+  host.innerHTML =
+    '<div class="col gap-2"><div class="row gap-2 wrap">' + chip(G.L.status[c.status]) + '<span class="text-body-md tone-muted">' + esc(coop) + (c.cluster ? " · " + esc(GF.get(c.cluster).name) + " cluster" : "") + "</span></div>" +
+      '<span class="text-headline-sm">' + esc(c.name) + "</span>" + (c.details.description ? '<span class="text-body-md">' + esc(c.details.description) + "</span>" : "") + "</div>" +
+    banner +
+    (actions.length ? '<div class="row gap-2 wrap">' + actions.join("") + "</div>" : "") +
+    '<section class="section"><div class="list rowcards">' +
+      '<div class="rowcard">' + icon("calendar-clock-outline") + '<span class="grow"><span class="text-body-lg">' + G.L.day[g.day] + "s at " + g.time + '</span><span class="text-body-md tone-muted">' + esc(g.place) + "</span></span></div>" +
+      '<div class="rowcard">' + icon("account-tie-outline") + '<span class="grow"><span class="text-body-lg">' + (c.agent ? esc(G.who(c.agent)) : "No agent yet") + '</span><span class="text-body-md tone-muted">Farmer Support Agent</span></span></div>' +
+      '<div class="rowcard" id="verified-count">' + icon("account-check-outline") + '<span class="grow"><span class="text-body-lg">' + done + " of " + gs.count + ' members verified</span><span class="text-body-md tone-muted">' + esc(countSub) + "</span></span></div>" +
+      '<a class="rowcard" href="../kyc/index.html">' + icon("shield-check-outline") + '<span class="grow"><span class="text-body-lg">' + verified + '</span><span class="text-body-md tone-muted">Your own verification for loans</span></span>' + icon("chevron-right", "tone-muted") + "</a>" +
+      '<div class="rowcard" id="spaces-row">' + icon("account-cash-outline") + '<span class="grow"><span class="text-body-lg">' + c.borrowing_spaces + ' members may borrow at once</span><span class="text-body-md tone-muted">' + (GF.loans ? GF.loans.liveIn(c.id).length + " in use now. " : "") + 'Set by GroFunder</span></span></div>' +
+    "</div></section>" +
+    '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Members</span><span class="text-body-md tone-muted">' + open.length + " of " + G.RULES.MAX_SIZE + " places taken</span></div></div>" +
+      '<div class="list rowcards" id="roster">' + shown.map(memberRow).join("") + "</div></section>" +
+    '<section class="section"><div class="list rowcards">' + more.join("") + "</div></section>";
+}
+
+/* -------------------------------------------------------- no circle yet */
+function drawNone() {
+  var inv = G.invitationsOf(me.id);
+  if (!inv.length) inv = [G.get("cp-105")];
+  document.getElementById("nocircle").innerHTML =
+    '<div class="col gap-2"><span class="text-headline-sm">Borrow together</span><span class="text-body-md">A Growth Circle is 5 to 10 members of ' + esc(A.coopName(me)) + " who know each other and meet every week. You borrow as part of a circle, so join one or start your own.</span></div>" +
+    '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Invitations for you</span></div></div><div class="list rowcards">' + inv.map(function (x) {
+      var cc = G.get(x.circle), d = G.daysLeft(G.expiresAt(x));
+      return '<a class="rowcard" href="invitation.html?p=' + x.id + '">' + icon("email-outline") + '<span class="grow"><span class="text-body-lg">' + esc(cc.name) + '</span><span class="text-body-md tone-muted">Led by ' + esc(GF.get(G.leaderOf(cc.id).member).full_name) + " · " + d + (d === 1 ? " day" : " days") + " left</span></span>" + icon("chevron-right", "tone-muted") + "</a>";
+    }).join("") + "</div></section>" +
+    '<section class="section"><div class="list rowcards"><a class="rowcard" href="start.html">' + icon("plus") + '<span class="grow"><span class="text-body-lg">Start a circle</span><span class="text-body-md tone-muted">You lead it, and invite at least 4 people you know from your cluster</span></span>' + icon("chevron-right", "tone-muted") + "</a></div></section>";
+}
+
+/* -------------------------------------------------------------- actions */
+function objectTo(id) {
+  var m = GF.get(G.get(id).member);
+  Proto.dialog({ title: "Object to " + esc(first(m)) + " joining?",
+    body: '<p class="text-body-md">' + esc(first(m)) + " won't join " + esc(c.name) + " this time. It's final, though the leader can invite them again later.</p>" +
+      '<p class="text-body-md tone-muted">Only GroFunder sees that it was you. The circle, and ' + esc(first(m)) + ", see only that they didn't join.</p>" +
+      '<div class="field"><label class="field-label" for="on">Why (optional)</label><textarea class="field-input" id="on" placeholder="Only GroFunder reads this"></textarea></div>',
+    submit: "Object", onSubmit: function () { Proto.snack(first(m) + " won't join " + c.name); } });
+}
+function removePlace(id) {
+  var x = G.get(id), m = GF.get(x.member);
+  /* A live loan blocks it (the loans release check, 26). The late state's member has one. */
+  if (view === "late" && x.member === G.lateStandIn.member)
+    return Proto.dialog({ title: "Can't remove " + esc(first(m)) + " yet", body: '<p class="text-body-md">' + esc(first(m)) + " has a loan that isn't repaid. A member with a live loan can't be removed until it is.</p>" });
+  Proto.confirm({ title: "Remove " + esc(first(m)) + " from " + esc(c.name) + "?", message: esc(first(m)) + " gets an SMS. The circle sees that they left." +
+    (x.status === "MEMBER" && c.status === "COMPLETE" && G.count(c.id) - 1 < G.RULES.MIN_SIZE ? " The circle falls below " + G.RULES.MIN_SIZE + " members, so no new loans start until someone joins." : ""),
+    confirm: "Remove", destructive: true, onConfirm: function () { Proto.snack(first(m) + " removed") } });
+}
+function withdraw(id) {
+  var m = GF.get(G.get(id).member);
+  Proto.confirm({ title: "Withdraw " + esc(first(m)) + "'s invitation?", message: "You can invite them again later.", confirm: "Withdraw", onConfirm: function () { Proto.snack("Invitation withdrawn"); } });
+}
+function inviteMore() {
+  var open = G.placesOf(c.id, G.OPEN), room = G.RULES.MAX_SIZE - open.length;
+  var el = Proto.dialog({ title: "Invite people you know",
+    body: '<p class="text-body-md tone-muted">Members of ' + esc(GF.get(c.cooperative).profile.short_name) + (c.cluster ? " in the " + esc(GF.get(c.cluster).name) + " cluster" : "") + " who aren't in a circle. " + room + (room === 1 ? " place" : " places") + " left. They get an SMS and have " + G.RULES.INVITATION_DAYS + " days to answer.</p>" +
+      '<div class="field search"><div class="field-box"><span class="lead">' + icon("magnify") + '</span><input class="field-input" id="iq" type="search" placeholder="Name or member number" aria-label="Find a member"></div>' +
+      '<span class="field-help">You see names and member numbers only.</span></div><div class="rowcards" id="ilist"></div>',
+    submit: "Invite", onSubmit: function (d) {
+      var n = d.querySelectorAll("#ilist input:checked").length;
+      if (!n) return Proto.snack("Pick someone to invite");
+      if (n > room) return Proto.snack("Only " + room + " places left");
+      Proto.snack(n === 1 ? "Invitation sent" : n + " invitations sent");
+    } });
+  function list() {
+    var t = el.querySelector("#iq").value.trim();
+    el.querySelector("#ilist").innerHTML = t.length < 2 ? '<p class="text-body-md tone-muted">Type at least two letters of a name, or a member number.</p>' :
+      G.candidates(c.cooperative, c.cluster, t, open.map(function (x) { return x.member; })).map(function (m) {
+        return '<label class="check" style="padding:8px 0"><input type="checkbox" value="' + m.id + '"><span class="grow"><span class="text-body-md">' + esc(m.full_name) + '</span><span class="text-body-sm tone-muted tabular">' + m.member_no + "</span></span></label>";
+      }).join("") || '<p class="text-body-md tone-muted">No one matches. Only members not in a circle can be invited.</p>';
+  }
+  el.querySelector("#iq").addEventListener("input", list); list();
+}
+
+/* Owner amendment to signed-off phase 12 (UI-92, 2026-11-08): "Edit name and meeting" also edits the
+ * description and the meeting's map point (note 23: details.meeting.lat/lng, optional, together or not
+ * at all). The point is taken where the person stands, or typed; the kit has no map picker yet (F60). */
+function pointFields(g) {
+  return '<div class="field"><span class="field-label">Map point (optional)</span>' +
+    '<div class="row gap-2 wrap" style="align-items:center"><button class="btn btn-outlined btn-sm" type="button" id="here"><span class="mdi mdi-crosshairs-gps" aria-hidden="true"></span>Use where I am now</button>' +
+    '<button class="btn btn-text btn-sm" type="button" id="clear-pt">Remove the point</button></div>' +
+    '<div class="form-grid"><div class="field"><label class="field-label" for="plat">Latitude</label><input class="field-input tabular" id="plat" inputmode="decimal" placeholder="-1.11893" value="' + (g.lat == null ? "" : g.lat) + '"></div>' +
+    '<div class="field"><label class="field-label" for="plng">Longitude</label><input class="field-input tabular" id="plng" inputmode="decimal" placeholder="36.83521" value="' + (g.lng == null ? "" : g.lng) + '"></div></div>' +
+    '<span class="field-help">So the agent can find the meeting. Both or neither.</span></div>';
+}
+function wirePoint(el) {
+  el.querySelector("#here").addEventListener("click", function () { el.querySelector("#plat").value = "-1.11902"; el.querySelector("#plng").value = "36.83517"; Proto.snack("Point taken, ±9 m"); });
+  el.querySelector("#clear-pt").addEventListener("click", function () { el.querySelector("#plat").value = ""; el.querySelector("#plng").value = ""; });
+}
+function pointError(d) {
+  var a = d.querySelector("#plat").value.trim(), b = d.querySelector("#plng").value.trim();
+  if (!a && !b) return "";
+  if (!a || !b) return "Give both latitude and longitude, or neither";
+  if (!(Math.abs(+a) <= 90) || !(Math.abs(+b) <= 180) || isNaN(+a) || isNaN(+b)) return "That isn't a map point";
+  return "";
+}
+function editMeeting() {
+  var g = c.details.meeting;
+  var el = Proto.dialog({ title: "Name and meeting",
+    body: '<div class="field"><label class="field-label" for="en">Name</label><input class="field-input" id="en" maxlength="60" value="' + esc(c.name) + '"></div>' +
+      '<div class="field"><label class="field-label" for="ed">Day</label><select class="field-input" id="ed">' + Object.keys(G.L.day).map(function (k) { return '<option value="' + k + '"' + (k === g.day ? " selected" : "") + ">" + G.L.day[k] + "</option>"; }).join("") + "</select></div>" +
+      '<div class="field"><label class="field-label" for="et">Time</label><input class="field-input tabular" id="et" type="time" value="' + g.time + '"></div>' +
+      '<div class="field"><label class="field-label" for="ep">Where you meet</label><input class="field-input" id="ep" value="' + esc(g.place) + '"></div>' + pointFields(g) +
+      '<div class="field"><label class="field-label" for="eds">About the circle (optional)</label><textarea class="field-input" id="eds">' + esc(c.details.description) + "</textarea></div>",
+    submit: "Save", onSubmit: function (d) {
+      if (!d.querySelector("#en").value.trim() || !d.querySelector("#ep").value.trim()) return Proto.snack("A name and a place are needed");
+      var pe = pointError(d); if (pe) return Proto.snack(pe);
+      Proto.snack("Saved. The circle sees the change");
+    } });
+  wirePoint(el);
+}
+function handOver() {
+  var list = G.placesOf(c.id, ["MEMBER"]).filter(function (x) { return x.id !== mine.id; });
+  Proto.dialog({ title: "Hand over the circle",
+    body: '<p class="text-body-md tone-muted">The new leader invites people and can dissolve the circle. Choose a member, not someone still joining.</p>' +
+      '<div class="field"><label class="field-label" for="nl">New leader</label><select class="field-input" id="nl">' + list.map(function (x) { return '<option value="' + x.id + '">' + esc(GF.get(x.member).full_name) + "</option>"; }).join("") + "</select></div>",
+    submit: "Hand over", onSubmit: function (d) { Proto.snack(GF.get(G.get(d.querySelector("#nl").value).member).full_name + " leads " + c.name + " now"); } });
+}
+function leave() {
+  var rel = GF.loans ? GF.loans.canRelease(mine.member) : { ok: true };
+  /* can_release (26): not while you have a live loan. */
+  if (!rel.ok) return Proto.dialog({ title: "You can't leave yet", body: '<p class="text-body-md">You have a loan that is ' + GF.loans.L.status[rel.loan.status][1].toLowerCase() + ". You can leave the circle once it ends.</p>" });
+  var below = c.status === "COMPLETE" && G.count(c.id) - 1 < G.RULES.MIN_SIZE;
+  Proto.confirm({ title: "Leave " + esc(c.name) + "?", message: "You can join or start another circle afterwards." + (below ? " The circle falls below " + G.RULES.MIN_SIZE + " members, so no new loans start in it until someone joins." : "") + " You can't leave while you have a loan.",
+    confirm: "Leave", destructive: true, onConfirm: function () { Proto.snack("You left " + c.name); } });
+}
+function dissolve() {
+  Proto.confirm({ title: "Dissolve " + esc(c.name) + "?", message: "Everyone's place ends, and each of them gets an SMS. It can't be undone, and it isn't possible while a member has a loan.",
+    confirm: "Dissolve", destructive: true, onConfirm: function () { Proto.snack(c.name + " dissolved"); } });
+}
+
+drawNone();
+document.addEventListener("proto:state", function (e) { if (["loaded", "late", "suspended", "ended", "termsblock"].indexOf(e.detail) > -1) drawCircle(e.detail); });
+drawCircle("loaded");
+</script>
+</body>
+</html>

@@ -12,6 +12,10 @@
 <link rel="stylesheet" href="../../assets/kit.css">
 <script src="../../assets/data/canon.js"></script>
 <script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
 <script src="../assets/app.js"></script>
 <script src="../assets/nav.js" defer></script>
 <script src="../../assets/proto.js" defer></script>
@@ -21,15 +25,19 @@
 <div data-screen data-title="Home" data-dest="home" data-compact>
 
   <p class="proto-note"><b>M5 · Home (notes 05, 06, 07, 08; UI-18).</b> One cooperative at a time: the one in the app bar. This month's deliveries and their value, what's been paid and what's still owed, the next collection, today's prices (07: members see current prices), then the latest deliveries and payments.</p>
-  <p class="proto-note"><b>M6 · Switch</b> (F8) lists the member's own records, one per cooperative, from one login (06). A suspended record is listed but can't be opened: a member sees their ACTIVE records (05). <b>M8 · Collection times</b> opens as a panel: the rounds for the member's cluster (07).</p>
+  <p class="proto-note"><b>M6 · Switch</b> (F8) lists the member's own records, one per cooperative, from one login (06). A suspended record opens too, with a "suspended" banner (05; G74, decided 2026-11-08): the member reads everything, but can't start a circle, invite, accept or borrow. See <i>suspended</i>. <b>M8 · Collection times</b> opens as a panel: the rounds for the member's cluster (07).</p>
   <p class="proto-note"><b>KYC prompt (note 20, "How members are led to KYC"; UI-62).</b> "Get verified for loans" shows while the record shown is ACTIVE, nothing has been declared and no visit is open or submitted. It goes once the member declares anything or a visit opens. In the data that's Wanjiku's Mawingu record: switch to it.</p>
+  <p class="proto-note"><b>The member terms (G100, the owner, 2026-11-09).</b> Version 2 of the terms asks members again and applies from 16 Nov, so Home asks Wanjiku to agree early. A member who hasn't agreed once it applies keeps using the app and can tap <i>Not now</i>, and their deliveries, payouts and loans stay visible, but nothing new starts: no KYC, circle or loan action and no new consent; a live loan carries on. <i>termsblock</i> shows Home after 16 Nov without agreeing.</p>
+  <p class="proto-note"><b>Consent prompts (phase 15, note 22).</b> When a version that asks members again comes into force, Home asks (<code>account.terms</code>); a lending version that asks again would prompt the same way for the membership shown (<code>lending.consent</code>, context <code>prompt</code>). <i>smsconsent</i> shows what a member who agreed by SMS code with an agent sees at their next sign-in (concern 1): who took it, and a way to withdraw.</p>
   <p class="proto-note"><b>M7 · Link offer.</b> Gatundu Avocado Growers has added a record with Wanjiku's ID and an older phone number. Only she can link it (06: a cooperative never links records), so Home offers it until she does or says not now.</p>
 
   <div data-roles="out" class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span>
     <div class="grow"><span class="text-body-md">Signed out, the member app shows only the welcome and sign-in screens.</span>
       <div class="banner-actions"><a class="btn btn-text" href="../auth/welcome.html">Open the welcome screen</a></div></div></div>
 
-  <div data-state="loaded" class="col gap-4" data-roles="in">
+  <div data-state="loaded suspended smsconsent termsblock" class="col gap-4" data-roles="in">
+    <div class="banner banner-warning hidden" id="sus-banner"><span class="mdi mdi-account-cancel-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm" id="sus-title"></span><span class="text-body-md">You can still see your deliveries, payments and Growth Circle, and leave the circle. You can't borrow, start a circle, invite or accept invitations until it is active again. Ask the cooperative about it.</span></div></div>
     <div class="row between wrap gap-2">
       <span class="text-title-md" id="hello"></span>
       <button class="btn btn-tonal btn-sm" type="button" id="switch" onclick="switchSheet()"><span class="mdi mdi-swap-horizontal" aria-hidden="true"></span>Switch</button>
@@ -43,6 +51,14 @@
       <div class="grow"><span class="text-title-sm">Get verified for loans</span><span class="text-body-md">Tell GroFunder about your farms, crops and income. An agent then visits to check them, so you can apply for a loan.</span>
         <div class="banner-actions"><a class="btn btn-text" href="../kyc/index.html">What's involved</a><a class="btn btn-text" href="../kyc/declare.html" id="kyc-start">Start</a></div></div></div>
 
+    <div class="banner banner-info hidden" id="consent-prompt"><span class="mdi mdi-file-alert-outline" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm" id="consent-title"></span><span class="text-body-md" id="consent-text"></span>
+        <div class="banner-actions"><a class="btn btn-text" id="consent-go">Read and agree</a></div></div></div>
+
+    <div class="banner banner-info hidden" id="sms-notice"><span class="mdi mdi-cellphone-message" aria-hidden="true"></span>
+      <div class="grow"><span class="text-title-sm">You agreed by SMS code</span><span class="text-body-md" id="sms-text"></span>
+        <div class="banner-actions"><button class="btn btn-text" type="button" onclick="this.closest('.banner').classList.add('hidden')">That was me</button><a class="btn btn-text" href="../consents/index.html">See or withdraw</a></div></div></div>
+
     <div class="card card-outlined">
       <span class="text-label-lg" id="m-label"></span>
       <span class="text-headline-md tabular" id="m-qty"></span>
@@ -52,6 +68,14 @@
         <dt>Still owed to you</dt><dd class="tabular" id="m-owed"></dd>
       </dl>
     </div>
+
+    <a class="rowcard card-outlined" href="../credit/index.html" id="credit-row"><span class="mdi mdi-sprout-outline" aria-hidden="true"></span>
+      <span class="grow"><span class="text-body-lg" id="credit-line">What can I borrow</span><span class="text-body-md tone-muted" id="credit-sub"></span></span>
+      <span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
+
+    <a class="rowcard card-outlined" href="../circle/index.html" id="circle-row"><span class="mdi mdi-account-group-outline" aria-hidden="true"></span>
+      <span class="grow"><span class="text-body-lg" id="circle-name">Your Growth Circle</span><span class="text-body-md tone-muted" id="circle-sub"></span></span>
+      <span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
 
     <button class="rowcard card-outlined" type="button" onclick="roundsSheet()" id="next-row">
       <span class="mdi mdi-clock-outline" aria-hidden="true"></span>
@@ -145,6 +169,58 @@ document.getElementById("h-payments").innerHTML = q.payouts({ member: M.id, stat
 /* Note 20, "How members are led to KYC" (UI-62): prompt while the record is ACTIVE, nothing is declared and no visit is open or submitted. */
 if (GF.kyc && M.status === "ACTIVE" && GF.kyc.current(M.id).length === 0 && !GF.kyc.liveVisit(M.id)) document.getElementById("kyc-offer").classList.remove("hidden");
 
+/* Consents (phase 15, note 22): a version that asks again (terms for the login; lending for the record shown). */
+(function () {
+  var C = GF.consents; if (!C) return;
+  var ts = C.termsState(A.login.id), lend = C.allows(M.id, "LENDING"), el = document.getElementById("consent-prompt");
+  window.termsPrompt = function (blocked) {
+    var v = blocked ? C.live("cd-terms", "en") : ts.version;
+    document.getElementById("consent-title").textContent = blocked ? "Agree to our new terms to start anything new" : "New terms from " + GF.fmt.date(ts.from, "short");
+    document.getElementById("consent-text").textContent = v.change_note + (blocked ? " Until you agree, you can see everything, but can't start a verification, a circle or a loan." : " You can agree now.");
+    document.getElementById("consent-go").href = "../consents/agree.html?d=cd-terms&for=prompt";
+    el.className = "banner " + (blocked ? "banner-warning" : "banner-info");
+  };
+  if (ts.state === "BLOCKED" || ts.state === "EARLY") termsPrompt(ts.state === "BLOCKED");
+  else if (!lend.ok && lend.reason === "NEEDS_RECONSENT") {
+    document.getElementById("consent-title").textContent = "Lending: please agree again";
+    document.getElementById("consent-text").textContent = C.live("cd-lending", C.version(lend.record.version).locale).change_note;
+    document.getElementById("consent-go").href = "../consents/agree.html?d=cd-lending&for=prompt";
+    el.classList.remove("hidden");
+  }
+})();
+document.addEventListener("proto:state", function (e) {
+  if (e.detail === "termsblock") termsPrompt(true); else if (e.detail === "loaded" && window.termsPrompt && GF.consents.termsState(A.login.id).state === "EARLY") termsPrompt(false);
+  var on = e.detail === "smsconsent";
+  document.getElementById("sms-text").textContent = "You agreed to lending at " + A.coopName(M) + " on 30 Oct, with Kevin Odhiambo, a GroFunder agent. If that wasn't you, withdraw it and call GroFunder.";
+  document.getElementById("sms-notice").classList.toggle("hidden", !on);
+});
+
+/* A suspended record (G74): the banner, and no KYC prompt. `suspended` shows it for Wanjiku. */
+function suspendedView(on) {
+  document.getElementById("sus-title").textContent = A.coopName(M) + " has suspended your membership";
+  document.getElementById("sus-banner").classList.toggle("hidden", !on);
+  if (on) document.getElementById("kyc-offer").classList.add("hidden");
+}
+suspendedView(M.status === "SUSPENDED");
+document.addEventListener("proto:state", function (e) { if (e.detail === "suspended" || e.detail === "loaded") suspendedView(e.detail === "suspended" || M.status === "SUSPENDED"); });
+
+/* What can I borrow (phase 14, note 25): the limit and stage, never the score. */
+(function () {
+  var C = GF.credit; if (!C) return;
+  var l = C.limit(M.id), st = C.stage(M.id);
+  document.getElementById("credit-line").textContent = l.eligible ? "You can borrow up to " + f.money(l.limit_cents, { whole: true }) : "What can I borrow";
+  document.getElementById("credit-sub").textContent = l.eligible ? "Stage " + st.step + " of " + st.steps + (st.next_limit_cents ? " · see how to grow it" : "") : l.reason === "PAUSED" ? "Borrowing is paused" : l.reason === "SUSPENDED" ? "Not while suspended" : "Not available yet";
+})();
+
+/* Growth Circle (phase 12, note 23): the membership's circle, or invitations, in one row. */
+(function () {
+  var G = GF.groups; if (!G) return;
+  var x = G.placeOf(M.id), c = x && G.get(x.circle), inv = G.invitationsOf(M.id).length;
+  document.getElementById("circle-name").textContent = c ? c.name : "Growth Circles";
+  document.getElementById("circle-sub").textContent = c ? (x.status === "JOINING" ? "Joining on " + f.date(x.objection_ends_at, "short") : G.L.status[c.status][1] + " · " + G.count(c.id) + " members")
+    : inv ? inv + (inv === 1 ? " invitation" : " invitations") + " for you" : "Borrow as part of a circle: join or start one";
+})();
+
 /* M7: the offer to link a record a cooperative has added with the member's ID. */
 var offer = A.pending[0];
 var dismissed = A.store.get("gf.memberLinkLater", "") === (offer && offer.id);
@@ -164,10 +240,10 @@ function notNow() {
 var STATUS = { ACTIVE: "Active", SUSPENDED: "Suspended", EXITED: "Exited" };
 function switchSheet() {
   Proto.sheet({ title: "Your cooperatives", body: '<div class="list rowcards">' + A.records.map(function (m) {
-    var here = m.id === M.id, canOpen = m.status === "ACTIVE";
+    var here = m.id === M.id, canOpen = m.status === "ACTIVE" || m.status === "SUSPENDED";
     var inner = '<span class="mark-sq lg">' + A.coopName(m).split(/\s+/).map(function (w) { return w[0]; }).join("").slice(0, 2) + "</span>" +
       '<span class="grow"><span class="text-body-lg">' + esc(A.coopName(m)) + '</span><span class="text-body-md tone-muted tabular">' + m.member_no + " · " + STATUS[m.status] +
-      (canOpen ? "" : ". Ask the cooperative about it.") + "</span></span>";
+      (m.status === "SUSPENDED" ? ". Read only: ask the cooperative about it." : canOpen ? "" : ". Ask the cooperative about it.") + "</span></span>";
     return here ? '<div class="rowcard" aria-current="true">' + inner + '<span class="mdi mdi-check tone-primary" aria-hidden="true"></span></div>'
       : canOpen ? '<button class="rowcard" type="button" onclick="MemberApp.switchTo(\'' + m.cooperative + '\')">' + inner + "</button>" : '<div class="rowcard tone-muted">' + inner + "</div>";
   }).join("") + "</div>" + (offer ? '<a class="btn btn-text" href="link.html?m=' + offer.id + '">Link another membership</a>' : "") });

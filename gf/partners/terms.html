@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Terms version · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../assets/console.js"></script>
+<script src="partners-ui.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../loans/loans-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Terms" data-dest="partners" data-wide id="screen">
+
+  <p class="proto-note"><b>LP5 · Terms version (note 24, <code>ProductTerms</code> and <code>TermsCharge</code>).</b> One dated version of a product's terms: the amounts and durations it allows, how it is repaid, when a loan counts as overdue, in default or flagged, and its <b>charges</b>. Loans point at the version they were quoted on, so a published version never changes (a database trigger guards it).</p>
+  <p class="proto-note"><b>Charges (Q2):</b> every price item, interest included, with what it's worked out on, how often, when the member pays it, an optional floor and cap, and <b>GroFunder's share</b> (<code>gf_share_bps</code>); the partner's share is the rest, so the split always adds up to 100%. The owner's example, 6% interest with 3% to GroFunder, is interest at 6% with GroFunder's share at 50%. The cooperative's collection fee is not a product charge (28).</p>
+  <p class="proto-note"><b>Drafts</b> (<code>manage</code>) can be edited or deleted. <b>Publishing</b> (<code>publish</code>, Full and Owner, Q1) needs a start now or later (no back-dating), a moment no other published version uses, at most one interest charge and every charge rule met. A <b>scheduled</b> version can be withdrawn with a reason before it starts, freeing its date (P2); once in force, the fix is a new version.</p>
+  <p class="proto-note"><b>Try:</b> <a href="?t=pt-dairy-4">a draft</a> · <a href="?t=pt-dairy-3">scheduled for 1 Dec</a> · <a href="?t=pt-dairy-1">in force</a> · <a href="?t=pt-dairy-2">withdrawn</a> · <a href="?t=pt-avo-1">weekly, set durations</a></p>
+  <p class="proto-note"><b>Audit, 2026-11-08:</b> a draft can hold <b>when it takes effect</b> (ruling 1): set or change it on the draft; publishing uses it, or "take effect now", or another moment. Charges on a draft can be <b>reordered</b> and edited by Full and Owner only. Allowed durations must lie between the shortest and the longest. <a href="?t=pt-harvest-1">Shamba's draft</a> already holds a date.</p>
+  <p class="proto-note"><b>Repayment frequency</b> (amendment to note 24, 2026-11-08): publishing is refused unless instalments follow the duration's unit (monthly for durations in months) or the loan is repaid once at the end. A draft that breaks it says so. <a href="?t=pt-dairy-4">Version 4</a> is repaid every two weeks over months.</p>
+  <p class="proto-note"><b>Every action is on the page</b> (2026-11-09, the owner's review). A draft: <i>Publish</i> (Full and Owner), <i>Edit limits and wording</i> and <i>Edit</i> on those sections, each charge's <i>Edit</i>, <i>Remove</i> and arrows, <i>Add a charge</i> and <i>Delete this draft</i> (<code>manage</code>). A scheduled version: <i>Withdraw before it starts</i> (<code>publish</code>). Any published version: no edits, since published terms never change, but <i>Draft a new version from this one</i> (<code>manage</code>), or <i>Open the draft</i> while one is open (one draft at a time).</p>
+  <p class="proto-note"><b>Worked example (phase 16, note 26 "The quote"; closes G80).</b> Any version, a draft included, shows what it costs a member for an amount and a duration, from the same function as the member's quote and the reviewer's view: each charge, what the member receives, the instalments, the total repayable and the total cost of credit, late penalties apart. A draft whose repayment doesn't follow the duration's unit can't be worked out, as it can't be published.</p>
+
+  <div data-state="loaded" class="col gap-4" id="page"></div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:72px"></div><div class="skeleton-card" style="height:300px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load these terms</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var P = GF.partners, U = PartnersUI, esc = U.esc, icon = U.icon, L = P.L, f = GF.fmt, R = U.ROLES;
+var t = P.get(new URLSearchParams(location.search).get("t")) || P.get("pt-dairy-4");
+var x = P.get(t.product), p = P.get(x.partner), st = P.termsState(t), screen = document.getElementById("screen"), draft = st === "DRAFT";
+screen.setAttribute("data-title", x.name + " · version " + t.version);
+screen.setAttribute("data-sub", p.name + " · " + x.code);
+screen.setAttribute("data-back", "product.html?pr=" + x.id);
+if (draft) {
+  screen.setAttribute("data-action", JSON.stringify({ label: "Publish", icon: "send-check-outline", roles: R.publish, on: "publish()" }));
+  screen.setAttribute("data-menu", JSON.stringify([{ label: "Edit limits and wording", icon: "pencil-outline", roles: R.manage, on: "editLimits()" }, { label: "Delete this draft", icon: "delete-outline", roles: R.manage, on: "deleteDraft()", destructive: true, sep: true }]));
+} else if (st === "SCHEDULED") screen.setAttribute("data-menu", JSON.stringify([{ label: "Withdraw before it starts", icon: "undo-variant", roles: R.publish, on: "withdraw()", destructive: true }]));
+
+var base = P.inForce(x.id), cmp = draft && base && base.id !== t.id ? base : null;
+var openDraft = P.draftOf(x.id), canDraft = x.status !== "RETIRED" && p.status !== "ENDED";
+/* The page's actions, visible (2026-11-09): what each state allows, for the roles allowed it. */
+function actions() {
+  var b = function (id, roles, on, ic, label, cls) { return '<button class="btn ' + (cls || "btn-outlined") + ' btn-sm" type="button" id="' + id + '" data-roles="' + roles + '" onclick="' + on + '">' + icon(ic) + label + "</button>"; };
+  if (draft) return '<div class="actions actions-start" id="terms-actions">' + b("publish-btn", R.publish, "publish()", "send-check-outline", "Publish", "btn-filled") +
+    b("edit-limits-btn", R.manage, "editLimits()", "pencil-outline", "Edit limits and wording") + b("delete-draft-btn", R.manage, "deleteDraft()", "delete-outline", "Delete this draft", "btn-text tone-error") + "</div>";
+  var out = (st === "SCHEDULED" ? b("withdraw-btn", R.publish, "withdraw()", "undo-variant", "Withdraw before it starts", "btn-text tone-error") : "") +
+    (!canDraft ? "" : openDraft ? '<a class="btn btn-outlined btn-sm" id="open-draft-btn" data-roles="' + R.manage + '" href="terms.html?t=' + openDraft.id + '">' + icon("file-document-edit-outline") + "Open the draft (version " + openDraft.version + ")</a>"
+      : b("draft-from-btn", R.manage, "draftFrom()", "content-copy", "Draft a new version from this one"));
+  return '<p class="text-body-sm tone-muted" id="fixed-note">Published terms never change. To change them, draft a new version' + (openDraft ? ": version " + openDraft.version + " is open" : " from this one") + ".</p>" +
+    (out ? '<div class="actions actions-start" id="terms-actions">' + out + "</div>" : "");
+}
+/* The draft's charges, with visible row actions for managers: reorder, Edit, Remove. Others see the table as published. */
+function draftCharges() {
+  return '<div class="table-wrap"><table class="table"><thead><tr><th>Charge</th><th>How much</th><th>When the member pays</th><th>Split</th><th data-roles="' + R.manage + '"></th></tr></thead><tbody>' +
+    t.charges.map(function (c, i) {
+      var q = c.name.replace(/'/g, "\\'");
+      return '<tr><td class="primary-cell">' + esc(c.name) + '<span class="cell-sub">' + L.kind[c.kind] + "</span></td><td>" + esc(U.chargeHow(c)) + "</td><td>" + L.collected[c.collected] + '</td><td class="tabular">' + U.split(c) + "</td>" +
+        '<td data-roles="' + R.manage + '"><span class="row gap-1" style="justify-content:flex-end;flex-wrap:wrap;min-width:120px">' +
+        '<button class="icon-btn" type="button" aria-label="Move ' + esc(c.name) + ' up" onclick="move(' + i + ',-1)"' + (i === 0 ? " disabled" : "") + ">" + icon("arrow-up") + "</button>" +
+        '<button class="icon-btn" type="button" aria-label="Move ' + esc(c.name) + ' down" onclick="move(' + i + ',1)"' + (i === t.charges.length - 1 ? " disabled" : "") + ">" + icon("arrow-down") + "</button>" +
+        '<button class="btn btn-text btn-sm" type="button" data-edit-charge onclick="editCharge(\'' + q + '\')">Edit</button>' +
+        '<button class="icon-btn tone-error" type="button" data-remove-charge aria-label="Remove ' + esc(c.name) + '" title="Remove" onclick="removeCharge(\'' + q + '\')">' + icon("delete-outline") + "</button></span></td></tr>";
+    }).join("") + "</tbody></table></div>";
+}
+var editBtn = function (id) { return draft ? '<button class="btn btn-outlined btn-sm" type="button" id="' + id + '" data-roles="' + R.manage + '" onclick="editLimits()">' + icon("pencil-outline") + "Edit</button>" : ""; };
+var unit = L.unit[t.duration_unit];
+function diff() {
+  if (!cmp) return "";
+  var out = [];
+  var fld = function (label, a, b) { if (a !== b) out.push(label + ": " + a + " → " + b); };
+  fld("Largest loan", U.money(cmp.max_amount_cents), U.money(t.max_amount_cents));
+  fld("Longest", cmp.max_duration + " " + L.unit[cmp.duration_unit][1], t.max_duration + " " + unit[1]);
+  t.charges.forEach(function (c) { var o = cmp.charges.find(function (y) { return y.name === c.name; }); if (!o) out.push(c.name + ": new"); else { fld(c.name, U.chargeHow(o), U.chargeHow(c)); if (o.gf_share_bps !== c.gf_share_bps) out.push(c.name + " split: " + U.split(o) + " → " + U.split(c)); } });
+  cmp.charges.forEach(function (o) { if (!t.charges.some(function (c) { return c.name === o.name; })) out.push(o.name + ": removed"); });
+  return '<div class="banner banner-info">' + icon("compare-horizontal") + '<div class="grow"><span class="text-title-sm">Changed from version ' + cmp.version + ", in force</span>" +
+    '<span class="text-body-md">' + (out.length ? out.map(esc).join("<br>") : "Nothing yet") + "</span></div></div>";
+}
+function banner() {
+  if (draft && !P.freqFits(t)) return '<div class="banner banner-error" id="freq-check">' + icon("alert-outline") + '<div class="grow"><span class="text-title-sm">Can\'t be published yet</span><span class="text-body-md">It\'s repaid ' + L.freq[t.repayment_frequency].toLowerCase() + ", but durations count in " + unit[1] + ". Repayments must follow the duration's unit, or be once at the end.</span></div></div>";
+  if (st === "WITHDRAWN") { var w = t.terms.withdrawal; return '<div class="banner banner-info">' + icon("undo-variant") + '<div class="grow"><span class="text-body-md">Withdrawn ' + U.when(w.at) + " by " + esc(U.who(w.by)) + ', before it took effect: "' + esc(w.reason) + '" No loan points at it.</span></div></div>'; }
+  if (st === "SCHEDULED") return '<div class="banner banner-info">' + icon("calendar-clock") + '<div class="grow"><span class="text-body-md">Takes effect ' + U.when(t.effective_from) + ". Until then quotes use version " + (base ? base.version : "none") + ". It can still be withdrawn, with a reason.</span></div></div>";
+  if (st === "PAST") return '<div class="banner banner-info">' + icon("history") + '<div class="grow"><span class="text-body-md">Replaced by a later version. Loans quoted on it keep it.</span></div></div>';
+  return "";
+}
+var facts = [["Status", U.stateChip(t)]];
+if (!draft) facts.push(["Takes effect", U.when(t.effective_from)], ["Published", U.when(t.published_at) + " by " + esc(U.who(t.published_by))]);
+else facts.push(["Takes effect", (t.effective_from ? U.when(t.effective_from) : '<span class="tone-muted">Not set: set it here or when publishing</span>') +
+  ' <button class="btn btn-text btn-sm" type="button" data-roles="' + R.manage + '" onclick="editDate()">' + (t.effective_from ? "Change" : "Set") + "</button>"]);
+facts.push(["Drafted", U.when(t.created_at) + " by " + esc(U.who(t.created_by))]);
+document.getElementById("page").innerHTML =
+  '<div class="section"><div class="section-body"><dl class="facts">' + facts.map(function (r) { return "<dt>" + r[0] + "</dt><dd>" + r[1] + "</dd>"; }).join("") + "</dl>" + actions() + "</div></div>" +
+  banner() + diff() +
+  '<div class="two-col"><div class="col gap-4">' +
+    '<div class="section"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">Charges</span><span class="text-body-sm tone-muted">In the order members see them on the quote</span></div>' +
+      (draft ? '<button class="btn btn-outlined btn-sm" type="button" data-roles="' + R.manage + '" onclick="editCharge()">' + icon("plus") + "Add a charge</button>" : "") + "</div>" +
+      (draft ? draftCharges() : U.chargesTable(t)) + "</div></div>" +
+  "</div><div class=\"col gap-4\">" +
+    '<div class="section"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">Limits</span></div>' + editBtn("edit-limits-section") + '</div><dl class="facts stack">' +
+      '<dt>Amount</dt><dd class="tabular">' + U.money(t.min_amount_cents) + " to " + U.money(t.max_amount_cents) + "</dd>" +
+      '<dt>How long</dt><dd>' + (t.terms.allowed_durations.length ? t.terms.allowed_durations.join(", ") + " " + unit[1] + " only" : t.min_duration + " to " + t.max_duration + " " + unit[1]) + "</dd>" +
+      "<dt>Repaid</dt><dd>" + L.freq[t.repayment_frequency] + "</dd>" +
+      "<dt>Overdue after</dt><dd>" + t.grace_days + " days past a due date (grace)</dd><dt>In default after</dt><dd>" + t.default_after_days + " days overdue</dd>" +
+      "<dt>Flagged after</dt><dd>" + t.flag_after_days + " days overdue, by our count, if " + esc(p.name) + " hasn't defaulted it (API)</dd></dl></div></div>" +
+    '<div class="section"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">Wording</span></div>' + editBtn("edit-wording-section") + '</div><dl class="facts stack">' +
+      "<dt>Early repayment</dt><dd>" + esc(t.terms.early_repayment) + "</dd>" +
+      "<dt>Extra disclosure</dt><dd>" + (t.terms.disclosure.en ? esc(t.terms.disclosure.en) + '<br><span class="tone-muted">' + esc(t.terms.disclosure.sw) + "</span>" : '<span class="tone-muted">None</span>') + "</dd></dl></div></div>" +
+  "</div></div>" +
+  '<div class="section" id="example"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">Worked example</span><span class="text-body-sm tone-muted">What this version costs a member: the quote they would see</span></div></div>' +
+    '<div class="form-grid"><div class="field"><label class="field-label" for="xa">Amount</label><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input tabular" id="xa" inputmode="numeric" value="' + Math.min(t.max_amount_cents, Math.max(t.min_amount_cents, 1000000)) / 100 + '"></div></div>' +
+    '<div class="field"><label class="field-label" for="xd">For</label><select class="field-input" id="xd">' + (function () { var o = []; for (var d = t.min_duration; d <= t.max_duration; d++) if (!t.terms.allowed_durations.length || t.terms.allowed_durations.indexOf(d) > -1) o.push('<option value="' + d + '">' + d + " " + (d === 1 ? unit[0] : unit[1]) + "</option>"); return o.join(""); })() + "</select></div></div>" +
+    '<div id="xq"></div></div></div>';
+/* G80: the worked example, from loans' quote function (26). */
+function example() {
+  var el = document.getElementById("xq"); if (!el) return;
+  if (!P.freqFits(t)) { el.innerHTML = "<p class=\"text-body-md tone-muted\">Can't be worked out: repayments must follow the duration's unit, or be once at the end.</p>"; return; }
+  var a = Math.round(+document.getElementById("xa").value.replace(/\D/g, "") * 100), d = +document.getElementById("xd").value;
+  if (a < t.min_amount_cents || a > t.max_amount_cents) { el.innerHTML = '<span class="field-error">Between ' + U.money(t.min_amount_cents) + " and " + U.money(t.max_amount_cents) + ".</span>"; return; }
+  el.innerHTML = LoansUI.quoteCard(GF.loans.quote(t, a, d));
+}
+document.getElementById("xa").addEventListener("change", example); document.getElementById("xd").addEventListener("change", example); example();
+
+/* -------------------------------------------------------------- actions */
+function move(i, d) { var a = t.charges[i], b = t.charges[i + d]; Proto.snack(a.name + " moved " + (d < 0 ? "above " : "below ") + b.name); }
+/* Ruling 1: a draft may hold when it takes effect; publishing uses it unless another date is given. */
+function editDate() {
+  var e = t.effective_from;
+  Proto.dialog({ title: "When it takes effect",
+    body: '<div class="form-grid"><div class="field"><label class="field-label" for="dd">On</label><input class="field-input tabular" id="dd" type="date" min="' + GF.TODAY + '" value="' + (e ? e.slice(0, 10) : "") + '"></div>' +
+      '<div class="field"><label class="field-label" for="dt">At</label><input class="field-input tabular" id="dt" type="time" value="' + (e ? e.slice(11, 16) : "00:00") + '"></div></div>' +
+      '<span class="field-help">Now or later. Leave it empty to decide when publishing.</span>',
+    submit: "Save draft", onSubmit: function (d) { var v = d.querySelector("#dd").value; if (v && v < GF.TODAY) return Proto.snack("It can't start in the past"); Proto.snack(v ? "It takes effect " + f.date(v, "short") + " once published" : "Date cleared"); } });
+}
+function publish() {
+  if (!P.freqFits(t)) return Proto.dialog({ title: "Can't publish yet", body: '<p class="text-body-md">Repaid ' + L.freq[t.repayment_frequency].toLowerCase() + ", but durations count in " + unit[1] + ". Repayments must follow the duration's unit (" + L.freq[t.duration_unit].toLowerCase() + ") or be once at the end. Edit the limits first.</p>" });
+  var interest = t.charges.filter(function (c) { return c.kind === "INTEREST"; }).length;
+  var taken = P.terms.filter(function (y) { return y.product === x.id && y.status === "PUBLISHED"; }).map(function (y) { return y.effective_from.slice(0, 10); });
+  Proto.dialog({ title: "Publish version " + t.version,
+    body: '<p class="text-body-md tone-muted">Once published it never changes. Staff are told it takes effect; members are quoted it from that moment.</p>' +
+      '<label class="check"><input type="checkbox" id="now"' + (t.effective_from ? "" : " checked") + '><span>Take effect now</span></label>' +
+      '<div class="form-grid" id="when"><div class="field"><label class="field-label" for="ed">Takes effect on</label><input class="field-input tabular" id="ed" type="date" min="' + GF.TODAY + '" value="' + (t.effective_from ? t.effective_from.slice(0, 10) : GF.TODAY) + '"></div>' +
+      '<div class="field"><label class="field-label" for="et">At</label><input class="field-input tabular" id="et" type="time" value="' + (t.effective_from ? t.effective_from.slice(11, 16) : "00:00") + '"></div></div>' +
+      '<span class="field-help">' + (t.effective_from ? "The draft's own date. Change it here if you need to." : "Or choose a later moment.") + "</span>" +
+      (interest > 1 ? '<div class="banner banner-error">' + icon("alert-outline") + '<div class="grow"><span class="text-body-md">More than one interest charge.</span></div></div>' : ""),
+    submit: "Publish", onSubmit: function (d) {
+      if (d.querySelector("#now").checked) return Proto.snack("Version " + t.version + " published. It takes effect now");
+      var day = d.querySelector("#ed").value;
+      if (!day || day < GF.TODAY) return Proto.snack("It can't start in the past");
+      if (taken.indexOf(day) > -1 && d.querySelector("#et").value === "00:00") return Proto.snack("Version " + P.terms.find(function (y) { return y.product === x.id && y.status === "PUBLISHED" && y.effective_from.slice(0, 10) === day; }).version + " already starts then. Withdraw it first, or pick another moment");
+      Proto.snack("Version " + t.version + " published. It takes effect " + f.date(day, "short"));
+    } });
+}
+function withdraw() {
+  Proto.dialog({ title: "Withdraw version " + t.version + "?",
+    body: '<p class="text-body-md tone-muted">It hasn\'t taken effect, so no loan points at it. Its date is freed for a corrected version. Staff are told.</p>' +
+      '<div class="field"><label class="field-label" for="wr">Reason</label><textarea class="field-input" id="wr" placeholder="Kept on the version"></textarea></div>',
+    submit: "Withdraw", onSubmit: function (d) { if (!d.querySelector("#wr").value.trim()) return Proto.snack("A reason is needed"); Proto.snack("Version " + t.version + " withdrawn"); } });
+}
+function removeCharge(name) { Proto.confirm({ title: "Remove " + esc(name) + "?", message: "From this draft only. Published versions keep their charges.", confirm: "Remove", destructive: true, onConfirm: function () { Proto.snack(name + " removed from the draft"); } }); }
+/* draft_terms(from_version): from this version, with its charges (manage). One draft at a time. */
+function draftFrom() {
+  Proto.confirm({ title: "Draft version " + (P.termsOf(x.id)[0].version + 1) + " from version " + t.version + "?", message: "It starts as a copy of version " + t.version + ", charges included. Nothing changes for members until it is published and takes effect.",
+    confirm: "Draft", onConfirm: function () { Proto.snack("Draft opened from version " + t.version); } });
+}
+function deleteDraft() { Proto.confirm({ title: "Delete this draft?", message: "Its charges go with it. Nothing published changes.", confirm: "Delete", destructive: true, onConfirm: function () { Proto.snack("Draft deleted"); } }); }
+function editLimits() {
+  var n = function (id, label, v, help) { return '<div class="field"><label class="field-label" for="' + id + '">' + label + '</label><input class="field-input tabular" id="' + id + '" inputmode="numeric" value="' + v + '">' + (help ? '<span class="field-help">' + help + "</span>" : "") + "</div>"; };
+  Proto.dialog({ title: "Limits and wording",
+    body: '<div class="form-grid">' + n("a1", "Smallest loan (Ksh)", t.min_amount_cents / 100) + n("a2", "Largest loan (Ksh)", t.max_amount_cents / 100) + "</div>" +
+      '<div class="form-grid"><div class="field"><label class="field-label" for="du">Counted in</label><select class="field-input" id="du">' + Object.keys(L.unit).map(function (k) { return "<option" + (k === t.duration_unit ? " selected" : "") + ">" + L.unit[k][1] + "</option>"; }).join("") + "</select></div>" +
+      n("d1", "Shortest", t.min_duration) + n("d2", "Longest", t.max_duration) + n("d3", "Only these (optional)", t.terms.allowed_durations.join(", "), "Between shortest and longest") + "</div>" +
+      '<div class="form-grid"><div class="field"><label class="field-label" for="rf">Repaid</label><select class="field-input" id="rf">' + Object.keys(L.freq).map(function (k) { return "<option" + (k === t.repayment_frequency ? " selected" : "") + ">" + L.freq[k] + "</option>"; }).join("") + "</select></div>" +
+      n("g1", "Grace days", t.grace_days) + n("g2", "Default after (days)", t.default_after_days, "More than the grace days") + n("g3", "Flag after (days)", t.flag_after_days, "At least the default days") + "</div>" +
+      '<div class="field"><label class="field-label" for="er">Early repayment</label><textarea class="field-input" id="er">' + esc(t.terms.early_repayment) + "</textarea></div>" +
+      '<div class="field"><label class="field-label" for="de">Extra disclosure (English)</label><textarea class="field-input" id="de">' + esc(t.terms.disclosure.en) + '</textarea></div><div class="field"><label class="field-label" for="ds">Extra disclosure (Swahili)</label><textarea class="field-input" id="ds">' + esc(t.terms.disclosure.sw) + '</textarea><span class="field-help">Both languages, or neither</span></div>',
+    submit: "Save draft", onSubmit: function (d) {
+      var v = function (id) { return +d.querySelector("#" + id).value; };
+      if (!(v("a1") > 0 && v("a1") <= v("a2"))) return Proto.snack("The smallest loan must be above 0 and no more than the largest");
+      if (!(v("d1") > 0 && v("d1") <= v("d2"))) return Proto.snack("The shortest must be above 0 and no more than the longest");
+      var du = Object.keys(L.unit)[d.querySelector("#du").selectedIndex], rf = Object.keys(L.freq)[d.querySelector("#rf").selectedIndex];
+      var only = d.querySelector("#d3").value.split(",").map(function (x) { return x.trim(); }).filter(Boolean).map(Number);
+      if (only.some(function (n) { return !(n >= v("d1") && n <= v("d2")); })) return Proto.snack("Each allowed duration must lie between the shortest and the longest");
+      if (rf !== du && rf !== "END_OF_TERM") return Proto.snack("Repaid " + L.freq[rf].toLowerCase() + " doesn't fit durations in " + L.unit[du][1] + ": use " + L.freq[du].toLowerCase() + " or at the end");
+      if (!(v("g2") > v("g1") && v("g3") >= v("g2"))) return Proto.snack("Default after must be more than grace, and flag after at least default");
+      if (!!d.querySelector("#de").value.trim() !== !!d.querySelector("#ds").value.trim()) return Proto.snack("Give the disclosure in both languages, or neither");
+      Proto.snack("Draft saved");
+    } });
+}
+function editCharge(name) {
+  var c = name ? t.charges.find(function (y) { return y.name === name; }) : { name: "", kind: "SERVICE_FEE", basis: "FLAT_AMOUNT", amount_cents: null, rate_bps: null, frequency: "ONE_OFF", collected: "DEDUCTED_AT_DISBURSEMENT", min_cents: null, max_cents: null, gf_share_bps: 5000 };
+  var sel = function (id, label, map, v) { return '<div class="field"><label class="field-label" for="' + id + '">' + label + '</label><select class="field-input" id="' + id + '">' + Object.keys(map).map(function (k) { return '<option value="' + k + '"' + (k === v ? " selected" : "") + ">" + map[k] + "</option>"; }).join("") + "</select></div>"; };
+  var num = function (id, label, v, help) { return '<div class="field"><label class="field-label" for="' + id + '">' + label + '</label><input class="field-input tabular" id="' + id + '" inputmode="decimal" value="' + (v == null ? "" : v) + '">' + (help ? '<span class="field-help" id="' + id + '-h">' + help + "</span>" : "") + "</div>"; };
+  var el = Proto.dialog({ title: name ? "Charge: " + esc(name) : "Add a charge",
+    body: '<div class="field"><label class="field-label" for="cn">Name members see</label><input class="field-input" id="cn" maxlength="60" value="' + esc(c.name) + '"></div>' +
+      '<div class="form-grid">' + sel("ck", "Kind", L.kind, c.kind) + sel("cb", "Worked out on", L.basis, c.basis) + "</div>" +
+      '<div class="form-grid">' + num("ca", "Amount (Ksh)", c.amount_cents == null ? null : c.amount_cents / 100) + num("cr", "Rate (%)", c.rate_bps == null ? null : c.rate_bps / 100) + "</div>" +
+      '<div class="form-grid">' + sel("cf", "How often", L.chargeFreq, c.frequency) + sel("cc", "When the member pays", L.collected, c.collected) + "</div>" +
+      '<div class="form-grid">' + num("cmin", "At least (Ksh, optional)", c.min_cents == null ? null : c.min_cents / 100) + num("cmax", "At most (Ksh, optional)", c.max_cents == null ? null : c.max_cents / 100) + "</div>" +
+      num("cs", "GroFunder's share (%)", c.gf_share_bps / 100, "The partner's share is the rest") +
+      (name ? '<div class="actions actions-start"><button class="btn btn-text btn-sm tone-error" type="button" id="cdel">Remove this charge</button></div>' : ""),
+    submit: "Save", onSubmit: function (d) {
+      var g = function (id) { return d.querySelector("#" + id).value; }, kind = g("ck"), basis = g("cb"), fr = g("cf"), col = g("cc"), share = +g("cs");
+      if (!g("cn").trim()) return Proto.snack("Name the charge");
+      if (t.charges.some(function (y) { return y.name.toLowerCase() === g("cn").trim().toLowerCase() && y.name !== name; })) return Proto.snack("Another charge has that name");
+      if (basis === "FLAT_AMOUNT" ? !(+g("ca") > 0) || g("cr") : g("ca") || g("cr") === "" || +g("cr") < 0) return Proto.snack(basis === "FLAT_AMOUNT" ? "A flat charge needs an amount, and no rate" : "A percentage needs a rate, and no amount");
+      if (kind === "INTEREST" && ["PERCENT_OF_PRINCIPAL", "PERCENT_OF_BALANCE"].indexOf(basis) === -1) return Proto.snack("Interest is a % of the amount borrowed or of the balance");
+      if (kind === "INTEREST" && t.charges.some(function (y) { return y.kind === "INTEREST" && y.name !== name; })) return Proto.snack("There's already an interest charge");
+      if (kind === "LATE_PENALTY" && (fr !== "PER_MISSED_INSTALMENT" || ["FLAT_AMOUNT", "PERCENT_OF_OVERDUE"].indexOf(basis) === -1)) return Proto.snack("A late penalty is charged each missed instalment, as a flat amount or a % of what is overdue");
+      if (kind !== "LATE_PENALTY" && (fr === "PER_MISSED_INSTALMENT" || basis === "PERCENT_OF_OVERDUE")) return Proto.snack("Only a late penalty is charged on missed instalments or what is overdue");
+      if (col === "DEDUCTED_AT_DISBURSEMENT" && fr !== "ONE_OFF") return Proto.snack("Only a one-off charge can be taken off what the member receives");
+      if (g("cmin") && g("cmax") && +g("cmin") > +g("cmax")) return Proto.snack("At least must be no more than at most");
+      if (!(share >= 0 && share <= 100)) return Proto.snack("GroFunder's share is 0 to 100%");
+      Proto.snack("Charge saved");
+    } });
+  var s = el.querySelector("#cs"), help = el.querySelector("#cs-h");
+  var upd = function () { var v = +s.value; help.textContent = v >= 0 && v <= 100 ? "The partner's share: " + (Math.round((100 - v) * 100) / 100) + "%. The two always add up to 100%" : "0 to 100"; };
+  s.addEventListener("input", upd); upd();
+  var del = el.querySelector("#cdel"); if (del) del.addEventListener("click", function () { Proto.close(); Proto.snack(name + " removed from the draft"); });
+}
+</script>
+</body>
+</html>

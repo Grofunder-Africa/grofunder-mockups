@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Consent version · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../assets/console.js"></script>
+<script src="consents-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen id="screen" data-title="Version" data-dest="consents" data-wide>
+
+  <p class="proto-note"><b>CN3 · Version (note 22; the kit's <code>admin/versions/{id}/</code>).</b> One version's wording, one language at a time: title, summary (what the app shows first), body, the change note members see when asked again, whether it asks them to agree again, and when it was in force. Published wording is fixed: a database guard refuses any change to it (22, Database guards), and its content hash shows any edit afterwards.</p>
+  <p class="proto-note"><b>A draft</b> is edited by Full and Owner (<code>consents.manage</code>). <b>Publishing</b> is the owner's alone (<code>consents.publish</code>, Q7): it puts English and Swahili in force together, now or from a date (a notice period), and is refused while one language has no draft (concern 4). A scheduled version can be cancelled; one in force can be taken down, which brings back the one before; a past one can be archived.</p>
+  <p class="proto-note"><b>Try:</b> <code>?d=cd-lending&amp;n=2</code> (an English draft; publishing is refused until the Swahili is written), <code>?d=cd-terms&amp;n=2</code> (in force, asks members again), <code>?d=cd-loan&amp;n=2</code> (scheduled for 1 Dec), <code>?d=cd-lending&amp;n=1</code> (in force; taking it down leaves nothing).</p>
+
+  <div data-state="loaded" class="col gap-6">
+    <div class="col gap-2"><div class="chip-row" data-choice role="radiogroup" aria-label="Language" id="langs"></div><span class="text-body-md tone-muted" id="sub"></span></div>
+    <div id="main" class="col gap-6"></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:140px"></div><div class="skeleton-card" style="height:260px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the version</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var C = GF.consents, U = ConsentsUI, esc = U.esc, f = GF.fmt;
+var qs = new URLSearchParams(location.search);
+var d = C.doc(qs.get("d") || "cd-lending") || C.doc("cd-lending"), n = +(qs.get("n") || 1), lang = qs.get("l") || "en";
+var scr = document.getElementById("screen");
+scr.setAttribute("data-title", d.name + ", version " + n); scr.setAttribute("data-back", "document.html?d=" + d.id);
+var of = function (l) { return C.versions.find(function (v) { return v.document === d.id && v.number === n && v.locale === l; }) || null; };
+document.getElementById("sub").textContent = U.owner(d) + " · " + C.L.kind[d.kind];
+function drawLangs() {
+  document.getElementById("langs").innerHTML = ["en", "sw"].map(function (l) {
+    var v = of(l); return '<button class="chip" type="button" role="radio" data-l="' + l + '" aria-checked="' + (l === lang) + '">' + C.L.locale[l] + (v ? " · " + C.L.vstate[C.state(v)][1].toLowerCase() : " · none") + "</button>";
+  }).join("");
+}
+document.getElementById("langs").addEventListener("click", function (e) { var b = e.target.closest("[data-l]"); if (!b) return; lang = b.getAttribute("data-l"); draw(); });
+
+function diffLines(v) {
+  var lv = C.live(d.id, v.locale);
+  if (!lv || lv.id === v.id) return "";
+  var head = function (b) { return b.split("\n")[0].replace(/^##\s*/, ""); };
+  var old = {}; lv.body.forEach(function (b) { old[head(b)] = b; });
+  var out = [];
+  if (v.title !== lv.title) out.push("Title changed");
+  if (v.summary !== lv.summary) out.push("Summary changed");
+  v.body.forEach(function (b) { var h = head(b); if (!(h in old)) out.push("Added: " + h); else if (old[h] !== b) out.push("Changed: " + h); });
+  lv.body.forEach(function (b) { if (!v.body.some(function (x) { return head(x) === head(b); })) out.push("Removed: " + head(b)); });
+  return '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Against version ' + lv.number + ', in force</span><span class="text-body-md tone-muted">The kit\'s line diff, in short</span></div></div>' +
+    '<div class="rowcards">' + (out.length ? out.map(function (x) { return '<div class="rowcard"><span class="text-body-md">' + esc(x) + "</span></div>"; }).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">No change to the wording.</span></div>') + "</div></section>";
+}
+function draw() {
+  drawLangs();
+  var v = of(lang), main = document.getElementById("main"), other = of(lang === "en" ? "sw" : "en");
+  if (!v) {
+    main.innerHTML = '<div class="empty"><span class="mdi mdi-translate" aria-hidden="true"></span><span class="text-headline-sm">No ' + C.L.locale[lang] + " version " + n + '</span><span class="text-body-md">' +
+      (other && other.status === "DRAFT" ? "The " + C.L.locale[other.locale] + " draft can't be published until this one is written: both go into force together." : "Nothing was written in " + C.L.locale[lang] + " for this version.") + "</span>" +
+      (other && other.status === "DRAFT" ? '<button class="btn btn-filled" type="button" data-roles="owner full" onclick="startLang()">Start the ' + C.L.locale[lang] + " draft</button>" : "") + "</div>";
+    if (window.Proto) Proto.applyRoles(main);
+    return;
+  }
+  var st = C.state(v);
+  var act = {
+    DRAFT: '<button class="btn btn-filled" type="button" data-roles="owner" onclick="publish()">Publish</button><button class="btn btn-tonal" type="button" data-roles="owner full" onclick="edit()">Edit</button><button class="btn btn-text tone-error" type="button" data-roles="owner full" onclick="discard()">Discard the draft</button>',
+    SCHEDULED: '<button class="btn btn-outlined" type="button" data-roles="owner" onclick="cancelSchedule()">Cancel the schedule</button>',
+    LIVE: '<button class="btn btn-outlined tone-error" type="button" data-roles="owner" onclick="takeDown()">Take down</button>',
+    PAST: '<button class="btn btn-outlined" type="button" data-roles="owner" onclick="archive()">Archive</button>',
+    ARCHIVED: ""
+  }[st];
+  main.innerHTML =
+    '<div class="row gap-2 wrap">' + U.chip(C.L.vstate[st]) + (v.requires_reconsent ? '<span class="status status-info">Asks members to agree again</span>' : "") + "</div>" +
+    (st === "DRAFT" ? '<div class="banner banner-info"><span class="mdi mdi-pencil-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">A draft: never shown to members, never agreed to. ' +
+      (other && other.status === "DRAFT" ? "Its " + C.L.locale[other.locale] + " draft is ready too." : "There is no " + C.L.locale[lang === "en" ? "sw" : "en"] + " draft yet, so it can't be published.") + "</span></div></div>" : "") +
+    '<div class="card card-outlined"><dl class="facts">' +
+      "<dt>Title</dt><dd>" + esc(v.title) + "</dd><dt>Summary</dt><dd>" + esc(v.summary) + "</dd>" +
+      "<dt>Change note</dt><dd>" + (v.change_note ? esc(v.change_note) : '<span class="tone-muted">None</span>') + "</dd>" +
+      "<dt>Members agree again</dt><dd>" + (v.requires_reconsent ? "Yes: agreements to earlier versions stop counting for anything new; work under way, such as a live loan, carries on" : "No: earlier agreements still count") + "</dd>" +
+      (v.status !== "DRAFT" ? "<dt>In force</dt><dd>" + esc(U.periodLine(v) || "Never") + "</dd><dt>Published</dt><dd>" + U.when(v.published_at) + " by " + esc(U.who(v.published_by)) + '</dd><dt>Content hash</dt><dd class="tabular"><code>' + v.content_hash + "</code></dd>" : "") +
+      "<dt>Drafted</dt><dd>" + U.when(v.created_at) + " by " + esc(U.who(v.created_by)) + "</dd></dl></div>" +
+    '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Wording</span><span class="text-body-md tone-muted">As members read it, after the summary</span></div></div><div class="card card-outlined col gap-4">' + U.body(v.body) + "</div></section>" +
+    (st === "DRAFT" || st === "SCHEDULED" ? diffLines(v) : "") +
+    (act ? '<div class="actions actions-start">' + act + "</div>" : "");
+  if (window.Proto) Proto.applyRoles(main);
+}
+draw();
+
+function edit() {
+  var v = of(lang);
+  Proto.dialog({ title: "Edit the " + C.L.locale[lang] + " draft", wide: true, body:
+    '<div class="field"><label class="field-label" for="et">Title</label><input class="field-input" id="et" value="' + esc(v.title) + '"></div>' +
+    '<div class="field"><label class="field-label" for="es">Summary</label><textarea class="field-input" id="es" rows="2">' + esc(v.summary) + '</textarea><span class="field-help">What the app shows first. Keep it short enough to read aloud with an SMS code</span></div>' +
+    '<div class="field"><label class="field-label" for="eb">Wording (Markdown)</label><textarea class="field-input" id="eb" rows="10">' + esc(v.body.join("\n\n")) + "</textarea></div>" +
+    '<div class="field"><label class="field-label" for="ec">Change note <span class="optional">(optional)</span></label><input class="field-input" id="ec" value="' + esc(v.change_note) + '"><span class="field-help">Shown to members who are asked to agree again</span></div>' +
+    '<label class="check" for="er"><input type="checkbox" role="switch" id="er"' + (v.requires_reconsent ? " checked" : "") + '><span class="grow"><span class="text-body-lg">Members agree again</span><span class="text-body-md tone-muted">Tick it when the change changes what members agree to; untick it for a typo or a new address</span></span></label>',
+    submit: "Save", onSubmit: function (dl) {
+      var probs = [];
+      if (!dl.querySelector("#et").value.trim()) probs.push("a title");
+      if (!dl.querySelector("#es").value.trim()) probs.push("a summary");
+      if (!dl.querySelector("#eb").value.trim()) probs.push("the wording");
+      if (probs.length) return Proto.snack("Not saved: it needs " + probs.join(", "));
+      Proto.snack("Draft saved");
+    } });
+}
+function startLang() { Proto.snack("The " + C.L.locale[lang] + " draft starts as a copy of the version in force; translate it, then publish both"); }
+function discard() { Proto.confirm({ title: "Discard the " + C.L.locale[lang] + " draft?", message: "It was never shown to anyone, so it goes for good. The other language's draft stays.", confirm: "Discard", destructive: true, onConfirm: function () { Proto.snack("Draft discarded"); } }); }
+function publish() {
+  var en = of("en"), sw = of("sw");
+  if (!(en && en.status === "DRAFT" && sw && sw.status === "DRAFT")) return Proto.dialog({ title: "Can't publish yet", body: '<p class="text-body-md">' + (en && en.status === "DRAFT" ? "Swahili" : "English") + " has no draft of version " + n + ". Both languages go into force together, so a member is never left on an older wording in their language (22, concern 4).</p>" });
+  if (en.requires_reconsent !== sw.requires_reconsent) return Proto.dialog({ title: "Can't publish yet", body: '<p class="text-body-md">English and Swahili disagree on whether members agree again. Set both the same.</p>' });
+  var lv = C.live(d.id, "en");
+  var pd = Proto.dialog({ title: "Publish version " + n + "?", body:
+    '<p class="text-body-md">English and Swahili go into force together. Their wording is fixed from then on.</p>' +
+    (en.requires_reconsent && lv ? '<div class="banner banner-warning"><span class="mdi mdi-account-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">Members who agreed to version ' + lv.number + " are asked again, and their agreement stops counting for anything new until they do. Live loans carry on.</span></div></div>" : "") +
+    '<div class="col gap-2" role="radiogroup" aria-label="When"><label class="radio-card" style="flex-direction:row;gap:12px"><input type="radio" name="pw" value="now" checked><span class="text-title-sm">Now</span></label>' +
+    '<label class="radio-card" style="flex-direction:row;gap:12px;align-items:center"><input type="radio" name="pw" value="later"><span class="text-title-sm">From</span><input class="field-input" type="date" id="pdate" value="2026-11-16" style="max-width:180px"></label></div>' +
+    '<p class="text-body-sm tone-muted">A date gives members notice: the version in force stays until then.</p>',
+    submit: "Publish", onSubmit: function (dl) { var later = (dl.querySelector('input[name="pw"]:checked') || {}).value === "later"; Proto.snack(later ? "Version " + n + " scheduled for " + f.date(dl.querySelector("#pdate").value, "short") : "Version " + n + " is in force"); } });
+}
+function cancelSchedule() { Proto.confirm({ title: "Cancel the schedule?", message: "Version " + n + " won't come into force on " + f.date(of(lang).periods[0].live_from, "short") + ", in either language. The version in force stays, with no end date.", confirm: "Cancel the schedule", onConfirm: function () { Proto.snack("Schedule cancelled") } }); }
+function takeDown() {
+  var prev = C.versions.filter(function (v) { return v.document === d.id && v.locale === lang && v.number < n && v.status === "PUBLISHED"; }).sort(function (a, b) { return b.number - a.number; })[0];
+  Proto.confirm({ title: "Take version " + n + " down?", destructive: true, confirm: "Take down",
+    message: prev ? "Version " + prev.number + " comes back into force in " + C.L.locale[lang] + ". Version " + n + " won't return by accident later." :
+      "Nothing would be in force. Members can't be asked, and every check on this document refuses with \"nothing published\" until a new version is published.",
+    onConfirm: function () { Proto.snack("Version " + n + " taken down"); } });
+}
+function archive() { Proto.confirm({ title: "Archive version " + n + "?", message: "It is kept as evidence of what members agreed to, but can never be put back in force.", confirm: "Archive", onConfirm: function () { Proto.snack("Archived"); } }); }
+</script>
+</body>
+</html>

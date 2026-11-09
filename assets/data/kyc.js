@@ -1,5 +1,5 @@
-/* kyc.js: the KYC app's fictional data (phase 11, UI-60; design/20-kyc.md,
- * draft revision 2). Loaded after canon.js; adds GF.kyc. Nothing here is a
+/* kyc.js: the KYC app's fictional data (phase 11, UI-60, UI-63; design/20-kyc.md,
+ * revision 2, signed off 2026-11-07). Loaded after canon.js; adds GF.kyc. Nothing here is a
  * real person, ID number or place.
  *
  * Shapes follow note 20: KycItem rows (data_type, source, status, entered_by,
@@ -17,26 +17,36 @@
  *   v-107 Esther Wairimu (Kijani)  FAILED: farm not found
  *   v-108 a Gatundu member         OPEN, no agent yet
  *   v-109 Peter Ndungu (Kijani)    CANCELLED: opened by mistake
+ *   v-110 Jane Wanjiku (Kijani)    APPROVED in August; suspended by the cooperative since, so not verified now
+ * Circles (groups.js): v-101 came from assigning Kevin to Umoja Gathiru, and v-102
+ * from Joseph joining it later; v-105 from Mercy's assignment to Kahawa Bora, v-110
+ * from hers to Ndumberi Wakulima. The rest were opened from the member's page.
  */
 (function (root) {
   "use strict";
   var GF = root.GF;
 
   /* ---------------------------------------------------- the registry (code) */
+  /* How long a check counts: GROFUNDER['KYC']['CHECK_MONTHS'], 12 for every
+   * verifiable type, with a per-type override changed by a deploy (note 20 Q4).
+   * Declared-only types have no period. */
+  var CHECK_MONTHS = 12, OVERRIDES = {};
+  var period = function (t) { return OVERRIDES[t] || CHECK_MONTHS; };
   var TYPES = {
-    IDENTITY: { label: "Identity document", icon: "card-account-details-outline", many: false, by: ["Agent"], verify: "The document, seen by the agent", need: "VERIFIED", months: null },
-    PORTRAIT: { label: "Photo of the member", icon: "account-box-outline", many: false, by: ["Agent"], verify: "Agent visit: matches the ID photo", need: "VERIFIED", months: 24 },
-    PHONE: { label: "Phone and M-Pesa name", icon: "cellphone-check", many: false, by: ["Agent"], verify: "Agent visit", need: "VERIFIED", months: 12 },
+    IDENTITY: { label: "Identity document", icon: "card-account-details-outline", many: false, by: ["Agent"], verify: "The document, seen by the agent", need: "VERIFIED", months: period("IDENTITY") },
+    PORTRAIT: { label: "Photo of the member", icon: "account-box-outline", many: false, by: ["Agent"], verify: "Agent visit: matches the ID photo", need: "VERIFIED", months: period("PORTRAIT") },
+    PHONE: { label: "Phone and M-Pesa name", icon: "cellphone-check", many: false, by: ["Agent"], verify: "Agent visit", need: "VERIFIED", months: period("PHONE") },
     BACKGROUND: { label: "Background", icon: "account-details-outline", many: false, by: ["Member", "Agent"], verify: "", need: "PRESENT", months: null },
-    FARM: { label: "Farms", icon: "map-marker-radius-outline", many: true, by: ["Member", "Agent"], verify: "Agent visit", need: "ONE_VERIFIED", months: 12 },
-    CROP: { label: "Crops and livestock", icon: "sprout-outline", many: true, by: ["Member", "Agent", "Cooperative records"], verify: "Agent visit, or the cooperative's deliveries", need: "PRESENT", months: 12 },
+    FARM: { label: "Farms", icon: "map-marker-radius-outline", many: true, by: ["Member", "Agent"], verify: "Agent visit", need: "ONE_VERIFIED", months: period("FARM") },
+    CROP: { label: "Crops and livestock", icon: "sprout-outline", many: true, by: ["Member", "Agent", "Cooperative records"], verify: "Agent visit, or the cooperative's deliveries", need: "PRESENT", months: period("CROP") },
     INCOME: { label: "Other income", icon: "cash-multiple", many: true, by: ["Member", "Agent"], verify: "", need: "PRESENT_OR_NONE", months: null },
     OBLIGATION: { label: "Loans and regular payments", icon: "calendar-sync-outline", many: true, by: ["Member", "Agent"], verify: "", need: "PRESENT_OR_NONE", months: null },
-    NEXT_OF_KIN: { label: "Next of kin", icon: "account-heart-outline", many: false, by: ["Member", "Agent"], verify: "A call by the agent", need: "PRESENT", months: null },
-    HOME: { label: "Home", icon: "home-map-marker", many: false, by: ["Agent"], verify: "Agent visit", need: "NONE", months: 24 }
+    /* Checked by the agent's call, for the same period as the others (G65, 2026-11-08). */
+    NEXT_OF_KIN: { label: "Next of kin", icon: "account-heart-outline", many: false, by: ["Member", "Agent"], verify: "A call by the agent", need: "PRESENT", months: period("NEXT_OF_KIN") },
+    HOME: { label: "Home", icon: "home-map-marker", many: false, by: ["Agent"], verify: "Agent visit", need: "NONE", months: period("HOME") }
   };
   var ORDER = ["IDENTITY", "PORTRAIT", "PHONE", "FARM", "CROP", "BACKGROUND", "INCOME", "OBLIGATION", "NEXT_OF_KIN", "HOME"];
-  var DECLARED_ONLY = ["BACKGROUND", "INCOME", "OBLIGATION", "NEXT_OF_KIN"];
+  var DECLARED_ONLY = ["BACKGROUND", "INCOME", "OBLIGATION"];
 
   var L = {
     source: { MEMBER: "Member", AGENT: "Agent", COOPERATIVE_RECORD: "Cooperative records", DOCUMENT: "ID document", EXTERNAL: "Outside check" },
@@ -65,7 +75,7 @@
   /* People from canon.js. Mawingu and Gatundu members are generated there, so
    * they are picked the same way on every load. */
   var M = {
-    wanjiku: "m-kij-0142", joseph: "m-kij-0088", mary: "m-kij-0217", samuel: "m-kij-0031", esther: "m-kij-0164", peter: "m-kij-0199"
+    wanjiku: "m-kij-0142", joseph: "m-kij-0088", mary: "m-kij-0217", samuel: "m-kij-0031", esther: "m-kij-0164", peter: "m-kij-0199", jane: "m-kij-0412"
   };
   var active = function (coop, skip) { return GF.members.filter(function (m) { return m.cooperative === coop && m.status === "ACTIVE" && skip.indexOf(m.id) === -1; }); };
   var maw = active("co-mawingu", ["m-maw-0907"]);
@@ -74,41 +84,46 @@
 
   /* ------------------------------------------------------------- visits */
   var visits = [
-    { id: "v-101", member: M.wanjiku, status: "SUBMITTED", agent: "u-kevin", submitted_at: "2026-10-28T16:10:00+03:00", reviewed_at: null, reviewed_by: null, failure_reason: "",
+    { id: "v-101", member: M.wanjiku, circle: "ci-kij-01", status: "SUBMITTED", agent: "u-kevin", submitted_at: "2026-10-28T16:10:00+03:00", reviewed_at: null, reviewed_by: null, failure_reason: "",
       created_by: "u-brian", created_at: "2026-10-21T11:02:00+03:00",
-      notes: { visit: { met_at: "2026-10-28T09:40:00+03:00", place: "MEETING", lat: -1.11893, lng: 36.83521, accuracy_m: 8, where: "Gathiru collection centre, after the morning round" }, went_through_declared: true,
+      notes: { visit: { met_at: "2026-10-28T09:40:00+03:00", place: "MEETING", lat: -1.11893, lng: 36.83521, accuracy_m: 8 }, went_through_declared: true,
         warnings: [
           { code: "FARM_SIZE", item: "ki-108", message: "Leased plot: Wanjiku declared 3.00 acres; Kevin saw 1.25 acres." },
           { code: "PHOTO_DISTANCE", item: "ki-106", message: "One photo of Home farm was taken 240 m from the farm's point." }
         ], review_note: "" } },
-    { id: "v-102", member: M.joseph, status: "OPEN", agent: "u-kevin", submitted_at: null, reviewed_at: null, reviewed_by: null, failure_reason: "",
+    { id: "v-102", member: M.joseph, circle: "ci-kij-01", status: "OPEN", agent: "u-kevin", submitted_at: null, reviewed_at: null, reviewed_by: null, failure_reason: "",
       created_by: "u-brian", created_at: "2026-10-26T09:15:00+03:00",
-      notes: { visit: { met_at: "2026-10-30T09:15:00+03:00", place: "HOME", lat: -1.12411, lng: 36.84102, accuracy_m: 11, where: "His home in Gathiru" }, went_through_declared: false, warnings: [], review_note: "" } },
+      notes: { visit: { met_at: "2026-10-30T09:15:00+03:00", place: "HOME", lat: -1.12411, lng: 36.84102, accuracy_m: 11 }, went_through_declared: false, warnings: [], review_note: "" } },
     { id: "v-103", member: M.mary, status: "OPEN", agent: "u-kevin", submitted_at: "2026-10-27T15:20:00+03:00", reviewed_at: null, reviewed_by: null, failure_reason: "",
       created_by: "u-brian", created_at: "2026-10-22T10:00:00+03:00",
-      notes: { visit: { met_at: "2026-10-27T11:05:00+03:00", place: "FARM", lat: -1.13502, lng: 36.81977, accuracy_m: 6, where: "Her farm in Kiamwangi" }, went_through_declared: true, warnings: [], review_note: "" } },
+      notes: { visit: { met_at: "2026-10-27T11:05:00+03:00", place: "FARM", lat: -1.13502, lng: 36.81977, accuracy_m: 6 }, went_through_declared: true, warnings: [], review_note: "" } },
     { id: "v-104", member: M.samuel, status: "APPROVED", agent: "u-mercy", submitted_at: "2026-09-10T17:00:00+03:00", reviewed_at: "2026-09-12T10:20:00+03:00", reviewed_by: "u-brian", failure_reason: "",
       created_by: "u-peter", created_at: "2026-09-01T09:00:00+03:00",
-      notes: { visit: { met_at: "2026-09-10T10:30:00+03:00", place: "FARM", lat: -1.13311, lng: 36.82201, accuracy_m: 5, where: "His farm in Kiamwangi" }, went_through_declared: true, warnings: [], review_note: "All clear. Good photos." } },
-    { id: "v-105", member: M.mawA, status: "SUBMITTED", agent: "u-mercy", submitted_at: "2026-10-29T15:30:00+03:00", reviewed_at: null, reviewed_by: null, failure_reason: "",
+      notes: { visit: { met_at: "2026-09-10T10:30:00+03:00", place: "FARM", lat: -1.13311, lng: 36.82201, accuracy_m: 5 }, went_through_declared: true, warnings: [], review_note: "All clear. Good photos." } },
+    { id: "v-105", member: M.mawA, circle: "ci-maw-01", status: "SUBMITTED", agent: "u-mercy", submitted_at: "2026-10-29T15:30:00+03:00", reviewed_at: null, reviewed_by: null, failure_reason: "",
       created_by: "u-peter", created_at: "2026-10-20T08:40:00+03:00",
-      notes: { visit: { met_at: "2026-10-29T10:10:00+03:00", place: "MEETING", lat: -0.48021, lng: 37.13116, accuracy_m: 10, where: "Mawingu factory, members' meeting" }, went_through_declared: true,
+      notes: { visit: { met_at: "2026-10-29T10:10:00+03:00", place: "MEETING", lat: -0.48021, lng: 37.13116, accuracy_m: 10 }, went_through_declared: true,
         warnings: [
           { code: "RECORD_MISMATCH", item: "ki-301", message: "The ID number on the document doesn't match Mawingu's record. Approval waits until the cooperative corrects its record." },
           { code: "NEAR_FARM", item: "ki-304", message: "This farm's point is 30 m from a verified farm of another Mawingu member." }
         ], review_note: "" } },
     { id: "v-106", member: M.mawB, status: "APPROVED", agent: "u-mercy", submitted_at: "2026-09-30T16:00:00+03:00", reviewed_at: "2026-10-02T09:05:00+03:00", reviewed_by: "u-peter", failure_reason: "",
       created_by: "u-peter", created_at: "2026-09-20T08:40:00+03:00",
-      notes: { visit: { met_at: "2026-09-30T11:00:00+03:00", place: "FARM", lat: -0.48122, lng: 37.12901, accuracy_m: 7, where: "The member's farm" }, went_through_declared: true, warnings: [], review_note: "" } },
+      notes: { visit: { met_at: "2026-09-30T11:00:00+03:00", place: "FARM", lat: -0.48122, lng: 37.12901, accuracy_m: 7 }, went_through_declared: true, warnings: [], review_note: "" } },
     { id: "v-107", member: M.esther, status: "FAILED", agent: "u-mercy", submitted_at: "2026-10-14T14:00:00+03:00", reviewed_at: "2026-10-16T12:30:00+03:00", reviewed_by: "u-peter", failure_reason: "FARM_NOT_FOUND",
       created_by: "u-brian", created_at: "2026-10-05T09:00:00+03:00",
-      notes: { visit: { met_at: "2026-10-14T10:00:00+03:00", place: "FARM", lat: -1.12087, lng: 36.83011, accuracy_m: 9, where: "The plot she named" }, went_through_declared: true, warnings: [],
+      notes: { visit: { met_at: "2026-10-14T10:00:00+03:00", place: "FARM", lat: -1.12087, lng: 36.83011, accuracy_m: 9 }, went_through_declared: true, warnings: [],
         review_note: "The plot she showed belongs to her neighbour, who was there. No farm of her own at the place she gave." } },
     { id: "v-108", member: M.gat, status: "OPEN", agent: null, submitted_at: null, reviewed_at: null, reviewed_by: null, failure_reason: "",
       created_by: "u-brian", created_at: "2026-10-29T14:30:00+03:00", notes: { visit: null, went_through_declared: false, warnings: [], review_note: "" } },
     { id: "v-109", member: M.peter, status: "CANCELLED", agent: "u-kevin", submitted_at: null, reviewed_at: null, reviewed_by: null, failure_reason: "",
-      created_by: "u-brian", created_at: "2026-10-05T09:30:00+03:00", notes: { visit: null, went_through_declared: false, warnings: [], review_note: "" } }
+      created_by: "u-brian", created_at: "2026-10-05T09:30:00+03:00", notes: { visit: null, went_through_declared: false, warnings: [], review_note: "" } },
+    { id: "v-110", member: M.jane, circle: "ci-kij-03", status: "APPROVED", agent: "u-mercy", submitted_at: "2026-08-12T16:30:00+03:00", reviewed_at: "2026-08-14T09:40:00+03:00", reviewed_by: "u-brian", failure_reason: "",
+      created_by: "u-peter", created_at: "2026-08-03T10:00:00+03:00",
+      notes: { visit: { met_at: "2026-08-12T10:00:00+03:00", place: "HOME", lat: -1.14102, lng: 36.84455, accuracy_m: 7 }, went_through_declared: true, warnings: [], review_note: "" } }
   ];
+  /* A visit opened from the member's page has no circle (note 20, K1). */
+  visits.forEach(function (v) { if (!v.circle) v.circle = null; });
   var history = [
     ["v-101", "", "OPEN", "2026-10-21T11:02:00+03:00", "u-brian", ""], ["v-101", "OPEN", "SUBMITTED", "2026-10-28T16:10:00+03:00", "u-kevin", ""],
     ["v-102", "", "OPEN", "2026-10-26T09:15:00+03:00", "u-brian", ""],
@@ -120,7 +135,8 @@
     ["v-107", "", "OPEN", "2026-10-05T09:00:00+03:00", "u-brian", ""], ["v-107", "OPEN", "SUBMITTED", "2026-10-14T14:00:00+03:00", "u-mercy", ""],
     ["v-107", "SUBMITTED", "FAILED", "2026-10-16T12:30:00+03:00", "u-peter", "The plot she showed belongs to her neighbour, who was there. No farm of her own at the place she gave."],
     ["v-108", "", "OPEN", "2026-10-29T14:30:00+03:00", "u-brian", ""],
-    ["v-109", "", "OPEN", "2026-10-05T09:30:00+03:00", "u-brian", ""], ["v-109", "OPEN", "CANCELLED", "2026-10-09T08:10:00+03:00", "u-brian", "Opened for the wrong member: Peter Ndungu asked about a loan for his brother."]
+    ["v-109", "", "OPEN", "2026-10-05T09:30:00+03:00", "u-brian", ""], ["v-109", "OPEN", "CANCELLED", "2026-10-09T08:10:00+03:00", "u-brian", "Opened for the wrong member: Peter Ndungu asked about a loan for his brother."],
+    ["v-110", "", "OPEN", "2026-08-03T10:00:00+03:00", "u-peter", ""], ["v-110", "OPEN", "SUBMITTED", "2026-08-12T16:30:00+03:00", "u-mercy", ""], ["v-110", "SUBMITTED", "APPROVED", "2026-08-14T09:40:00+03:00", "u-brian", ""]
   ].map(function (h) { return { verification: h[0], from_status: h[1], to_status: h[2], changed_at: h[3], changed_by: h[4], reason: h[5] }; });
 
   /* -------------------------------------------------------------- items */
@@ -205,6 +221,21 @@
   add("ki-406", M.samuel, "BACKGROUND", { source: "AGENT", by: MER, created: SA + "10:45:00+03:00", details: { farming_experience: "OVER_15", has_other_income: false, has_obligations: false, other_activities: "" } });
   add("ki-407", M.samuel, "NEXT_OF_KIN", { source: "AGENT", by: MER, created: SA + "10:46:00+03:00", details: { name: "Lucy Wanjiru", relationship: "Wife", phone: "+254724551002" } });
 
+  /* Jane (v-110, approved 14 Aug). Her checks are in date, but the cooperative
+   * suspended her on 18 Sep, so she doesn't count as verified while suspended (note 23). */
+  var JA = "2026-08-12T", JAV = "2026-08-14T09:40:00+03:00", jn = GF.get(M.jane);
+  add("ki-451", M.jane, "IDENTITY", { source: "DOCUMENT", by: MER, status: "VERIFIED", v: "v-110", at: JAV, created: JA + "10:10:00+03:00",
+    data: { id_type: "NATIONAL_ID", id_number: jn.id_number, full_name: "Jane Wanjiku", date_of_birth: jn.date_of_birth }, details: { gender: "FEMALE" },
+    photos: [photo("id_front", JA + "10:08:00+03:00", -1.14102, 36.84455, 7), photo("id_back", JA + "10:08:30+03:00", -1.14102, 36.84455, 7)] });
+  add("ki-452", M.jane, "PORTRAIT", { source: "AGENT", by: MER, status: "VERIFIED", v: "v-110", at: JAV, created: JA + "10:11:00+03:00", photos: [photo("portrait", JA + "10:11:00+03:00", -1.14102, 36.84455, 7)] });
+  add("ki-453", M.jane, "PHONE", { source: "AGENT", by: MER, status: "VERIFIED", v: "v-110", at: JAV, created: JA + "10:12:00+03:00", details: { phone: jn.phone, mpesa_name: "JANE WANJIKU" } });
+  add("ki-454", M.jane, "FARM", { source: "AGENT", by: MER, status: "VERIFIED", v: "v-110", at: JAV, created: JA + "10:30:00+03:00",
+    data: { area: "ke-022-1", lat: -1.14188, lng: 36.84391, size_acres: 2.0, cultivated_acres: 1.5, tenure: "FAMILY", is_cultivated: true },
+    details: { name: "Ndumberi plot", village: "Ndumberi", accuracy_m: 6, tenure_evidence: "LETTER" }, photos: [photo("farm", JA + "10:28:00+03:00", -1.14189, 36.84390, 6)] });
+  add("ki-455", M.jane, "CROP", { source: "COOPERATIVE_RECORD", by: null, status: "VERIFIED", at: "2026-08-01T02:00:00+03:00", created: "2026-08-01T02:00:00+03:00", data: { value_chain: "vc-dairy", acres: null, is_main: true }, details: {} });
+  add("ki-456", M.jane, "BACKGROUND", { source: "AGENT", by: MER, created: JA + "10:15:00+03:00", details: { farming_experience: "8_TO_15", has_other_income: false, has_obligations: false, other_activities: "" } });
+  add("ki-457", M.jane, "NEXT_OF_KIN", { source: "AGENT", by: MER, status: "VERIFIED", v: "v-110", at: JAV, created: JA + "10:16:00+03:00", details: { name: "Ruth Wambui", relationship: "Daughter", phone: "+254717300822", check_note: "Called her during the visit; she answered." } });
+
   /* Mawingu A (v-105, submitted): the cooperative's record has a mistyped ID number. */
   var mA = GF.get(M.mawA), mB = GF.get(M.mawB), MW = "2026-10-29T";
   var swapped = mA.id_number.slice(0, -2) + mA.id_number.slice(-1) + mA.id_number.slice(-2, -1);
@@ -275,7 +306,10 @@
       else ok = true;
       return { type: t, items: cur, ok: ok, verified: cur.filter(function (i) { return counts(i); }).length };
     });
-    return { rows: rows, verified: rows.every(function (r) { return r.ok; }) };
+    /* A SUSPENDED member keeps their checks but doesn't count as verified while
+     * suspended (note 23, gap 1). `complete` says whether the checks themselves are. */
+    var m = GF.get(memberId), complete = rows.every(function (r) { return r.ok; }), suspended = !!m && m.status === "SUSPENDED";
+    return { rows: rows, complete: complete, suspended: suspended, verified: complete && !suspended };
   }
   function visitsOf(memberId) { return visits.filter(function (v) { return v.member === memberId; }).sort(function (a, b) { return a.created_at < b.created_at ? 1 : -1; }); }
   function liveVisit(memberId) { return visits.find(function (v) { return v.member === memberId && (v.status === "OPEN" || v.status === "SUBMITTED"); }); }
@@ -289,9 +323,14 @@
   }
 
   GF.kyc = {
-    TYPES: TYPES, ORDER: ORDER, DECLARED_ONLY: DECLARED_ONLY, L: L, M: M,
+    TYPES: TYPES, CHECK_MONTHS: CHECK_MONTHS, circles: [],
+    /* Circles live in groups.js (note 23), loaded after this file; it fills `circles`. */
+    circleName: function (id) { var c = GF.groups && GF.groups.get(id); return c ? c.name : ""; }, ORDER: ORDER, DECLARED_ONLY: DECLARED_ONLY, L: L, M: M,
     agents: agents, visits: visits, items: items, history: history,
     get: function (id) { return byId[id]; },
+    /** What kyc/agents/ returns beside the name: open and submitted visits. */
+    agentLine: function (a) { var mine = visits.filter(function (v) { return v.agent === a.id; }), o = mine.filter(function (v) { return v.status === "OPEN"; }).length, s = mine.filter(function (v) { return v.status === "SUBMITTED"; }).length;
+      return a.name + " · " + o + " open, " + s + " to review"; },
     staffName: staffName,
     counts: counts, validUntil: validUntil, current: current, background: background, standing: standing,
     visitsOf: visitsOf, liveVisit: liveVisit, ofVisit: ofVisit, historyOf: historyOf, sentBack: sentBack, obligations: farmMoney,

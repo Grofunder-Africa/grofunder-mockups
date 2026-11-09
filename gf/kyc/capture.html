@@ -12,6 +12,8 @@
 <link rel="stylesheet" href="../../assets/kit.css">
 <script src="../../assets/data/canon.js"></script>
 <script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/consents.js"></script>
 <script src="../assets/console.js"></script>
 <script src="kyc-ui.js"></script>
 <script src="../assets/nav.js" defer></script>
@@ -21,23 +23,28 @@
 
 <div data-screen id="screen" data-title="Visit" data-flow data-back="agent.html" data-compact>
 
-  <p class="proto-note"><b>K6 · Visit (note 20, draft revision 2).</b> The agent's checklist for one member, phone-first. Each row opens a panel for that kind of information; each farm is its own row, so a farm's panel (K7) opens straight from here and never from another panel (UI-13). Required rows follow note 20's "Lending needs" column; Home is optional.</p>
-  <p class="proto-note"><b>Verified or declared.</b> Identity, portrait, phone, farms and crops are checked here, and the check counts once the office approves the visit. Background, other income, loans and next of kin can't be verified on a visit: they stay "Declared", but the agent goes through them with the member and corrects what's wrong (the tick in the footer, <code>notes.went_through_declared</code>).</p>
+  <p class="proto-note"><b>K6 · Visit (note 20, signed off 2026-11-07).</b> The agent's checklist for one member, phone-first. Each row opens a panel for that kind of information; each farm is its own row, so a farm's panel (K7) opens straight from here and never from another panel (UI-13).</p>
+  <p class="proto-note"><b>What submitting needs (note 20, OPEN → SUBMITTED):</b> ID, portrait and phone checked on this visit; background and next of kin present (calling next of kin checks it, but isn't needed to submit); every farm checked, or a note saying why not; and the tick for going through the declared details. Crops, other income and loans are gone through too, but don't hold up submitting: lending checks them later. Home is optional.</p>
+  <p class="proto-note"><b>What the agent sees of the member (note 20, agents and permissions):</b> name, phone, cooperative, cluster and home area, and nothing else from the cooperative's record. So the ID panel doesn't show the record's ID: the agent types what the document shows, and the office compares the two when the visit is submitted.</p>
+  <p class="proto-note"><b>Verified or declared.</b> Identity, portrait, phone, farms and crops are checked here, and next of kin by calling them (G65, 2026-11-08). Each check counts once the office approves the visit, for 12 months. Background, other income and loans can't be verified on a visit: they stay "Declared", but the agent goes through them with the member and corrects what's wrong (the tick in the footer, <code>notes.went_through_declared</code>).</p>
+  <p class="proto-note"><b>Who writes (audit, 2026-11-08):</b> only the visit's own agent (<code>kyc.capture</code> on visits assigned to them). Office roles, and an agent on someone else's visit, see it read only. The agent can confirm an ID, portrait or phone already on file (<b>Matches</b>) or save what changed, photograph it again, <b>End</b> an item that no longer holds (a farm sold, a loan paid off) with a reason, <b>Correct</b> a crop, note why a crop wasn't seen, and note the next-of-kin call.</p>
   <p class="proto-note"><b>Try:</b> <code>?v=v-102</code> Joseph, half done today (no smartphone, so Kevin enters everything); <code>?v=v-103</code> Mary, sent back, ready to submit again; <code>?v=v-101</code> Wanjiku, waiting for review (read only). <code>&amp;show=farm</code> opens the first farm, or a new one.</p>
+  <p class="proto-note"><b>Consent first (phase 15, note 22; closes G60).</b> A visit starts with the member's lending consent for this membership. Without one that counts, nothing can be taken: the agent reads the summary out in the member's language, sends a code to the phone on the record (the SMS says what it is for), and enters the code the member reads back (<code>consents.record</code>, only on the agent's own visits; context <code>visit:&lt;id&gt;</code>). Joseph agreed this way at 09:18 today. <i>consent</i> shows the visit before he did.</p>
   <p class="proto-note"><b>F60, F61:</b> map points and photos are placeholders, because the kit has neither component yet (MapPoint; PhotoTile with the capture time, place and accuracy). Photos come from the camera only (F4 CameraCapture); gallery uploads are refused.</p>
   <p class="proto-note proto-gap"><b>G61:</b> no signal on many farms. Everything taken must be kept on the phone and sent when there's signal, with ids made on the phone so nothing is sent twice (note 20, concern 1 and Q8). See the offline state.</p>
-  <p class="proto-note proto-gap"><b>G62:</b> drawn from note 20 while it is still a draft (owner's request, 2026-10-24).</p>
 
   <div class="banner banner-info" data-roles="owner full ops view"><span class="mdi mdi-information-outline" aria-hidden="true"></span>
     <div class="grow"><span class="text-body-md">This screen is the Farmer Support Agent's. Switch the review bar's role to Farmer Support Agent to use it as Kevin does.</span>
       <div class="banner-actions"><a class="btn btn-text" id="office-link" href="index.html">Open it as the office sees it</a></div></div></div>
 
-  <div data-state="loaded offline" class="col gap-4">
+  <div data-state="loaded offline consent" class="col gap-4">
     <div data-state="offline" class="banner banner-warning"><span class="mdi mdi-cloud-off-outline" aria-hidden="true"></span>
       <div class="grow"><span class="text-body-md">No signal. Everything you take is saved on this phone and sent when there's signal.</span></div></div>
     <div id="status-banner"></div>
 
     <div class="card card-outlined col gap-2" id="who"></div>
+
+    <div id="consent-card"></div>
 
     <div class="card card-outlined col gap-3" id="met"></div>
 
@@ -63,7 +70,10 @@
   if (!v || !v.member) v = K.get("v-102");
   var m = GF.get(v.member), c = GF.get(m.cooperative), coopName = c.profile.short_name;
   var first = (m.profile.preferred_name || m.full_name.split(" ")[0]);
-  var readOnly = v.status !== "OPEN";
+  var role = (function () { try { return localStorage.getItem("gf.role.gf") || "owner"; } catch (e) { return "owner"; } })();
+  /* Only the visit's own agent writes (kyc.capture reaches their visits); office roles read (audit, 2026-11-08). The agent signs in as Kevin. */
+  var notMine = role !== "agent" || v.agent !== "u-kevin";
+  var readOnly = v.status !== "OPEN" || notMine;
   var screen = document.getElementById("screen");
   screen.setAttribute("data-title", m.full_name);
   screen.setAttribute("data-sub", "Visit · " + coopName);
@@ -78,11 +88,10 @@
   var a = m.profile.address || {};
   document.getElementById("who").innerHTML =
     '<div class="row between gap-2"><div class="col"><span class="text-title-md">' + esc(m.full_name) + "</span>" +
-    '<span class="text-body-md tone-muted tabular">' + m.member_no + " · " + esc(coopName) + (m.cluster ? " · " + esc(GF.get(m.cluster).name) + " cluster" : "") + "</span></div>" +
+    '<span class="text-body-md tone-muted">' + esc(coopName) + (m.cluster ? " · " + esc(GF.get(m.cluster).name) + " cluster" : "") + "</span></div>" +
     '<a class="btn btn-tonal btn-sm" href="tel:' + m.phone + '">' + icon("phone-outline") + "Call</a></div>" +
-    '<dl class="facts"><dt>Phone on the record</dt><dd class="tabular">' + f.phone(m.phone) + "</dd>" +
-    "<dt>ID on the record</dt><dd class=\"tabular\">" + ID_LABEL[m.id_type] + " " + m.id_number + "</dd>" +
-    "<dt>Lives in</dt><dd>" + esc([a.village, a.ward, GF.get(m.area).name].filter(Boolean).join(", ")) + "</dd></dl>";
+    '<dl class="facts"><dt>Phone</dt><dd class="tabular">' + f.phone(m.phone) + "</dd>" +
+    "<dt>Home area</dt><dd>" + esc(GF.get(m.area).name) + "</dd></dl>";
 
   var back = K.sentBack(v), sb = document.getElementById("status-banner");
   if (v.status === "SUBMITTED") {
@@ -101,12 +110,12 @@
       '<div class="chip-row" ' + (readOnly ? "" : "data-choice") + ' role="radiogroup" aria-label="Where you met">' + ["MEETING", "HOME", "FARM", "OTHER"].map(function (p) {
         return '<button class="chip" type="button" role="radio" aria-checked="' + (visit.place === p) + '"' + (readOnly ? " disabled" : "") + ">" + L.place[p] + "</button>";
       }).join("") + "</div>" +
-      (visit.lat != null ? U.mapPoint(visit.lat, visit.lng, visit.accuracy_m, visit.where || "Where you met") :
+      (visit.lat != null ? U.mapPoint(visit.lat, visit.lng, visit.accuracy_m, "Where you met") :
         '<span class="text-body-md tone-muted">No position yet.</span>') +
       (readOnly ? "" : '<div class="actions actions-start"><button class="btn btn-outlined btn-sm" type="button" id="use-pos">' + icon("crosshairs-gps") + "Use my position</button></div>");
     var b = document.getElementById("use-pos");
     if (b) b.addEventListener("click", function () {
-      visit = Object.assign({}, visit, { lat: -1.12411, lng: 36.84102, accuracy_m: 9, where: "Your position now" });
+      visit = Object.assign({}, visit, { lat: -1.12411, lng: 36.84102, accuracy_m: 9 });
       drawMet(); Proto.snack("Position taken, ±9 m");
     });
   }
@@ -119,14 +128,19 @@
       case "IDENTITY": case "PORTRAIT": case "PHONE":
         return items.some(onVisit) ? { done: true, text: "Done" } : items.length ? { done: false, text: "Check it again" } : { done: false, text: "To do" };
       case "FARM":
-        var todo = items.filter(function (i) { return !onVisit(i); }).length;
+        /* A farm counts once checked on this visit, or once the agent says why it couldn't be (check_note). */
+        var todo = items.filter(function (i) { return !onVisit(i) && !i.details.check_note; }).length;
         return !items.length ? { done: false, text: "None yet. Add each farm" } : { done: !todo, text: items.length + (items.length === 1 ? " farm" : " farms") + (todo ? " · " + todo + " to check" : " · all checked") };
+      /* Gone through with the member, but not needed to submit (note 20). */
       case "CROP":
         var coop = items.filter(function (i) { return i.source === "COOPERATIVE_RECORD"; }).length;
-        return { done: items.length > 0, text: !items.length ? "To do" : coop === items.length ? "From delivery records" : items.length + " · " + coop + " from delivery records" };
+        return { done: items.length > 0, soft: true, text: !items.length ? "Nothing yet" : coop === items.length ? "From delivery records" : items.length + " · " + coop + " from delivery records" };
       case "INCOME": case "OBLIGATION":
         var none = bg && bg.details[t === "INCOME" ? "has_other_income" : "has_obligations"] === false;
-        return items.length ? { done: true, text: items.length + " declared" } : none ? { done: true, text: "None, " + first + " says" } : { done: false, text: "To do" };
+        return items.length ? { done: true, soft: true, text: items.length + " declared" } : none ? { done: true, soft: true, text: "None, " + first + " says" } : { done: false, soft: true, text: "Nothing yet" };
+      /* Present is what submitting needs; the call checks it (G65). */
+      case "NEXT_OF_KIN":
+        return !items.length ? { done: false, text: "To do" } : items.some(onVisit) ? { done: true, text: "Called" } : { done: true, neutral: true, text: "Not called yet" };
       case "HOME":
         return items.length ? { done: true, text: "Done" } : { done: true, optional: true, text: "Optional" };
       default:
@@ -138,18 +152,40 @@
       '<span class="grow"><span class="text-body-lg">' + esc(label || T[t].label) + "</span>" +
       '<span class="text-body-sm tone-muted">' + esc(sub || HELP[t] || "Declared · go through it with " + first) + "</span></span>" +
       '<span class="trail">' + (s.optional ? '<span class="text-body-sm tone-muted">' + s.text + "</span>" :
-        !s.done ? '<span class="status status-warning">' + esc(s.text) + "</span>" :
-        '<span class="status status-' + (K.DECLARED_ONLY.indexOf(t) > -1 ? "neutral" : "success") + '">' + esc(s.text) + "</span>") + "</span></button>";
+        !s.done ? '<span class="status status-' + (s.soft ? "neutral" : "warning") + '">' + esc(s.text) + "</span>" :
+        '<span class="status status-' + (K.DECLARED_ONLY.indexOf(t) > -1 || s.neutral ? "neutral" : "success") + '">' + esc(s.text) + "</span>") + "</span></button>";
   }
   var HELP = { IDENTITY: "Both sides, and what it shows", PORTRAIT: "Taken now, compared with the ID", PHONE: "Call it, and read the M-Pesa name",
-    CROP: "What you see growing or kept", HOME: "Not needed for lending" };
+    CROP: "What you see growing or kept. Not needed to submit", INCOME: "Declared · go through it with the member. Not needed to submit",
+    OBLIGATION: "Declared · go through it with the member. Not needed to submit", NEXT_OF_KIN: "Call them while you're together", HOME: "Not needed for lending" };
   var missing = [];
+  /* Lending consent (note 22): nothing is taken on a visit without it. `consent` shows the visit before Joseph agreed. */
+  var forceNoConsent = false;
+  function consentOk() { return !forceNoConsent && GF.consents.allows(m.id, "LENDING").ok; }
+  function drawConsent() {
+    var C = GF.consents, a = C.allows(m.id, "LENDING"), el = document.getElementById("consent-card");
+    if (consentOk()) {
+      var r = a.record, mine = r.recorded_by === "u-kevin" && role === "agent";
+      el.innerHTML = '<div class="rowcard card-outlined">' + icon("file-sign") + '<span class="grow"><span class="text-body-lg">Agreed to lending</span><span class="text-body-md tone-muted">' + U.when(r.occurred_at) + " · " +
+        (r.captured_by === "STAFF" ? (mine ? "with you" : "with " + esc(C.how(r).split(",")[0])) + ", by SMS code" : "in the app") + " · version " + C.version(r.version).number + "</span></span>" + '<span class="status status-success">Agreed</span></div>';
+      document.getElementById("list").style.opacity = ""; document.getElementById("list").style.pointerEvents = "";
+      return;
+    }
+    var why = forceNoConsent ? "NO_CONSENT" : a.reason;
+    el.innerHTML = '<div class="banner banner-warning">' + icon("file-alert-outline") + '<div class="grow"><span class="text-title-sm">' + (why === "WITHDRAWN" ? esc(first) + " withdrew consent to lending" : why === "NEEDS_RECONSENT" ? esc(first) + " needs to agree again" : "First, " + esc(first) + " agrees to lending") + "</span>" +
+      '<span class="text-body-md">Nothing can be taken until they do. Read the summary out, send the code to ' + f.phone(m.phone) + ", and enter the code they read back.</span>" +
+      (readOnly ? "" : '<div class="banner-actions"><button class="btn btn-text" type="button" id="ask-consent">Ask for consent</button></div>') + "</div></div>";
+    var b = el.querySelector("#ask-consent");
+    if (b) b.addEventListener("click", function () { Console.takeConsent(m.id, "visit:" + v.id, function () { forceNoConsent = false; drawConsent(); drawList(); }); });
+    document.getElementById("list").style.opacity = ".5"; document.getElementById("list").style.pointerEvents = "none";
+  }
   function drawList() {
     missing = [];
+    if (!consentOk()) missing.push("lending consent");
     var html = "", doneCount = 0, required = 0;
     K.ORDER.forEach(function (t) {
       var s = stateOf(t);
-      if (!s.optional) { required++; if (s.done) doneCount++; else missing.push(T[t].label); }
+      if (!s.optional && !s.soft) { required++; if (s.done) doneCount++; else missing.push(T[t].label); }
       if (t !== "FARM") { html += rowHtml(t, s, "Visit.open('" + t + "')"); return; }
       var farms = cur("FARM");
       html += rowHtml(t, s, "Visit.farm()", "Farms", farms.length ? "Stand on each one to take its point" : "Add each farm " + first + " works");
@@ -228,40 +264,32 @@
 
   /* -------------------------------------------------------- the panels */
   function identity() {
-    var it = cur("IDENTITY")[0], d = it ? it.data : { id_type: m.id_type, id_number: "", full_name: "", date_of_birth: "" };
+    var it = cur("IDENTITY")[0], d = it ? it.data : { id_type: "NATIONAL_ID", id_number: "", full_name: "", date_of_birth: "" };
     if (readOnly) return Proto.sheet({ title: T.IDENTITY.label, body: readRows(cur("IDENTITY")) });
     var el = Proto.sheet({ title: T.IDENTITY.label, body:
-      '<p class="text-body-md tone-muted">Type what the document shows, not what the record says. Photograph both sides.</p>' +
-      '<div class="row gap-2 wrap">' + (it ? U.photos(it).replace(/^<div class="row gap-2 wrap">|<\/div>$/g, "") : takeTile("ID, front") + takeTile("ID, back")) + "</div>" +
+      '<p class="text-body-md tone-muted">Type exactly what the document shows, and photograph both sides. The office compares it with ' + esc(coopName) + "'s record after you submit.</p>" +
+      '<div class="row gap-2 wrap">' + (it ? U.photos(it).replace(/^<div class="row gap-2 wrap">|<\/div>$/g, "") + takeTile("Take again") : takeTile("ID, front") + takeTile("ID, back")) + "</div>" +
       chips("id_type", ID_LABEL, d.id_type, "Document") +
       field("idn", "Number on the document", d.id_number, { mode: "numeric", tabular: true }) +
       field("idname", "Name on the document", d.full_name) +
-      field("iddob", "Birth date on the document", d.date_of_birth, { type: "date" }) +
-      '<div id="cmp"></div>',
-      footer: saveFoot("Identity saved") });
-    function compare() {
-      var n = el.querySelector("#idn").value.replace(/\s/g, ""), nm = el.querySelector("#idname").value.trim(), dob = el.querySelector("#iddob").value, diff = [];
-      if (!n || !nm) { el.querySelector("#cmp").innerHTML = ""; return; }
-      if (n !== m.id_number) diff.push("ID number (record: " + m.id_number + ")");
-      if (nm.toLowerCase() !== m.full_name.toLowerCase()) diff.push("name (record: " + esc(m.full_name) + ")");
-      if (dob && m.date_of_birth && dob !== m.date_of_birth) diff.push("birth date (record: " + f.date(m.date_of_birth) + ")");
-      el.querySelector("#cmp").innerHTML = !diff.length
-        ? '<div class="banner banner-success">' + icon("check-circle-outline") + '<div class="grow"><span class="text-body-md">Matches ' + esc(coopName) + "'s record.</span></div></div>"
-        : '<div class="banner banner-warning">' + icon("alert-outline") + '<div class="grow"><span class="text-title-sm">Differs from ' + esc(coopName) + "'s record</span>" +
-          '<span class="text-body-md">' + diff.join("; ") + ". Save what the document shows. Approval waits until the cooperative corrects its record.</span></div></div>";
-    }
-    ["#idn", "#idname", "#iddob"].forEach(function (s) { el.querySelector(s).addEventListener("input", compare); });
-    compare();
+      field("iddob", "Birth date on the document", d.date_of_birth, { type: "date" }),
+      footer: confirmFoot(it, "Identity") });
     return wire(el);
+  }
+  /* An item already current (from an earlier visit or the record): confirm it, or save what changed (confirm, correct). */
+  function confirmFoot(it, what) {
+    if (readOnly) return "";
+    return it ? '<button class="btn btn-tonal" type="button" data-done="' + what + ' checked: it matches">Matches</button><button class="btn btn-filled" type="button" data-done="' + what + ' corrected: the reviewer sees both">Save what changed</button>'
+      : saveFoot(what + " saved");
   }
   function portrait() {
     var it = cur("PORTRAIT")[0];
     if (readOnly) return Proto.sheet({ title: T.PORTRAIT.label, body: readRows(cur("PORTRAIT")) });
     return wire(Proto.sheet({ title: T.PORTRAIT.label, body:
       '<p class="text-body-md tone-muted">Face the light, no hat or glasses, plain background if you can.</p>' +
-      '<div class="row gap-2 wrap">' + (it && onVisit(it) ? U.photo(it.photos[0]) : takeTile("Portrait")) + "</div>" +
+      '<div class="row gap-2 wrap">' + (it ? U.photo(it.photos[0]) + takeTile("Take again") : takeTile("Portrait")) + "</div>" +
       sw("pmatch", "Matches the photo on the ID", it && onVisit(it), "If it doesn't, don't save: fail the check and say why in the note."),
-      footer: saveFoot("Portrait saved") }));
+      footer: confirmFoot(it, "Portrait") }));
   }
   function phone() {
     var it = cur("PHONE")[0], x = it ? it.details : {};
@@ -271,7 +299,7 @@
       '<a class="btn btn-tonal btn-sm" href="tel:' + m.phone + '">' + icon("phone-outline") + "Call it</a></div>" +
       sw("pwith", "The phone is with " + esc(first), !!it, "Call the number: it should ring in front of you.") +
       field("mpesa", "Name M-Pesa shows for it", x.mpesa_name, { help: "Start sending money to the number from your phone and read the name. Don't finish the payment." }),
-      footer: saveFoot("Phone saved") }));
+      footer: confirmFoot(it, "Phone") }));
   }
 
   /* K7: one farm, or a new one. */
@@ -286,9 +314,8 @@
       '<span class="text-title-sm">What the agent found</span>' + readRows([it]) + U.mapPoint(d.lat, d.lng, x.accuracy_m, "Taken on the farm") });
     var mine = it && onVisit(it) && it.source === "AGENT";
     var point = mine ? { lat: d.lat, lng: d.lng, acc: x.accuracy_m } : null;
-    var seen = it ? GF.kyc.current(m.id, "CROP").filter(function (c) { return c.data.value_chain; }).map(function (c) { return c.data.value_chain; }) : [];
     var el = Proto.sheet({ wide: true, title: esc(title), body:
-      '<p class="proto-note"><b>K7 · Farm (note 20).</b> "Matches what was declared" marks the member\'s row VERIFIED and replaces it with the agent\'s, carrying the point taken here. "Save what I found" with different figures ends the member\'s row as DIFFERS and the agent\'s row replaces it, so the reviewer sees both. Both count only once the office approves the visit.</p>' +
+      '<p class="proto-note"><b>K7 · Farm (note 20).</b> "Matches what was declared" marks the member\'s row VERIFIED and replaces it with the agent\'s, carrying the point taken here. "Save what I found" with different figures ends the member\'s row as DIFFERS and the agent\'s row replaces it, so the reviewer sees both. Both count only once the office approves the visit. Crops aren\'t recorded per farm (note 20 has no link between them): they go in the Crops panel.</p>' +
       (declared ? '<div class="card col gap-2"><span class="text-title-sm">What ' + esc(first) + ' declared</span>' + (function () { var s = U.summary(declared); return '<span class="text-body-md">' + esc(s.title) + '</span><span class="text-body-sm tone-muted">' + esc(s.sub) + "</span>"; })() +
         '<span class="text-body-sm tone-muted">' + esc(U.sourceLine(declared)) + "</span></div>" :
         it ? "" : '<p class="text-body-md tone-muted">For a farm ' + esc(first) + " didn't declare. Ask what they call it and where it is.</p>") +
@@ -301,14 +328,11 @@
       chips("tenure", L.tenure, d.tenure, "How the land is held") +
       chips("evidence", L.evidence, x.tenure_evidence || "", "What you were shown") +
       sw("fcultnow", "Being farmed now", d.is_cultivated !== false, "Crops in the ground, animals kept, or land prepared this season") +
-      '<div class="col gap-1"><span class="field-label">Growing or kept here</span><div class="chip-row" role="group" aria-label="Growing or kept here">' +
-        GF.valueChains.filter(function (vc) { return vc.status === "ACTIVE"; }).map(function (vc) {
-          return '<button class="chip" type="button" aria-pressed="' + (seen.indexOf(vc.id) > -1) + '" onclick="this.setAttribute(\'aria-pressed\', this.getAttribute(\'aria-pressed\') !== \'true\')">' + esc(vc.name) + "</button>";
-        }).join("") + "</div></div>" +
       '<div class="col gap-2"><span class="field-label">Photos (at least one: a wide view and a close-up of the crop)</span><div class="row gap-2 wrap">' +
         (mine ? it.photos.map(function (p) { return U.photo(p, { flag: !!back }); }).join("") : "") + takeTile("Farm") + "</div></div>" +
       field("fnote", "Note (optional)", mine ? x.check_note : "", { textarea: true }) +
-      (it ? '<div class="actions actions-start"><button class="btn btn-text tone-error" type="button" id="novisit">Couldn\'t visit this farm</button></div>' : ""),
+      (it ? '<div class="actions actions-start"><button class="btn btn-text tone-error" type="button" id="novisit">Couldn\'t visit this farm</button>' +
+        '<button class="btn btn-text tone-error" type="button" onclick="Visit.endItem(\'' + it.id + '\')">No longer ' + esc(first) + "'s: end it</button></div>" : ""),
       footer: (declared ? '<button class="btn btn-tonal" type="button" data-done="Farm confirmed">Matches what was declared</button>' : "") +
         '<button class="btn btn-filled" type="button" data-done="' + (it ? "Farm saved" : "Farm added") + '">Save what I found</button>' });
     function drawPoint(warnIfFar) {
@@ -349,18 +373,46 @@
         return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start;flex-wrap:wrap"><span class="grow"><span class="text-body-md">' + esc(s.title) + "</span>" +
           (s.sub ? '<span class="text-body-sm tone-muted">' + esc(s.sub) + "</span>" : "") + "</span>" +
           (locked ? '<span class="trail"><span class="status status-success">From delivery records · verified</span></span>' :
-            '<div class="chip-row" data-choice role="radiogroup" aria-label="Seen?"><button class="chip" type="button" role="radio" aria-checked="' + (it.status === "VERIFIED") + '">Seen</button>' +
-            '<button class="chip" type="button" role="radio" aria-checked="' + (it.status !== "VERIFIED" && !!it.details.check_note) + '">Not seen</button></div>') + "</div>";
+            '<div class="col gap-1" style="width:100%"><div class="row gap-2 wrap"><div class="chip-row" data-choice role="radiogroup" aria-label="Seen?" data-seen><button class="chip" type="button" role="radio" aria-checked="' + (it.status === "VERIFIED") + '">Seen</button>' +
+            '<button class="chip" type="button" role="radio" aria-checked="' + (it.status !== "VERIFIED" && !!it.details.check_note) + '" data-not>Not seen</button></div>' +
+            '<button class="btn btn-text btn-sm" type="button" onclick="Visit.correctCrop(\'' + it.id + '\')">Correct</button><button class="btn btn-text btn-sm tone-error" type="button" onclick="Visit.endItem(\'' + it.id + '\')">End</button></div>' +
+            '<div class="field' + (it.details.check_note && it.status !== "VERIFIED" ? "" : " hidden") + '" data-why><label class="field-label" for="cw-' + it.id + '">Why not seen</label><input class="field-input" id="cw-' + it.id + '" value="' + esc(it.details.check_note || "") + '" placeholder="For example: harvested last month"><span class="field-help">Kept in the visit\'s notes for the reviewer</span></div></div>') + "</div>";
       }).join("") + "</div>" +
       '<div class="actions actions-start"><button class="btn btn-outlined btn-sm" type="button" id="addcrop">' + icon("plus") + "Add a crop or animal</button></div>",
       footer: saveFoot("Crops saved") });
+    el.querySelectorAll("[data-seen]").forEach(function (g) { g.addEventListener("click", function (e) { var b = e.target.closest(".chip"); if (b) g.closest(".col").querySelector("[data-why]").classList.toggle("hidden", !b.hasAttribute("data-not")); }); });
+    /* From the catalog, plus "Other" named in words (note 20 Q7). A value chain
+     * already listed isn't offered twice, and there is one main crop at most. */
     el.querySelector("#addcrop").addEventListener("click", function () {
-      Proto.dialog({ title: "Add a crop or animal", body:
-        '<div class="field"><label class="field-label" for="cvc">What</label><select class="field-input" id="cvc">' + GF.valueChains.filter(function (x) { return x.status === "ACTIVE"; }).map(function (x) { return "<option>" + esc(x.name) + "</option>"; }).join("") + "<option>Other</option></select></div>" +
-        field("cacres", "Acres under it (optional)", "", { mode: "decimal" }) + sw("cmain", "Brings in the most income", false),
-        submit: "Add", onSubmit: function () { Proto.snack("Added, as seen by you"); } });
+      var have = items.map(function (i) { return i.data.value_chain; }), main = items.filter(function (i) { return i.data.is_main; })[0];
+      var d = Proto.dialog({ title: "Add a crop or animal", body:
+        '<div class="field"><label class="field-label" for="cvc">What</label><select class="field-input" id="cvc">' + GF.valueChains.filter(function (x) { return x.status === "ACTIVE" && have.indexOf(x.id) === -1; }).map(function (x) { return '<option value="' + x.id + '">' + esc(x.name) + "</option>"; }).join("") + '<option value="other">Other</option></select></div>' +
+        '<div class="field hidden" id="cother-f"><label class="field-label" for="cother">What is it?</label><input class="field-input" id="cother" placeholder="For example bees, or fish ponds"></div>' +
+        field("cacres", "Acres under it (optional)", "", { mode: "decimal" }) +
+        sw("cmain", "Brings in the most income", false, main ? "Instead of " + esc(U.summary(main).title.replace(" · main income", "")) : ""),
+        submit: "Add", onSubmit: function (dlg) {
+          if (dlg.querySelector("#cvc").value === "other" && !dlg.querySelector("#cother").value.trim()) return Proto.snack("Say what it is");
+          Proto.snack("Added, as seen by you");
+        } });
+      d.querySelector("#cvc").addEventListener("change", function (e) { d.querySelector("#cother-f").classList.toggle("hidden", e.target.value !== "other"); });
     });
     return wire(el);
+  }
+
+  /* end_on_visit: the agent ends an item that no longer holds (a farm sold, a loan paid off), with a reason. */
+  function endItem(id) {
+    var it = K.get(id), s = U.summary(it);
+    Proto.dialog({ title: "End: " + esc(s.title), body: '<p class="text-body-md tone-muted">It stops being current. The reviewer sees that you ended it, and why. ' + esc(first) + " can't remove it themselves once it's verified.</p>" +
+      '<div class="field"><label class="field-label" for="endwhy">Why</label><textarea class="field-input" id="endwhy" placeholder="For example: sold in August; the loan was repaid in September"></textarea></div>',
+      submit: "End it", onSubmit: function (d) { if (!d.querySelector("#endwhy").value.trim()) return Proto.snack("Say why"); Proto.close(); Proto.snack("Ended. The reviewer sees why"); } });
+  }
+  /* correct (CROP): acres and the main crop, as income and loans are corrected. */
+  function correctCrop(id) {
+    var it = K.get(id), main = cur("CROP").filter(function (i) { return i.data.is_main && i.id !== id; })[0];
+    Proto.dialog({ title: "Correct: " + esc(U.summary(it).title.replace(" · main income", "")), body: '<p class="text-body-md tone-muted">Your answer replaces ' + esc(first) + "'s; theirs is kept, so the reviewer sees both.</p>" +
+      field("cacr", "Acres under it", it.data.acres, { mode: "decimal", tabular: true }) +
+      sw("cmain2", "Brings in the most income", !!it.data.is_main, main ? "Instead of " + esc(U.summary(main).title.replace(" · main income", "")) : ""),
+      submit: "Save", onSubmit: function () { Proto.snack("Corrected. " + first + "'s answer is kept"); } });
   }
 
   /* Declared-only types: shown as declared, each correctable. */
@@ -388,11 +440,12 @@
       var s = U.summary(it);
       return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start"><span class="grow"><span class="text-body-md">' + esc(s.title) + "</span>" +
         (s.sub ? '<span class="text-body-sm tone-muted">' + esc(s.sub) + "</span>" : "") + '<span class="text-body-sm tone-muted">' + esc(U.sourceLine(it)) + "</span>" +
-        (t === "NEXT_OF_KIN" && !readOnly ? '<div class="row gap-2 wrap"><a class="btn btn-tonal btn-sm" href="tel:' + it.details.phone + '">' + icon("phone-outline") + "Call</a></div>" + sw("answered", "Answered when called", it.status === "VERIFIED") : "") + "</span>" +
-        '<span class="trail">' + U.itemChip(it) + (readOnly ? "" : '<button class="btn btn-text btn-sm" type="button" onclick="Visit.correct(\'' + t + "','" + it.id + '\')">Correct</button>') + "</span></div>";
+        (t === "NEXT_OF_KIN" && !readOnly ? '<div class="row gap-2 wrap"><a class="btn btn-tonal btn-sm" href="tel:' + it.details.phone + '">' + icon("phone-outline") + "Call</a></div>" + sw("answered", "Answered when called", it.status === "VERIFIED") + field("kinnote", "Note on the call (optional)", it.details.check_note, { help: "What they said; the reviewer reads it" }) : "") + "</span>" +
+        '<span class="trail">' + U.itemChip(it) + (readOnly ? "" : '<button class="btn btn-text btn-sm" type="button" onclick="Visit.correct(\'' + t + "','" + it.id + '\')">Correct</button>' +
+          (T[t].many ? '<button class="btn btn-text btn-sm tone-error" type="button" onclick="Visit.endItem(\'' + it.id + '\')">End</button>' : "")) + "</span></div>";
     }).join("");
     var body = '<div class="banner banner-info">' + icon("account-voice") + '<div class="grow"><span class="text-body-md">' +
-      (t === "NEXT_OF_KIN" ? "Call them while you're with " + esc(first) + ". The rest stays as declared." : "This can't be verified on a visit, so it stays \"Declared\". Go through it with " + esc(first) + " and correct what's wrong.") + "</span></div></div>" +
+      (t === "NEXT_OF_KIN" ? "Call them while you're with " + esc(first) + ". If they answer and know " + esc(first) + ", the check counts once the office approves the visit, for " + K.CHECK_MONTHS + " months. Correct the name or number if it's wrong." : "This can't be verified on a visit, so it stays \"Declared\". Go through it with " + esc(first) + " and correct what's wrong.") + "</span></div></div>" +
       (items.length ? '<div class="rowcards">' + rows + "</div>" : '<p class="text-body-md tone-muted">' + (none ? esc(first) + " said there's none." : "Nothing declared yet.") + "</p>") +
       (readOnly || (!T[t].many && items.length) ? "" : '<div class="actions actions-start"><button class="btn btn-outlined btn-sm" type="button" onclick="Visit.correct(\'' + t + '\')">' + icon("plus") + "Add</button></div>");
     return wire(Proto.sheet({ title: T[t].label, body: body, footer: t === "NEXT_OF_KIN" ? saveFoot("Next of kin saved") : "" }));
@@ -418,11 +471,12 @@
   }
 
   window.Visit = {
-    open: open, farm: farm, correct: correct,
+    open: open, farm: farm, correct: correct, endItem: endItem, correctCrop: correctCrop,
     shoot: function (b) { Proto.snack("Opens the camera. Photos from the gallery are refused"); }
   };
 
-  drawList();
+  drawConsent(); drawList();
+  document.addEventListener("proto:state", function (e) { if (e.detail === "consent" || e.detail === "loaded") { forceNoConsent = e.detail === "consent"; drawConsent(); drawList(); } });
   document.addEventListener("DOMContentLoaded", function () {
     drawFoot();
     var show = params.get("show");

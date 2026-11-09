@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Coverage · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../assets/console.js"></script>
+<script src="partners-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Lending partners" data-dest="partners" data-wide
+     data-action='{"label":"Link a product","icon":"link-variant-plus","roles":"owner full","on":"link()"}'>
+
+  <p class="proto-note"><b>LP6 · Coverage (note 24, <code>GET coverage/</code>).</b> Which products serve which cooperatives, by cooperative: a member is only offered products that cover their cooperative, and picks between them when there are several, with the partner named on each quote (Q3). Per cooperative only in v1 (Q4). Link a product here or on its page, and end any coverage from its row (<code>manage</code>: Full and Owner).</p>
+  <p class="proto-note"><b>Offered today</b> means what <code>products_for</code> would return now: the partner is active, the product is active with terms in force, and the coverage is active. Until a partner is activated (L4 for API partners, L6 for the portal), coverage is set up but nothing is offered, except through Tegemeo, drawn as after L4. A cooperative on hold keeps its coverage; loans refuses its quotes (26).</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="partners" data-current="coverage" data-label="Lending partners"></div>
+    <div class="section">
+      <div class="section-toolbar"><div class="row gap-3 wrap">
+        <select class="field-input" id="f-partner" aria-label="Partner" style="width:auto"><option value="">All partners</option></select>
+        <label class="check"><input type="checkbox" id="f-ended"><span>Show ended coverage</span></label>
+      </div></div>
+      <div class="table-wrap only-wide"><table class="table">
+        <thead><tr><th>Cooperative</th><th>Product</th><th>Partner</th><th>Since</th><th>Offered today</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+      <div class="rowcards only-compact" id="cards"></div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:40px"></div><div class="skeleton-card" style="height:240px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-link-variant-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No coverage yet</span><span class="text-body-md">Open a partner's product and link the cooperatives whose members it should be offered to.</span>
+    <a class="btn btn-tonal" href="index.html">Partners</a></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load coverage</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var P = GF.partners, U = PartnersUI, esc = U.esc, L = P.L, f = GF.fmt;
+document.getElementById("f-partner").insertAdjacentHTML("beforeend", P.partners.map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + "</option>"; }).join(""));
+function offered(c) {
+  var x = P.get(c.product), p = P.get(x.partner);
+  if (c.status !== "ACTIVE") return ["neutral", "Ended"];
+  if (p.status !== "ACTIVE") return ["neutral", "Partner " + L.status[p.status][1].toLowerCase()];
+  if (x.status !== "ACTIVE") return ["warning", "Product " + L.product[x.status][1].toLowerCase()];
+  if (!P.inForce(x.id)) return ["warning", "No terms in force"];
+  if (GF.get(c.cooperative).status === "ON_HOLD") return ["warning", "Cooperative on hold"];
+  return ["success", "Offered"];
+}
+function draw() {
+  var partner = document.getElementById("f-partner").value, ended = document.getElementById("f-ended").checked;
+  var list = P.coverage.filter(function (c) { return (ended || c.status === "ACTIVE") && (!partner || P.get(c.product).partner === partner); })
+    .sort(function (a, b) { var x = GF.get(a.cooperative).profile.short_name, y = GF.get(b.cooperative).profile.short_name; return x < y ? -1 : x > y ? 1 : 0; });
+  document.getElementById("rows").innerHTML = list.map(function (c) {
+    var x = P.get(c.product), p = P.get(x.partner), co = GF.get(c.cooperative);
+    return '<tr><td class="primary-cell">' + esc(co.profile.short_name) + "</td><td><a href=\"product.html?pr=" + x.id + '">' + esc(x.name) + '</a><span class="cell-sub tabular">' + x.code + "</span></td>" +
+      '<td><a href="partner.html?p=' + p.id + '">' + esc(p.name) + '</a></td><td class="tabular">' + f.date(c.started_at, "short") + (c.ended_at ? " to " + f.date(c.ended_at, "short") : "") + "</td><td>" + U.chip(offered(c)) + "</td><td>" + (c.status === "ACTIVE" ? '<button class="btn btn-text btn-sm" type="button" data-roles="owner full" onclick="endCov(\'' + c.id + '\')">End</button>' : "") + "</td></tr>";
+  }).join("");
+  document.getElementById("cards").innerHTML = list.map(function (c) {
+    var x = P.get(c.product), p = P.get(x.partner), co = GF.get(c.cooperative);
+    return '<div class="rowcard"><a class="grow" href="product.html?pr=' + x.id + '" style="color:inherit;text-decoration:none;display:flex;flex-direction:column"><span class="text-body-lg">' + esc(co.profile.short_name) + '</span><span class="text-body-md tone-muted">' + esc(x.name) + " · " + esc(p.name) + "</span></a>" + U.chip(offered(c)) +
+      (c.status === "ACTIVE" ? '<button class="btn btn-text btn-sm" type="button" data-roles="owner full" onclick="endCov(\'' + c.id + '\')">End</button>' : "") + "</div>";
+  }).join("");
+}
+["f-partner", "f-ended"].forEach(function (id) { document.getElementById(id).addEventListener("change", draw); });
+draw();
+/* link and end_coverage (manage), as on the product's page. */
+function link() {
+  var el = Proto.dialog({ title: "Link a product to cooperatives",
+    body: '<div class="field"><label class="field-label" for="lp">Product</label><select class="field-input" id="lp">' + P.products.filter(function (x) { return x.status !== "RETIRED" && P.get(x.partner).status !== "ENDED"; })
+      .map(function (x) { return '<option value="' + x.id + '">' + esc(x.name) + " · " + esc(P.get(x.partner).name) + "</option>"; }).join("") + '</select></div><div class="col gap-1" id="lc"></div>',
+    submit: "Link", onSubmit: function (d) { var n = d.querySelectorAll("#lc input:checked").length; if (!n) return Proto.snack("Pick a cooperative"); Proto.snack(n === 1 ? "Cooperative linked" : n + " cooperatives linked"); } });
+  function coops() {
+    var covered = P.coverageOf(el.querySelector("#lp").value).map(function (c) { return c.cooperative; });
+    el.querySelector("#lc").innerHTML = GF.cooperatives.map(function (co) {
+      var why = co.status === "ENDED" ? "ended" : covered.indexOf(co.id) > -1 ? "already covered" : "";
+      return '<label class="check"' + (why ? ' style="opacity:.55"' : "") + '><input type="checkbox" value="' + co.id + '"' + (why ? " disabled" : "") + "><span>" + esc(co.profile.short_name) + (why ? " · " + why : co.status === "ON_HOLD" ? " · on hold" : "") + "</span></label>";
+    }).join("");
+  }
+  el.querySelector("#lp").addEventListener("change", coops); coops();
+}
+function endCov(id) {
+  var c = P.get(id), co = GF.get(c.cooperative);
+  Proto.confirm({ title: "Stop offering " + esc(P.get(c.product).name) + " to " + esc(co.profile.short_name) + "?", message: "No new quotes for its members. Live loans carry on. You can link it again later.", confirm: "End coverage", destructive: true, onConfirm: function () { Proto.snack("Coverage ended"); } });
+}
+</script>
+</body>
+</html>

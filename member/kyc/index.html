@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="../../assets/kit.css">
 <script src="../../assets/data/canon.js"></script>
 <script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/consents.js"></script>
 <script src="../assets/app.js"></script>
 <script src="../assets/nav.js" defer></script>
 <script src="../../assets/proto.js" defer></script>
@@ -20,11 +21,13 @@
 
 <div data-screen data-title="Get verified for loans" data-dest="account" data-back="../account/index.html" data-compact>
 
-  <p class="proto-note"><b>MK1 · Get verified for loans (note 20, draft revision 2; UI-60).</b> What GroFunder holds on the member, in the member's words, one group per row, each with where it stands: <i>Verified</i> (a check that counts), <i>Checked at your visit, being reviewed</i> (a check on a visit not yet approved), <i>You told us</i> (declared, not checked), <i>Needed</i> (lending needs it and there's nothing yet). Reached from Account (M13), not a destination: it's a task (shell owner, 2026-10-24).</p>
+  <p class="proto-note"><b>MK1 · Get verified for loans (note 20, signed off 2026-11-07; UI-60, UI-63).</b> What GroFunder holds on the member, in the member's words, one group per row, each with where it stands: <i>Verified</i> (a check that counts), <i>Checked at your visit, being reviewed</i> (a check on a visit not yet approved), <i>You told us</i> (declared, not checked), <i>Needed</i> (lending needs it and there's nothing yet). Reached from Account (M13), not a destination: it's a task (shell owner, 2026-10-24).</p>
   <p class="proto-note"><b>What a member never sees here</b> (notes 05, 20): farm and home map points, the agent's notes and warnings, and the reviewer's notes. Farms show their name, village and size only.</p>
   <p class="proto-note"><b>State switcher.</b> <i>loaded</i> is the record shown: Wanjiku at Kijani (visit v-101 being reviewed), or nothing yet if you switch to Mawingu on Home. <i>approved</i>, <i>visit</i> and <i>pending</i> show the same list under the other cards: verified, a visit booked, and an application the cooperative hasn't confirmed (proposed amendment to note 05: applicants may declare while PENDING).</p>
-  <p class="proto-note proto-gap"><b>G60:</b> consent isn't designed yet (note 20 Q6). Until the consents app exists, this screen can't be used.</p>
-  <p class="proto-note proto-gap"><b>G62:</b> drawn from note 20 while it is still a draft (owner's request, 2026-10-24).</p>
+  <p class="proto-note"><b>Consent (phase 15, note 22; closes G60).</b> Collecting details and visits need the member's lending consent for this membership (<code>allows(member, LENDING)</code>). The page says when they agreed and links to Consents. Without one, nothing new is collected: <i>Update your details</i> becomes <i>Read and agree</i>. See <i>withdrawn</i>.</p>
+  <p class="proto-note"><b>The terms (G100).</b> Until the member agrees to a terms version in force, nothing new is collected: <i>termsblock</i>. What GroFunder holds stays visible.</p>
+  <p class="proto-note"><b>Read only (audit, 2026-11-08):</b> while the cooperative has suspended this membership, or has ended, the member sees everything but can't change it: no "Update your details", and the rows don't open. See <i>suspended</i>.</p>
+  <p class="proto-note"><b>One membership at a time (note 20 Q1).</b> What's shown is for the record the member is looking at. A member of two cooperatives is verified for each one separately; switching cooperative on Home switches this page. Every check counts for 12 months (note 20 Q4).</p>
 
   <div data-roles="out" class="empty">
     <span class="mdi mdi-account-lock-outline" aria-hidden="true"></span>
@@ -33,15 +36,16 @@
     <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a>
   </div>
 
-  <div data-state="loaded approved visit pending" class="col gap-6" data-roles="in">
+  <div data-state="loaded approved visit pending suspended withdrawn termsblock" class="col gap-6" data-roles="in">
     <div id="status"></div>
 
     <section class="section" id="groups-sec">
-      <div class="section-header"><div class="grow"><span class="text-title-lg">What GroFunder holds</span>
+      <div class="section-header"><div class="grow"><span class="text-title-lg" id="groups-title">What GroFunder holds</span>
         <span class="text-body-md tone-muted" id="groups-sub"></span></div></div>
       <div class="list rowcards" id="groups"></div>
     </section>
 
+    <div id="consent-line"></div>
     <div class="col gap-3" id="update-block">
       <a class="btn btn-filled btn-block" href="declare.html" id="update-btn"><span class="mdi mdi-pencil-outline" aria-hidden="true"></span>Update your details</a>
       <div class="disclosure">
@@ -146,7 +150,7 @@ function groups(state) {
 
 /* The earliest date a required check stops counting, as if approved on approvedOn. */
 function verifiedUntil(approvedOn) {
-  var dates = items.filter(function (it) { return it.status === "VERIFIED" && K.TYPES[it.data_type].months && ["PORTRAIT", "PHONE", "FARM"].indexOf(it.data_type) > -1; }).map(function (it) {
+  var dates = items.filter(function (it) { return it.status === "VERIFIED" && K.TYPES[it.data_type].months && ["IDENTITY", "PORTRAIT", "PHONE", "FARM"].indexOf(it.data_type) > -1; }).map(function (it) {
     if (K.counts(it)) return K.validUntil(it);
     var d = new Date(approvedOn + "T00:00:00Z"); d.setUTCMonth(d.getUTCMonth() + K.TYPES[it.data_type].months); return d.toISOString().slice(0, 10);
   }).sort();
@@ -160,6 +164,10 @@ function card(state) {
     var until = verifiedUntil(GF.TODAY);
     html = '<div class="banner banner-success"><span class="mdi mdi-check-decagram-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">You\'re verified</span>' +
       '<span class="text-body-md">GroFunder has checked your ID, phone and farm. This counts until ' + (until ? f.date(until) : "your details change") + ". We'll ask for a new visit before then.</span></div></div>";
+  } else if (state === "loaded" && K.standing(me.id).complete && K.standing(me.id).suspended) {
+    /* Note 23: a suspended member keeps their checks, but isn't verified while suspended. */
+    html = '<div class="banner banner-warning"><span class="mdi mdi-shield-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Your checks are on file, but don\'t count for now</span>' +
+      '<span class="text-body-md">' + esc(coop) + " has suspended your membership. You can't borrow until it is active again; then your checks count again, while they're in date.</span></div></div>";
   } else if (state === "pending") {
     html = '<div class="banner banner-info"><span class="mdi mdi-account-clock-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">' + esc(coop) + " hasn't confirmed you yet</span>" +
       '<span class="text-body-md">You can tell us about your farm now. GroFunder arranges your visit once ' + esc(coop) + " confirms you as a member.</span></div></div>";
@@ -182,10 +190,15 @@ function card(state) {
 
 var nothing = !items.length && !visits.length;
 document.getElementById("empty-text").textContent = "GroFunder has nothing from you yet for " + coop + ". It takes about 10 minutes: your farms, what you grow, other income and loans, and someone to call. A Farmer Support Agent then visits you.";
-document.getElementById("coop-sees").textContent = coop + " only sees whether you're verified, not what you tell us here.";
+document.getElementById("coop-sees").textContent = coop + " only sees whether you're verified, not what you tell us here. If you belong to another cooperative too, you're verified for each one separately.";
+document.getElementById("groups-title").textContent = "What GroFunder holds for " + coop;
 
 var EMPTY = document.querySelector('[data-state="empty"]').outerHTML.replace('data-state="empty"', "").replace('data-roles="in"', "");
+/* Read only while the record is SUSPENDED or the cooperative has ENDED (note 20; audit, 2026-11-08). */
+var cstat = GF.get(me.cooperative).status;
 function draw(state) {
+  var ro = state === "suspended" || me.status === "SUSPENDED" || cstat === "ENDED";
+  if (state === "suspended") state = "loaded";
   if (state === "loaded" && nothing) {
     document.getElementById("status").innerHTML = EMPTY;
     document.getElementById("groups-sec").classList.add("hidden"); document.getElementById("update-block").classList.add("hidden");
@@ -193,9 +206,30 @@ function draw(state) {
   }
   document.getElementById("groups-sec").classList.remove("hidden"); document.getElementById("update-block").classList.remove("hidden");
   card(state); groups(state);
+  if (ro) {
+    document.getElementById("update-block").classList.add("hidden");
+    document.querySelectorAll("#groups a.rowcard").forEach(function (a) { var d = document.createElement("div"); d.className = a.className; d.innerHTML = a.innerHTML.replace(/<span class="mdi mdi-chevron-right[^>]*><\/span>/, ""); a.replaceWith(d); });
+    document.getElementById("status").insertAdjacentHTML("afterbegin", '<div class="banner banner-warning" id="ro-banner"><span class="mdi mdi-lock-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Read only</span>' +
+      '<span class="text-body-md">' + (cstat === "ENDED" ? esc(coop) + " has ended." : esc(coop) + " has suspended your membership.") + " You can see what GroFunder holds, but not change it.</span></div></div>");
+  }
 }
-document.addEventListener("proto:state", function (e) { if (["loaded", "approved", "visit", "pending"].indexOf(e.detail) > -1) draw(e.detail); });
-draw("loaded");
+/* Lending consent (note 22): when they agreed, or what to do without it. `withdrawn` shows the page after withdrawing. */
+function consentLine(state) {
+  var C = GF.consents, a = C.allows(me.id, "LENDING"), el = document.getElementById("consent-line");
+  if (state === "termsblock" || GF.consents.termsState(A.login.id).state === "BLOCKED") { el.innerHTML = '<div class="banner banner-warning"><span class="mdi mdi-file-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Agree to our new terms first</span><span class="text-body-md">Until you do, nothing new starts. You can still see everything you have.</span><div class="banner-actions"><a class="btn btn-text" href="../consents/agree.html?d=cd-terms&amp;for=prompt">Read and agree</a></div></div></div>'; document.getElementById("update-block").classList.add("hidden"); return; }
+  if (state === "withdrawn") a = { ok: false, reason: "WITHDRAWN", record: { occurred_at: GF.NOW } };
+  if (a.ok) {
+    var v = C.version(a.record.version);
+    el.innerHTML = '<a class="rowcard card-outlined" href="../consents/index.html"><span class="mdi mdi-file-sign" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">You agreed to lending</span><span class="text-body-md tone-muted">On ' + f.date(a.record.occurred_at, "short") + ", version " + v.number + ". See or withdraw it in Consents</span></span><span class=\"mdi mdi-chevron-right tone-muted\" aria-hidden=\"true\"></span></a>";
+    return;
+  }
+  var t = { WITHDRAWN: ["You withdrew your consent to lending", "GroFunder isn't collecting anything new for " + coop + ", and any visit was cancelled. What we hold is kept."], DECLINED: ["You said no to lending", "Nothing is collected for loans."],
+    NEEDS_RECONSENT: ["Please agree again", "The lending wording has changed."], NO_CONSENT: ["Agree to lending first", "Before you tell us about your farm and money."] }[a.reason] || ["Agree to lending first", ""];
+  el.innerHTML = '<div class="banner banner-warning"><span class="mdi mdi-file-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">' + t[0] + '</span><span class="text-body-md">' + esc(t[1]) + '</span><div class="banner-actions"><a class="btn btn-text" href="../consents/agree.html?d=cd-lending&amp;for=kyc">Read and agree</a></div></div></div>';
+  document.getElementById("update-block").classList.add("hidden");
+}
+document.addEventListener("proto:state", function (e) { if (["loaded", "approved", "visit", "pending", "suspended", "withdrawn", "termsblock"].indexOf(e.detail) > -1) { draw(e.detail === "withdrawn" || e.detail === "termsblock" ? "loaded" : e.detail); consentLine(e.detail); } });
+draw("loaded"); consentLine("loaded");
 </script>
 </body>
 </html>

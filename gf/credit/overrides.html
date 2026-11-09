@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Limit overrides · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../assets/console.js"></script>
+<script src="credit-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Credit" data-dest="credit" data-wide>
+
+  <p class="proto-note"><b>CR3 · Overrides (note 25, <code>GET overrides/</code>).</b> Every limit set by hand or block, so none lingers forgotten. Filters: status, kind, cooperative, and lapsing before a date. Each active one can be ended here (<i>End</i>) or changed on the member's credit (<i>Replace</i> opens CR2); new ones are set from CR2. Ending one set above the ladder needs Full or Owner, as setting it did. An override past its lapse date stops counting at once; the nightly run marks it ended.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="credit" data-current="overrides" data-label="Credit"></div>
+    <div class="section">
+      <div class="section-toolbar stack">
+        <div class="row gap-3 wrap">
+          <select class="field-input" id="f-kind" aria-label="Kind" style="width:auto"><option value="">Limits and blocks</option><option value="SET">Limits set</option><option value="BLOCK">Blocks</option></select>
+          <select class="field-input" id="f-coop" aria-label="Cooperative" style="width:auto"><option value="">All cooperatives</option></select>
+          <div class="field" style="flex-direction:row;align-items:center;gap:8px"><label class="text-body-md" for="f-before">Lapsing before</label><input class="field-input tabular" id="f-before" type="date" style="width:auto"></div>
+        </div>
+        <div class="chip-row" data-choice role="radiogroup" aria-label="Status" id="f-status">
+          <button class="chip" type="button" role="radio" aria-checked="true" data-s="ACTIVE">Active</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="ENDED">Ended</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="">All</button>
+        </div>
+      </div>
+      <div class="rowcards" id="list"></div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:40px"></div><div class="skeleton-card" style="height:240px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-tune-variant" aria-hidden="true"></span>
+    <span class="text-headline-sm">No overrides</span><span class="text-body-md">Every member's limit comes from the ladder. Set or block a limit from a member's credit page.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load overrides</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var C = GF.credit, U = CreditUI, esc = U.esc, f = GF.fmt;
+var status = "ACTIVE";
+document.getElementById("f-coop").insertAdjacentHTML("beforeend", GF.cooperatives.map(function (c) { return '<option value="' + c.id + '">' + esc(c.profile.short_name) + "</option>"; }).join(""));
+function draw() {
+  var kind = document.getElementById("f-kind").value, coop = document.getElementById("f-coop").value, before = document.getElementById("f-before").value;
+  var list = C.overrides.filter(function (o) {
+    var m = GF.get(o.member);
+    return (!status || o.status === status) && (!kind || o.kind === kind) && (!coop || m.cooperative === coop) && (!before || (o.expires_at && o.expires_at.slice(0, 10) < before));
+  }).sort(function (a, b) { return a.created_at < b.created_at ? 1 : -1; });
+  document.getElementById("list").innerHTML = list.map(function (o) {
+    var m = GF.get(o.member), s = C.latest(m.id);
+    var above = o.kind === "SET" && s && o.limit_cents > s.limit_cents;
+    return '<div class="rowcard" style="align-items:flex-start"><span class="grow"><span class="text-body-lg"><a href="member.html?m=' + m.id + '">' + esc(m.full_name) + '</a> <span class="text-body-sm tone-muted tabular">' + m.member_no + " · " + esc(U.coopName(m)) + "</span></span>" +
+      '<span class="text-body-md">' + (o.kind === "BLOCK" ? "Blocked" : "Limit " + U.money(o.limit_cents) + (s ? (o.limit_cents > s.limit_cents ? ", above the ladder's " : o.limit_cents < s.limit_cents ? ", below the ladder's " : ", as the ladder's ") + U.money(s.limit_cents) : "")) + "</span>" +
+      '<span class="text-body-sm tone-muted">"' + esc(o.reason) + '"</span>' +
+      '<span class="text-body-sm tone-muted">' + esc(U.who(o.created_by)) + ", " + U.when(o.created_at) + " · " + (o.expires_at ? "lapses " + f.date(o.expires_at) : "no end date") + (o.ended_at ? " · ended " + U.when(o.ended_at) : "") + "</span></span>" +
+      '<span class="col gap-1" style="align-items:flex-end">' + U.chip(o.status === "ENDED" ? ["neutral", "Ended"] : o.kind === "BLOCK" ? ["error", "Blocked"] : ["warning", "Active"]) +
+      (o.status === "ACTIVE" ? '<span class="row gap-1"><a class="btn btn-text btn-sm" data-roles="' + U.ROLES.override + '" href="member.html?m=' + m.id + '">Replace</a>' +
+        '<button class="btn btn-text btn-sm tone-error" type="button" data-roles="' + (above ? U.ROLES.publish : U.ROLES.override) + '" onclick="endOv(\'' + o.id + '\')">End</button></span>' : "") + "</span></div>";
+  }).join("") || '<p class="text-body-md tone-muted" style="padding:16px">No override matches.</p>';
+  if (window.Proto) Proto.applyRoles(document.getElementById("list"));
+}
+function endOv(id) {
+  var o = C.get(id), m = GF.get(o.member);
+  Proto.dialog({ title: "End " + esc(m.full_name.split(" ")[0]) + "'s " + (o.kind === "BLOCK" ? "block" : "override") + "?", body: '<p class="text-body-md">' + (o.kind === "BLOCK" ? "They can borrow again, up to the ladder's limit." : "The limit goes back to the ladder's.") + " Kept in their history.</p>",
+    submit: "End", onSubmit: function () { Proto.snack("Override ended"); } });
+}
+document.getElementById("f-status").addEventListener("click", function (e) { var b = e.target.closest("[data-s]"); if (b) { status = b.getAttribute("data-s"); draw(); } });
+["f-kind", "f-coop", "f-before"].forEach(function (id) { document.getElementById(id).addEventListener("change", draw); });
+draw();
+</script>
+</body>
+</html>

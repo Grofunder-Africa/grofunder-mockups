@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prepare a loan · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../assets/console.js"></script>
+<script src="loans-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Prepare a loan" data-flow data-back="index.html">
+
+  <p class="proto-note"><b>LN2 · Prepare a loan (note 26, step 5; <code>loans.prepare</code>, Operations and up).</b> For a member without the app, or one who asks GroFunder for help (21 Q3). Staff pick the member; the same checks as a request run, with a fresh score, and each refusal says why. Then the product, amount, duration and purpose, with the quote. Saving makes a DRAFT: it holds a borrowing space and the member's one live loan, the member is told, and it counts only once they accept, in the app or by reading staff a code, within 7 days (Q4).</p>
+  <p class="proto-note"><b>Try:</b> <code>?m=m-kij-M-0005</code> Muthoni (Tujenge's spaces are in use), <code>?m=m-kij-0142</code> Wanjiku (visit to review, circle forming), <code>?m=m-kij-M-0013</code> Peter Gathogo (his circle is paused). In the data nobody has a free space, so <i>loan</i> shows the second step for Muthoni as if one were free.</p>
+
+  <div data-state="loaded loan" class="col gap-6">
+    <div class="stepper" aria-label="Steps" id="stepper"></div>
+    <div class="col gap-4" id="body"></div>
+  </div>
+  <div data-footer id="foot"></div>
+</div>
+
+<script>
+var Lo = GF.loans, U = LoansUI, esc = U.esc, f = GF.fmt, P = GF.partners;
+var demo = false;
+var S = { step: 0, member: new URLSearchParams(location.search).get("m") || "", product: "", amount: 0, duration: 0, purpose: "" };
+var STEPS = ["Member", "The loan", "Done"];
+function stepper() { document.getElementById("stepper").innerHTML = STEPS.map(function (s, i) { return (i ? '<span class="sep"></span>' : "") + '<span class="step' + (i < S.step ? " done" : "") + '"' + (i === S.step ? ' aria-current="step"' : "") + '><span class="n">' + (i < S.step ? "✓" : i + 1) + '</span><span class="lbl">' + s + "</span></span>"; }).join(""); }
+function memberStep() {
+  var e = S.member ? Lo.eligibility(S.member) : null, m = S.member && GF.get(S.member);
+  document.getElementById("body").innerHTML =
+    '<div class="field search"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span><input class="field-input" id="q" type="search" placeholder="Name or member number" autocomplete="off" value="' + (m ? esc(m.full_name) : "") + '"></div></div>' +
+    '<div class="rowcards" id="hits"></div>' +
+    (m ? '<div class="card card-outlined col gap-2"><span class="text-title-md">' + esc(m.full_name) + '</span><span class="text-body-md tone-muted tabular">' + m.member_no + " · " + esc(GF.get(m.cooperative).profile.short_name) + (e.circle ? " · " + esc(e.circle.name) : "") + " · limit " + U.whole(e.limit_cents) + "</span>" +
+      (e.failed.length ? '<div class="banner banner-error"><span class="mdi mdi-close-circle-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">No loan can be prepared</span>' + e.failed.map(function (x) { return '<span class="text-body-md"><b>' + x.code + "</b>: " + esc(x.text) + "</span>"; }).join("") + "</div></div>"
+        : '<div class="banner banner-success"><span class="mdi mdi-check-circle-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">Every check passes. Offered: ' + e.offers.map(function (o) { return esc(o.product.name) + " from " + esc(o.partner.name) + ", up to " + U.whole(o.max_cents); }).join("; ") + ".</span></div></div>") + "</div>" : "");
+  var q = document.getElementById("q");
+  q.addEventListener("input", function () {
+    var t = q.value.trim().toLowerCase(); if (t.length < 2) { document.getElementById("hits").innerHTML = ""; return; }
+    document.getElementById("hits").innerHTML = GF.members.filter(function (x) { return x.status !== "EXITED" && (x.full_name.toLowerCase().indexOf(t) > -1 || x.member_no.toLowerCase() === t); }).slice(0, 6).map(function (x) {
+      return '<button class="rowcard" type="button" data-m="' + x.id + '"><span class="grow"><span class="text-body-lg">' + esc(x.full_name) + '</span><span class="text-body-md tone-muted tabular">' + x.member_no + " · " + esc(GF.get(x.cooperative).profile.short_name) + "</span></span></button>";
+    }).join("") || '<div class="rowcard"><span class="text-body-md tone-muted">No member matches.</span></div>';
+  });
+  document.getElementById("hits").addEventListener("click", function (ev) { var b = ev.target.closest("[data-m]"); if (b) { S.member = b.getAttribute("data-m"); memberStep(); foot(); } });
+}
+function loanStep() {
+  var e = Lo.eligibility(S.member), m = GF.get(S.member), o = e.offers.find(function (x) { return x.product.id === S.product; }) || e.offers[0];
+  S.product = o.product.id; var t = o.terms;
+  if (!S.amount) S.amount = Math.min(o.max_cents, Math.max(t.min_amount_cents, 500000)); if (!S.duration) S.duration = t.min_duration; if (!S.purpose) S.purpose = o.product.details.purposes[0].value;
+  var durs = []; for (var d = t.min_duration; d <= t.max_duration; d++) if (!t.terms.allowed_durations.length || t.terms.allowed_durations.indexOf(d) > -1) durs.push(d);
+  var chk = Lo.eligibility(S.member, { product: S.product, amount: S.amount, duration: S.duration, purpose: S.purpose }), terms = chk.failed.find(function (x) { return x.code === "TERMS"; });
+  document.getElementById("body").innerHTML =
+    '<div class="form-grid">' +
+    '<div class="field"><label class="field-label" for="lp">Product</label><select class="field-input" id="lp">' + e.offers.map(function (x) { return '<option value="' + x.product.id + '"' + (x === o ? " selected" : "") + ">" + esc(x.product.name) + " · " + esc(x.partner.name) + "</option>"; }).join("") + "</select></div>" +
+    '<div class="field"><label class="field-label" for="la">Amount</label><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input tabular" id="la" inputmode="numeric" value="' + S.amount / 100 + '"></div><span class="field-help">' + U.whole(t.min_amount_cents) + " to " + U.whole(o.max_cents) + " for " + esc(m.full_name.split(" ")[0]) + "</span>" + (terms ? '<span class="field-error">' + esc(terms.text) + "</span>" : "") + "</div>" +
+    '<div class="field"><label class="field-label" for="ld">Duration</label><select class="field-input" id="ld">' + durs.map(function (d) { return '<option value="' + d + '"' + (d === S.duration ? " selected" : "") + ">" + Lo.durationLine(d, t.duration_unit) + "</option>"; }).join("") + "</select></div>" +
+    '<div class="field"><label class="field-label" for="lu">Purpose</label><select class="field-input" id="lu">' + o.product.details.purposes.map(function (p) { return '<option value="' + p.value + '"' + (p.value === S.purpose ? " selected" : "") + ">" + esc(p.en) + "</option>"; }).join("") + "</select></div></div>" +
+    '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">The quote</span><span class="text-body-md tone-muted">Terms version ' + t.version + ", in force. " + esc(m.full_name.split(" ")[0]) + " sees exactly this</span></div></div><div class=\"section-body\">" + U.quoteCard(Lo.quote(t, S.amount, S.duration)) + "</div></section>";
+  var re = function () { S.product = document.getElementById("lp").value; S.amount = Math.round(+document.getElementById("la").value.replace(/\D/g, "") * 100) || 0; S.duration = +document.getElementById("ld").value; S.purpose = document.getElementById("lu").value; loanStep(); foot(); };
+  ["lp", "ld", "lu"].forEach(function (id) { document.getElementById(id).addEventListener("change", re); });
+  document.getElementById("la").addEventListener("change", re);
+}
+function doneStep() {
+  var m = GF.get(S.member), first = m.full_name.split(" ")[0];
+  document.getElementById("body").innerHTML = '<div class="empty"><span class="mdi mdi-check-circle-outline" aria-hidden="true"></span><span class="text-headline-sm">Draft prepared</span>' +
+    '<span class="text-body-md">' + esc(first) + " is told by SMS. It counts once " + esc(first) + " accepts" + (m.user ? " in the app or" : "") + " by reading you a code, within 7 days. It holds a borrowing space until then.</span>" +
+    '<a class="btn btn-filled" href="index.html?show=drafts">See drafts</a></div>';
+}
+function foot() {
+  var pass = function (e) { return demo ? !e.failed.some(function (x) { return x.code === "TERMS"; }) : e.ok; };
+  var ok = S.step === 0 ? S.member && pass(Lo.eligibility(S.member)) : S.step === 1 ? pass(Lo.eligibility(S.member, { product: S.product, amount: S.amount, duration: S.duration, purpose: S.purpose })) : false;
+  document.getElementById("foot").innerHTML = S.step === 2 ? "" : '<div class="row gap-2 end" style="width:100%">' + (S.step ? '<button class="btn btn-text" type="button" onclick="go(-1)">Back</button>' : "") +
+    '<button class="btn btn-filled" type="button" id="next" onclick="go(1)"' + (ok ? "" : " disabled") + ">" + (S.step === 1 ? "Prepare the draft" : "Next") + "</button></div>";
+}
+function go(d) { S.step += d; draw(); }
+function draw() { stepper(); [memberStep, loanStep, doneStep][S.step](); foot(); }
+draw();
+document.addEventListener("proto:state", function (e) {
+  if (e.detail === "loan") { demo = true; S = { step: 1, member: "m-kij-M-0005", product: "", amount: 0, duration: 0, purpose: "" }; draw(); }
+  else if (e.detail === "loaded" && demo) { demo = false; S = { step: 0, member: "", product: "", amount: 0, duration: 0, purpose: "" }; draw(); }
+});
+</script>
+</body>
+</html>

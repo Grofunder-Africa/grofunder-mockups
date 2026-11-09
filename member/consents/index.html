@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Consents · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Consents" data-back="../account/index.html" data-dest="account" data-compact>
+
+  <p class="proto-note"><b>MS1 · Consents (note 22, step 7; the kit's <code>me/status/</code> and <code>me/records/</code>).</b> From Account. Everything the member has agreed to, grouped by cooperative, because lending consents are kept per membership (concern 7, Q5); then their login's terms. Each shows the version agreed to, when, and how: in the app, or with whom by SMS code.</p>
+  <p class="proto-note"><b>Withdrawing</b> (MS3, a sheet) says what stops and what carries on before the member confirms. Agreements (the terms, a loan agreement) can't be withdrawn: closing the login is the way out of the terms, and a loan agreement holds while the loan is live.</p>
+  <p class="proto-note"><b>Agreed by SMS code</b> (concern 1): the record names who took it, and the member can withdraw it here if it wasn't them.</p>
+
+  <div data-roles="out" class="empty"><span class="mdi mdi-account-lock-outline" aria-hidden="true"></span><span class="text-headline-sm">You're signed out</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a></div>
+
+  <div data-state="loaded" class="col gap-6" data-roles="in" id="list"></div>
+
+  <div data-state="loading" class="col gap-4" data-roles="in"><div class="skeleton-card" style="height:160px"></div><div class="skeleton-card" style="height:120px"></div></div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Your consents show again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var A = MemberApp, C = GF.consents, f = GF.fmt, esc = A.esc;
+var icon = function (n, cls) { return '<span class="mdi mdi-' + n + (cls ? " " + cls : "") + '" aria-hidden="true"></span>'; };
+var chip = function (p) { return '<span class="status status-' + p[0] + '">' + p[1] + "</span>"; };
+function howMember(r) {
+  if (r.captured_by === "USER" || r.captured_by === "IMPORT") return r.context === "signup" ? "when you signed up" : "in the app";
+  if (r.metadata.withdrawal) return "by " + C.how(r).split(",")[0] + " at GroFunder, when you asked";
+  return "with " + C.how(r).split(",")[0] + ", by SMS code";
+}
+function line(r) {
+  var v = C.version(r.version);
+  return (r.decision === "GRANTED" ? "You agreed " : r.decision === "WITHDRAWN" ? "Withdrawn " : "You said no ") + "on " + f.date(r.occurred_at, "short") + ", " + howMember(r) + " · version " + v.number + (v.locale === "sw" ? " (Kiswahili)" : "");
+}
+function row(title, r, docId, memberId) {
+  var again = r && C.needsReconsent(r);
+  var sub = r ? line(r) : "You haven't agreed";
+  return '<button class="rowcard" type="button" onclick="open_(\'' + docId + "','" + (memberId || "") + '\')">' + icon(C.doc(docId).kind === "AGREEMENT" ? "file-document-outline" : "file-sign") +
+    '<span class="grow"><span class="text-body-lg">' + esc(title) + '</span><span class="text-body-md tone-muted">' + esc(sub) + "</span>" + (again ? '<span class="text-body-sm tone-warning">A new version asks you to agree again</span>' : "") + "</span>" +
+    (r ? chip(C.L.decision[r.decision]) : '<span class="status status-neutral">Not agreed</span>') + icon("chevron-right", "tone-muted") + "</button>";
+}
+function draw() {
+  var out = A.open.map(function (m) {
+    var recs = C.recordsOf(m.id), seen = {}, rows = [row("Lending", C.current(m.id, "cd-lending"), "cd-lending", m.id)];
+    recs.forEach(function (r) { if (r.document !== "cd-lending" && !seen[r.document]) { seen[r.document] = 1; rows.push(row(C.doc(r.document).name, r, r.document, m.id)); } });
+    return '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">' + esc(A.coopName(m)) + '</span><span class="text-body-md tone-muted tabular">Membership ' + m.member_no + "</span></div></div>" +
+      '<div class="list rowcards">' + rows.join("") + "</div></section>";
+  });
+  var t = C.currentTerms(A.login.id);
+  out.push('<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Your login</span><span class="text-body-md tone-muted">For every cooperative</span></div></div>' +
+    '<div class="list rowcards">' + row("Terms of use and privacy", t, "cd-terms", "") + "</div></section>");
+  out.push('<p class="text-body-sm tone-muted">Saying no to lending doesn\'t change your deliveries or payments. You can also call GroFunder to withdraw.</p>');
+  document.getElementById("list").innerHTML = out.join("");
+}
+/* MS3: one decision, the exact version, and Withdraw for a consent. */
+function open_(docId, memberId) {
+  var d = C.doc(docId), r = memberId ? C.current(memberId, docId) : C.currentTerms(A.login.id), m = memberId ? GF.get(memberId) : null;
+  var p = C.PURPOSES[{ "member-terms": "MEMBER_TERMS", lending: "LENDING", "partner-sharing": "PARTNER_SHARING", "loan-agreement": "LOAN_AGREEMENT" }[d.slug]];
+  var v = r && C.version(r.version), again = r && C.needsReconsent(r);
+  var K = GF.kyc, visit = K && m && d.slug === "lending" ? K.liveVisit(m.id) : null;
+  var li = function (a) { return '<ul class="text-body-md" style="margin:0;padding-left:20px">' + a.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul>"; };
+  var agreeHref = "agree.html?d=" + docId + "&for=account" + (m ? "&m=" + m.id : "");
+  var body = '<div class="col gap-4"><p class="text-body-md">' + esc(p.what) + (m ? ", for your membership of " + esc(A.coopName(m)) : "") + ".</p>" +
+    (r ? '<div class="card card-outlined"><dl class="facts stack"><dt>Your answer</dt><dd>' + C.L.decision[r.decision][1] + "</dd><dt>When and how</dt><dd>" + f.date(r.occurred_at) + ", " + r.occurred_at.slice(11, 16) + ", " + esc(howMember(r)) + "</dd>" +
+      (r.metadata.withdrawal ? "<dt>Why</dt><dd>" + esc(r.metadata.withdrawal.reason) + "</dd>" : "") +
+      "<dt>The wording</dt><dd>" + esc(v.title) + ", version " + v.number + " (" + C.L.locale[v.locale] + ') · <a href="agree.html?d=' + docId + "&amp;v=" + v.id + (m ? "&amp;m=" + m.id : "") + '">Read it</a></dd></dl></div>' : "") +
+    (r && r.captured_by === "STAFF" && r.decision === "GRANTED" ? '<div class="banner banner-info"><span class="mdi mdi-cellphone-message" aria-hidden="true"></span><div class="grow"><span class="text-body-md">Taken ' + esc(howMember(r)) + ". If that wasn't you, withdraw it and call GroFunder.</span></div></div>" : "") +
+    (again ? '<div class="banner banner-warning"><span class="mdi mdi-file-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">There is a new version. Agree to it before anything new is done for you.</span><div class="banner-actions"><a class="btn btn-text" href="' + agreeHref + '">Read and agree</a></div></div></div>' : "") +
+    (d.kind === "CONSENT" && r && r.decision === "GRANTED" ? '<span class="text-title-sm">If you withdraw</span><span class="text-body-md">Stops now:</span>' + li(p.stops.concat(visit && visit.status === "OPEN" ? ["Your agent's visit is cancelled"] : [])) + '<span class="text-body-md">Carries on:</span>' + li(p.carries) : "") +
+    (d.kind === "AGREEMENT" ? '<p class="text-body-sm tone-muted">' + (d.slug === "member-terms" ? "This can't be withdrawn. To stop, close your login: call GroFunder." : "This can't be withdrawn while the loan is live.") + "</p>" : "") + "</div>";
+  var foot = d.kind === "CONSENT" && r && r.decision === "GRANTED" ? '<button class="btn btn-outlined tone-error" type="button" onclick="withdraw(\'' + docId + "','" + memberId + '\')">Withdraw</button>'
+    : (!r || r.decision !== "GRANTED") ? '<a class="btn btn-filled" href="' + agreeHref + '">Read and agree</a>' : "";
+  Proto.sheet({ title: esc(d.slug === "member-terms" ? "Terms of use and privacy" : p.name), body: body, footer: foot });
+}
+function withdraw(docId, memberId) {
+  var m = GF.get(memberId);
+  Proto.confirm({ title: "Withdraw your consent?", message: "For " + A.coopName(m) + " only. You can agree again at any time.", confirm: "Withdraw", destructive: true,
+    onConfirm: function () { Proto.snack("Withdrawn. GroFunder stops using your details for this"); } });
+}
+draw();
+</script>
+</body>
+</html>

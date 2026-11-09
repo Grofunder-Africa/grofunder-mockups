@@ -20,11 +20,11 @@
   };
   var esc = function (t) { return String(t == null ? "" : t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"); };
 
-  /* 05: a member sees their ACTIVE records; a suspended one is listed but closed. */
+  /* 05: a member opens their ACTIVE and SUSPENDED records (G74, decided 2026-11-08); a suspended one shows a banner. */
   /* Records the member linked in this browser (M7) count as linked. */
   var linked = store.get("gf.memberLinked", "").split(",").filter(Boolean);
   var records = q.recordsOf(LOGIN.id).concat(linked.map(function (id) { return GF.get(id); }).filter(Boolean));
-  var open = records.filter(function (m) { return m.status === "ACTIVE"; });
+  var open = records.filter(function (m) { return m.status === "ACTIVE" || m.status === "SUSPENDED"; });
   var picked = store.get("gf.memberCoop", "");
   var current = open.find(function (m) { return m.cooperative === picked; }) || open[0];
   /* 06: a record with the same ID, in another cooperative, that nobody has linked. */

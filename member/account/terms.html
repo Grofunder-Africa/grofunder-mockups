@@ -11,6 +11,9 @@
 <link rel="stylesheet" href="../../assets/tokens.css">
 <link rel="stylesheet" href="../../assets/kit.css">
 <script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
 <script src="../assets/app.js"></script>
 <script src="../assets/nav.js" defer></script>
 <script src="../../assets/proto.js" defer></script>
@@ -20,8 +23,7 @@
 <div data-screen data-title="Terms and privacy" data-back="index.html" data-dest="account" data-compact>
 
   <p class="proto-note"><b>M17 · Terms and privacy (note 06).</b> What the member accepted when they signed up. A long text, so a page (UI-13), reached from Account.</p>
-  <p class="proto-note proto-gap"><b>Where acceptance is kept (06, concern 2).</b> Until a consents app exists, the accepted version and time go to the audit trail. The prototype shows the login's sign-up date as the acceptance date, and the version is typed on the page: neither is in the shared data. The terms' wording itself isn't written anywhere yet; the headings below are placeholders for it.</p>
-
+  <p class="proto-note"><b>Where acceptance is kept (phase 15, note 22; closes G7).</b> The terms are the kit's <code>member-terms</code> document, an agreement. Sign-up records <code>signup.terms</code>; acceptances from before the consents app were imported at their original time (the <code>06</code> amendment). When a version that asks again comes into force, Home prompts (<code>account.terms</code>) and this page says so. The wording shown is the version the member accepted; it is a placeholder until the legal check (G101).</p>
   <div data-roles="out" class="empty">
     <span class="mdi mdi-account-lock-outline" aria-hidden="true"></span>
     <span class="text-headline-sm">You're signed out</span>
@@ -29,11 +31,12 @@
   </div>
 
   <div data-state="loaded" class="col gap-6" data-roles="in">
+    <div id="again"></div>
     <div class="card card-outlined">
       <dl class="facts">
-        <dt>You accepted</dt><dd>Terms of use and privacy notice, version 1</dd>
+        <dt>You accepted</dt><dd id="accepted-v"></dd>
         <dt>On</dt><dd class="tabular" id="accepted"></dd>
-        <dt>When</dt><dd>Signing up in the member app</dd>
+        <dt>When</dt><dd id="accepted-how"></dd>
       </dl>
     </div>
 
@@ -58,7 +61,13 @@
     <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
 </div>
 <script>
-document.getElementById("accepted").textContent = GF.fmt.date(MemberApp.login.date_joined);
+var C = GF.consents, t = C.currentTerms(MemberApp.login.id), v = C.version(t.version);
+document.getElementById("accepted-v").textContent = v.title + ", version " + v.number;
+document.getElementById("accepted").textContent = GF.fmt.date(t.occurred_at);
+document.getElementById("accepted-how").textContent = t.context === "signup" ? "Signing up in the member app" : "In the member app";
+var ts = C.termsState(MemberApp.login.id);
+if (ts.state !== "OK") { var nv = ts.version;
+  document.getElementById("again").innerHTML = '<div class="banner banner-info"><span class="mdi mdi-file-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">Version ' + nv.number + (ts.state === "EARLY" ? " applies from " + GF.fmt.date(ts.from, "short") + ". " : " is in force; until you agree, nothing new starts. ") + MemberApp.esc(nv.change_note) + '</span><div class="banner-actions"><a class="btn btn-text" href="../consents/agree.html?d=cd-terms&amp;for=account">Read and agree</a></div></div></div>'; }
 </script>
 </body>
 </html>

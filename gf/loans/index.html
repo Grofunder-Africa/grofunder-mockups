@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Loans · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../assets/console.js"></script>
+<script src="loans-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Loans" data-dest="loans" data-wide
+     data-action='{"label":"Prepare a loan","icon":"plus","roles":"owner full ops","href":"prepare.html"}'>
+
+  <p class="proto-note"><b>LN1 · Loans (note 26 part 1).</b> GroFunder's one queue: requests to review first, oldest first, then drafts waiting for a member, approved loans waiting to be sent, and the ended ones. A request shows how many approvals it has of how many its product needs ("1 of 2 approvals", Q2); a draft shows when it expires (7 days, Q4); a loan that fails a check now says which (<code>details.checks</code>).</p>
+  <p class="proto-note"><b>Who does what.</b> Every office role reads (<code>loans.view</code>). Operations and up prepare drafts and take a member's SMS code (<code>loans.prepare</code>). Full and Owner approve and reject (<code>loans.review</code>, Q1), cancel after approval (<code>loans.manage</code>) and pause a cooperative, cluster or circle; only the Owner pauses everyone (Q6).</p>
+  <p class="proto-note"><b>The story</b> (loans.js): drawn as if Mavuno Capital were active, and with Tujenge Kiamwangi's members verified (phases 11 and 13 aren't changed while they're reviewed). Its two live loans fill its two borrowing spaces. Forwarding to the lender comes with the gateway (L4): an approved loan shows it as the next step only.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="loans" data-current="loans" data-label="Loans"></div>
+    <div id="pause-banner"></div>
+    <div class="chip-row scroll" data-choice role="radiogroup" aria-label="Show" id="filter"></div>
+    <div class="section"><div class="table-wrap"><table class="table"><thead><tr><th>Loan</th><th>Member</th><th class="num">Amount</th><th>Product</th><th>Status</th><th>Since</th></tr></thead><tbody id="rows"></tbody></table></div></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:300px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-cash-multiple" aria-hidden="true"></span>
+    <span class="text-headline-sm">No loans yet</span><span class="text-body-md">Members ask for loans in the app once they are verified and their Growth Circle is complete. Staff can prepare one for a member without the app.</span>
+    <a class="btn btn-filled" href="prepare.html" data-roles="owner full ops">Prepare a loan</a></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the loans</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var Lo = GF.loans, U = LoansUI, esc = U.esc, f = GF.fmt;
+var GROUPS = [["review", "To review", ["REQUESTED"]], ["drafts", "Drafts", ["DRAFT"]], ["approved", "Approved", ["APPROVED"]], ["ended", "Ended", ["GF_REJECTED", "CANCELLED"]], ["all", "All", null]];
+var pick = new URLSearchParams(location.search).get("show") || "review";
+function count(g) { return Lo.loans.filter(function (l) { return !g[2] || g[2].indexOf(l.status) > -1; }).length; }
+function draw() {
+  document.getElementById("filter").innerHTML = GROUPS.map(function (g) { return '<button class="chip" type="button" role="radio" data-g="' + g[0] + '" aria-checked="' + (g[0] === pick) + '">' + g[1] + " · " + count(g) + "</button>"; }).join("");
+  var g = GROUPS.find(function (x) { return x[0] === pick; });
+  var list = Lo.loans.filter(function (l) { return !g[2] || g[2].indexOf(l.status) > -1; }).sort(function (a, b) {
+    var ka = a.accepted_at || a.created_at, kb = b.accepted_at || b.created_at; return pick === "review" ? (ka < kb ? -1 : 1) : (a.updated_at < b.updated_at ? 1 : -1); });
+  document.getElementById("rows").innerHTML = list.length ? list.map(function (l) {
+    var m = GF.get(l.member), pr = GF.partners.get(l.product), e = l.status === "REQUESTED" ? Lo.eligibility(l.member, { loan: l.id, product: l.product, amount: l.amount_cents, duration: l.duration, purpose: l.purpose }) : null;
+    var since = l.status === "REQUESTED" ? l.accepted_at : l.updated_at, wait = l.status === "REQUESTED" && (Date.parse(GF.NOW) - Date.parse(l.accepted_at)) > 864e5;
+    return '<tr><td class="primary-cell"><a href="loan.html?l=' + l.id + '" class="tabular">' + l.reference + '</a><span class="cell-sub">' + Lo.L.origin[l.origin] + "</span></td>" +
+      "<td>" + esc(m.full_name) + '<span class="cell-sub">' + esc(GF.get(m.cooperative).profile.short_name) + (l.circle ? " · " + esc(GF.groups.get(l.circle).name) : "") + "</span></td>" +
+      '<td class="num tabular">' + U.whole(l.amount_cents) + '<span class="cell-sub">' + Lo.durationLine(l.duration, GF.partners.get(l.terms).duration_unit) + "</span></td>" +
+      "<td>" + esc(pr.name) + '<span class="cell-sub">' + esc(GF.partners.get(l.partner).name) + "</span></td>" +
+      "<td>" + U.statusLine(l) + (e && !e.ok ? '<span class="cell-sub tone-error">Can\'t be approved now: ' + e.failed.map(function (x) { return x.code; }).join(", ") + "</span>" : "") +
+        (l.end_reason ? '<span class="cell-sub">' + Lo.L.end[l.end_reason] + "</span>" : "") + "</td>" +
+      '<td class="text-body-sm' + (wait ? " tone-warning" : "") + '">' + U.when(since) + (wait ? "<br>Waiting over a day" : "") + "</td></tr>";
+  }).join("") : '<tr><td colspan="6" class="text-body-md tone-muted">Nothing here.</td></tr>';
+}
+document.getElementById("filter").addEventListener("click", function (e) { var b = e.target.closest("[data-g]"); if (b) { pick = b.getAttribute("data-g"); draw(); } });
+var act = Lo.pauses.filter(function (p) { return p.status === "ACTIVE"; });
+if (act.length) document.getElementById("pause-banner").innerHTML = '<div class="banner banner-warning"><span class="mdi mdi-pause-circle-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">' +
+  act.length + (act.length === 1 ? " pause is" : " pauses are") + " stopping new lending: " + act.map(function (p) { return p.scope === "ALL" ? "everyone" : esc((GF.groups.get(p.circle) || GF.get(p.cooperative) || GF.get(p.cluster) || {}).name || ""); }).join(", ") +
+  '.</span><div class="banner-actions"><a class="btn btn-text" href="pauses.html">See pauses</a></div></div></div>';
+draw();
+</script>
+</body>
+</html>

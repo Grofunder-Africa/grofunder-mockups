@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ask for a loan · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../assets/app.js"></script>
+<script src="loans-app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen id="screen" data-title="Ask for a loan" data-flow data-back="index.html" data-compact>
+
+  <p class="proto-note"><b>ML2 · Ask for a loan (note 26, steps 2–4).</b> One step at a time: how much, for how long and what for; the quote, with every charge, what you get, each instalment, the total you repay and the total cost of credit, late penalties apart; your declared income, loans and regular payments, confirmed or updated (20 Q4); then the loan agreement and sharing your details with the lender, named (22: <code>loan.agreement</code> and <code>loan.sharing</code>, context <code>loan:&lt;reference&gt;</code>). Sending runs every check again with a fresh score; the loan is then with GroFunder for review.</p>
+  <p class="proto-note"><b>Accepting a GroFunder draft</b> (<code>?draft=1</code>) starts at the quote, worked out again from the terms in force, and ends with <i>Accept</i> or <i>Decline</i>; the amount is GroFunder's, not the member's to change.</p>
+  <p class="proto-note"><b>Wanjiku can't ask today</b> (ML1): this is drawn as it will be once she can, on Mavuno Capital's dairy input loan, within her limit.</p>
+
+  <div data-roles="out" class="empty"><span class="mdi mdi-account-lock-outline" aria-hidden="true"></span><span class="text-headline-sm">You're signed out</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a></div>
+
+  <div data-state="loaded" class="col gap-4" data-roles="in">
+    <div class="stepper" aria-label="Steps" id="stepper"></div>
+    <div class="col gap-4" id="body"></div>
+  </div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">Not sent</span><span class="text-body-md">Nothing was sent. Try again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+  <div data-footer data-roles="in" id="foot"></div>
+</div>
+<script>
+var A = MemberApp, Lo = GF.loans, K = GF.kyc, CS = GF.consents, f = GF.fmt, esc = A.esc, me = A.current, LA = LoansApp, D = LA.DEMO;
+var draft = new URLSearchParams(location.search).get("draft") === "1";
+if (draft) { document.getElementById("screen").setAttribute("data-title", "Your loan from GroFunder"); document.getElementById("screen").setAttribute("data-back", "loan.html?state=draft"); }
+var S = { step: 0, amount: D ? D.amount_cents : 0, duration: D ? D.duration : 1, purpose: D ? D.purpose.value : "", agree: false, share: false, decl: null };
+var STEPS = draft ? [["cost", "Cost"], ["money", "Your money"], ["agree", "Agree"]] : [["how", "How much"], ["cost", "Cost"], ["money", "Your money"], ["agree", "Agree"]];
+var head = function (t, sub) { return '<div class="col gap-1"><h1 class="text-headline-sm">' + t + "</h1>" + (sub ? '<p class="text-body-md tone-muted">' + sub + "</p>" : "") + "</div>"; };
+var lang = (me.profile && me.profile.language) || "en";
+var draw = {
+  how: function () {
+    var t = D.terms, durs = []; for (var d = t.min_duration; d <= t.max_duration; d++) durs.push(d);
+    return head("How much do you need?", esc(D.product.name) + " from " + esc(D.partner.name) + ". Up to " + LA.money(D.max_cents) + ".") +
+      '<div class="field"><label class="field-label" for="amt">Amount</label><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input tabular" id="amt" inputmode="numeric" value="' + S.amount / 100 + '"></div>' +
+      '<span class="field-help">' + LA.money(t.min_amount_cents) + " to " + LA.money(D.max_cents) + '</span><span class="field-error hidden" id="amt-e"></span></div>' +
+      '<div class="col gap-2"><span class="text-title-sm">For how long?</span><div class="chip-row" data-choice role="radiogroup" aria-label="Duration" id="dur">' + durs.map(function (d) { return '<button class="chip" type="button" role="radio" data-d="' + d + '" aria-checked="' + (d === S.duration) + '">' + Lo.durationLine(d, t.duration_unit) + "</button>"; }).join("") + "</div></div>" +
+      '<div class="col gap-2"><span class="text-title-sm">What is it for?</span><div class="chip-row" data-choice role="radiogroup" aria-label="Purpose" id="pur">' + D.product.details.purposes.map(function (p) { return '<button class="chip" type="button" role="radio" data-p="' + p.value + '" aria-checked="' + (p.value === S.purpose) + '">' + esc(lang === "sw" ? p.sw : p.en) + "</button>"; }).join("") + "</div></div>";
+  },
+  cost: function () {
+    var q = Lo.quote(D.terms, S.amount, S.duration);
+    return head(draft ? "GroFunder prepared this loan for you" : "What it costs", draft ? "Accept it by " + f.date(Lo.expiresAt({ created_at: GF.NOW }), "short") + ", or it lapses. To change the amount, call GroFunder." : LA.money(S.amount) + " for " + Lo.durationLine(S.duration, D.terms.duration_unit) + ", from " + esc(D.partner.name) + ".") + LA.quoteHtml(q);
+  },
+  money: function () {
+    var it = ["INCOME", "OBLIGATION", "BACKGROUND"].map(function (t) { return K.current(me.id, t); }).reduce(function (a, b) { return a.concat(b); }, []);
+    var line = function (i) { return i.data_type === "INCOME" ? K.L.incomeKind[i.data.kind] + ": " + K.L.band[i.data.monthly_band] + " a month" : i.data_type === "OBLIGATION" ? (i.data.kind === "LOAN" ? "A loan" : K.L.obKind ? K.L.obKind[i.data.kind] || "A regular payment" : "A regular payment") + ": " + LA.money(i.data.monthly_cents) + " a month" : "About you"; };
+    return head("Is this still right?", "What you told GroFunder about your money. Lenders lend on it, so check it before you send.") +
+      '<div class="list rowcards">' + (it.length ? it.map(function (i) { return '<div class="rowcard"><span class="mdi mdi-' + K.TYPES[i.data_type].icon + '" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">' + esc(line(i)) + "</span></span></div>"; }).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">Nothing declared.</span></div>') + "</div>" +
+      '<div class="col gap-2" role="radiogroup" aria-label="Still right?">' +
+      '<label class="radio-card" style="flex-direction:row;gap:12px;align-items:center"><input type="radio" name="decl" value="yes"' + (S.decl === "yes" ? " checked" : "") + '><span class="text-title-sm">Yes, it\'s still right</span></label>' +
+      '<label class="radio-card" style="flex-direction:row;gap:12px;align-items:center"><input type="radio" name="decl" value="no"' + (S.decl === "no" ? " checked" : "") + '><span class="text-title-sm">No, I\'ll update it first</span></label></div>' +
+      '<span class="field-error hidden" id="decl-e">Choose one to go on.</span>';
+  },
+  agree: function () {
+    var la = CS.live(CS.boundTo("loan.agreement", D.partner.id).id, lang), sh = CS.live(CS.boundTo("loan.sharing", D.partner.id).id, lang);
+    var q = Lo.quote(D.terms, S.amount, S.duration);
+    return head("Agree and send", "Borrowing " + LA.money(S.amount) + " from " + esc(D.partner.name) + ". You repay " + LA.money(q.total_repayable_cents) + " in all.") +
+      '<div class="card card-outlined col gap-2"><span class="text-title-sm">' + esc(la.title) + '</span><span class="text-body-md">' + esc(la.summary) + "</span>" +
+        '<a class="text-body-md" href="../consents/agree.html?d=' + la.document + "&amp;v=" + la.id + '">Read it all</a>' +
+        '<label class="check"><input type="checkbox" id="ag"' + (S.agree ? " checked" : "") + '><span class="grow"><span class="text-body-lg">I accept the loan agreement and this quote</span></span></label></div>' +
+      '<div class="card card-outlined col gap-2"><span class="text-title-sm">' + esc(sh.title) + '</span><span class="text-body-md">' + esc(sh.summary) + "</span>" +
+        '<a class="text-body-md" href="../consents/agree.html?d=' + sh.document + "&amp;v=" + sh.id + '">Read it all</a>' +
+        '<label class="check"><input type="checkbox" id="sh"' + (S.share ? " checked" : "") + '><span class="grow"><span class="text-body-lg">I agree to GroFunder sending ' + esc(D.partner.name) + " my request and details</span></span></label></div>" +
+      '<span class="field-error hidden" id="ag-e">Tick both to send. Without them the lender can\'t consider your request.</span>' +
+      '<p class="text-body-sm tone-muted">If the loan defaults, ' + esc(A.coopName(me)) + " may hold back your pay. While you are behind, your circle sees your name, the days late and the amount overdue, never the loan's size or lender.</p>";
+  }
+};
+function steps() { return STEPS; }
+function redraw() {
+  if (!D) { document.getElementById("body").innerHTML = '<div class="empty"><span class="text-headline-sm">No loan is offered to you right now</span><a class="btn btn-tonal" href="index.html">Back</a></div>'; document.getElementById("foot").innerHTML = ""; return; }
+  var id = STEPS[S.step][0];
+  document.getElementById("stepper").innerHTML = STEPS.map(function (st, i) { return (i ? '<span class="sep"></span>' : "") + '<span class="step' + (i < S.step ? " done" : "") + '"' + (i === S.step ? ' aria-current="step"' : "") + '><span class="n">' + (i < S.step ? "✓" : i + 1) + '</span><span class="lbl">' + st[1] + "</span></span>"; }).join("");
+  document.getElementById("body").innerHTML = draw[id]();
+  var last = S.step === STEPS.length - 1;
+  document.getElementById("foot").innerHTML = '<div class="col gap-2" style="width:100%"><div class="row gap-2 end">' + (S.step ? '<button class="btn btn-text" type="button" onclick="go(-1)">Back</button>' : "") +
+    '<button class="btn btn-filled" type="button" id="next" onclick="go(1)">' + (last ? (draft ? "Accept the loan" : "Send to GroFunder") : "Next") + "</button></div>" +
+    (draft && last ? '<button class="btn btn-text btn-block" type="button" onclick="decline()">Decline it</button>' : "") + "</div>";
+  var dur = document.getElementById("dur"), pur = document.getElementById("pur");
+  if (dur) dur.addEventListener("click", function (e) { var b = e.target.closest("[data-d]"); if (b) S.duration = +b.getAttribute("data-d"); });
+  if (pur) pur.addEventListener("click", function (e) { var b = e.target.closest("[data-p]"); if (b) S.purpose = b.getAttribute("data-p"); });
+}
+function go(d) {
+  var id = STEPS[S.step][0];
+  if (d > 0 && id === "how") {
+    var a = Math.round(+document.getElementById("amt").value.replace(/\D/g, "") * 100), e = Lo.eligibility(me.id, { product: D.product.id, amount: a, duration: S.duration, purpose: S.purpose });
+    var bad = a < D.terms.min_amount_cents || a > D.max_cents;
+    if (bad) { var el = document.getElementById("amt-e"); el.textContent = "Between " + LA.money(D.terms.min_amount_cents) + " and " + LA.money(D.max_cents) + "."; el.classList.remove("hidden"); return; }
+    S.amount = a;
+  }
+  if (d > 0 && id === "money") {
+    var c = document.querySelector('input[name="decl"]:checked'); if (!c) { document.getElementById("decl-e").classList.remove("hidden"); return; }
+    S.decl = c.value; if (S.decl === "no") { location.href = "../kyc/declare.html"; return; }
+  }
+  if (d > 0 && id === "agree") {
+    S.agree = document.getElementById("ag").checked; S.share = document.getElementById("sh").checked;
+    if (!S.agree || !S.share) { document.getElementById("ag-e").classList.remove("hidden"); return; }
+    Proto.snack(draft ? "Accepted. Your loan is with GroFunder for review" : "Sent. GroFunder reviews your request");
+    setTimeout(function () { location.href = "loan.html?state=requested"; }, 1300);
+    return;
+  }
+  S.step += d; redraw();
+}
+function decline() { Proto.confirm({ title: "Decline this loan?", message: "GroFunder's draft is cancelled and its borrowing space opens again. You can ask for a loan later.", confirm: "Decline", onConfirm: function () { Proto.snack("Declined"); setTimeout(function () { location.href = "index.html"; }, 1200); } }); }
+redraw();
+</script>
+</body>
+</html>

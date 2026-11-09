@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Scoring rules version · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../assets/console.js"></script>
+<script src="credit-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Scoring rules" data-dest="credit" data-wide data-back="rules.html" id="screen">
+
+  <p class="proto-note"><b>CR5 · A rules version (note 25, <code>ScoringRuleSet</code>).</b> The factors with their weights and settings, the limit ladder, and how old a score may be before the app works it out again. Weights are 0–100 and add up to 100; a factor at 0 is recorded only (declared income, v1). The ladder sets the limit by score alone (Q3) and rises in both limit and minimum score.</p>
+  <p class="proto-note"><b>Draft</b> (<code>credit.publish</code>): edit, preview, publish or delete. <b>Preview</b> works out up to 50 members' scores under the draft and under the version in force, writing nothing, so staff see what a change does first. <b>Publish</b> checks the schema, the weights, that every factor is registered in code, the rising ladder (minimums 300–850), and a start now or later at a moment no other published version uses. A <b>scheduled</b> version can be withdrawn with a reason (C2); once in force, the fix is a new version.</p>
+  <p class="proto-note"><b>Audit, 2026-11-08:</b> the draft's sections have visible <b>Edit</b> buttons. Factors can be <b>added</b> (registered in code, with their default settings) or <b>removed</b>. Saving checks each value; weights not totalling 100 or a ladder that doesn't rise only warn, since publishing checks them. A draft holds <b>when it takes effect</b> (ruling 1); publishing uses it, or "take effect now". <b>Preview</b> any members (up to 50) or a whole cooperative. Any version can be the start of a new draft.</p>
+  <p class="proto-note"><b>Editing a draft</b> (2026-11-08): weights and every factor's settings, the refresh time, the ladder (add and remove steps) and the notes, each checked as the service checks them. When it takes effect is set when publishing (a6 is reviewing whether a draft should hold it before then).</p>
+  <p class="proto-note"><b>Try:</b> <a href="?r=rs-4">the draft</a> · <a href="?r=rs-3">scheduled for 1 Dec</a> · <a href="?r=rs-1">in force</a> · <a href="?r=rs-2">withdrawn</a></p>
+
+  <div data-state="loaded" class="col gap-4" id="page"></div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:72px"></div><div class="skeleton-card" style="height:300px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load these rules</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var C = GF.credit, U = CreditUI, esc = U.esc, icon = U.icon, f = GF.fmt, L = C.L, R = U.ROLES;
+var r = C.get(new URLSearchParams(location.search).get("r")) || C.get("rs-4");
+var st = C.state(r), draft = st === "DRAFT", base = C.inForce(), screen = document.getElementById("screen");
+screen.setAttribute("data-title", "Scoring rules · version " + r.version);
+if (draft) {
+  screen.setAttribute("data-action", JSON.stringify({ label: "Publish", icon: "send-check-outline", roles: R.publish, on: "publish()" }));
+  screen.setAttribute("data-menu", JSON.stringify([{ label: "Edit weights and settings", icon: "pencil-outline", roles: R.publish, on: "editFactors()" }, { label: "Edit the ladder", icon: "stairs", roles: R.publish, on: "editLadder()" },
+    { label: "Edit notes", icon: "note-edit-outline", roles: R.publish, on: "editNotes()" },
+    { label: "Delete this draft", icon: "delete-outline", roles: R.publish, on: "Proto.confirm({title:'Delete this draft?',message:'Nothing published changes.',confirm:'Delete',destructive:true,onConfirm:function(){Proto.snack('Draft deleted')}})", destructive: true, sep: true }]));
+} else {
+  var m2 = [{ label: "Draft a new version from this one", icon: "content-copy", roles: R.publish, on: "draftFrom()" }];
+  if (st === "SCHEDULED") m2.push({ label: "Withdraw before it starts", icon: "undo-variant", roles: R.publish, on: "withdraw()", destructive: true, sep: true });
+  screen.setAttribute("data-menu", JSON.stringify(m2));
+}
+
+var PARAMS = {
+  repayment: function (p) { return "No loans yet counts as " + p.no_history; },
+  delivery: function (p) { return "Over " + p.window_weeks + " weeks; full at " + p.full_weeks + " weeks with a delivery and " + U.money(p.full_value_cents) + " paid in 12 months; " + p.consistency_share_bps / 100 + "% weeks, " + (100 - p.consistency_share_bps / 100) + "% value"; },
+  circle: function (p) { return "No circle " + p.none + " · forming " + p.forming + " · complete " + p.complete + " · complete and verified " + p.complete_verified + " · less " + p.behind_penalty + " per member behind"; },
+  tenure: function (p) { return "Full at " + p.full_months + " months"; },
+  declared: function () { return "Declared income against obligations"; }
+};
+function diffLine() {
+  if (!draft || !base || base.id === r.id) return "";
+  var out = [];
+  r.rules.factors.forEach(function (x) { var y = base.rules.factors.find(function (z) { return z.key === x.key; }); if (!y) out.push(L.factor[x.key] + ": new"); else { if (x.weight !== y.weight) out.push(L.factor[x.key] + " weight " + y.weight + " → " + x.weight); if (JSON.stringify(x.params) !== JSON.stringify(y.params)) out.push(L.factor[x.key] + " settings changed"); } });
+  if (JSON.stringify(r.rules.ladder) !== JSON.stringify(base.rules.ladder)) out.push("Ladder: " + base.rules.ladder.length + " → " + r.rules.ladder.length + " steps");
+  if (r.rules.refresh_hours !== base.rules.refresh_hours) out.push("Refresh after " + base.rules.refresh_hours + " → " + r.rules.refresh_hours + " hours");
+  return '<div class="banner banner-info">' + icon("compare-horizontal") + '<div class="grow"><span class="text-title-sm">Changed from version ' + base.version + ", in force</span><span class=\"text-body-md\">" + (out.join("<br>") || "Nothing yet") + "</span></div></div>";
+}
+function banner() {
+  if (st === "WITHDRAWN") return '<div class="banner banner-info">' + icon("undo-variant") + '<div class="grow"><span class="text-body-md">Withdrawn ' + U.when(r.withdrawn.at) + " by " + esc(U.who(r.withdrawn.by)) + ', before it took effect: "' + esc(r.withdrawn.reason) + '" No score used it.</span></div></div>';
+  if (st === "SCHEDULED") return '<div class="banner banner-info">' + icon("calendar-clock") + '<div class="grow"><span class="text-body-md">Takes effect ' + U.when(r.effective_from) + "; the next nightly run scores everyone under it. Until then scores use version " + base.version + ".</span></div></div>";
+  if (st === "PAST") return '<div class="banner banner-info">' + icon("history") + '<div class="grow"><span class="text-body-md">Replaced by a later version. Scores worked out under it keep it.</span></div></div>';
+  return "";
+}
+var facts = [["Status", U.chip(L.rs[st])]];
+if (!draft) facts.push(["Takes effect", U.when(r.effective_from)], ["Published", U.when(r.published_at) + " by " + esc(U.who(r.published_by))]);
+else facts.push(["Takes effect", (r.effective_from ? U.when(r.effective_from) : '<span class="tone-muted">Not set: set it here or when publishing</span>') +
+  ' <button class="btn btn-text btn-sm" type="button" data-roles="' + R.publish + '" onclick="editDate()">' + (r.effective_from ? "Change" : "Set") + "</button>"]);
+facts.push(["Drafted", U.when(r.created_at) + " by " + esc(U.who(r.created_by))], ["Score refreshed after", r.rules.refresh_hours + " hours, when a member opens the app" +
+  (draft ? ' <button class="btn btn-text btn-sm" type="button" data-roles="' + R.publish + '" onclick="editFactors()">Change</button>' : "")]);
+/* Visible actions (audit, 2026-11-09): the ⋮ menu repeats them, nothing lives only there. */
+function actionsRow() {
+  var b = function (cls, on, ic, label, id) { return '<button class="btn ' + cls + '" type="button" data-roles="' + R.publish + '"' + (id ? ' id="' + id + '"' : "") + ' onclick="' + on + '">' + icon(ic) + label + "</button>"; };
+  if (draft) return '<div class="actions actions-start" id="rs-acts">' + b("btn-filled", "publish()", "send-check-outline", "Publish", "rs-publish") +
+    b("btn-text tone-error", "deleteDraft()", "delete-outline", "Delete this draft") + "</div>";
+  return '<div class="actions actions-start" id="rs-acts">' + b("btn-outlined", "draftFrom()", "content-copy", "Draft a new version from this one") +
+    (st === "SCHEDULED" ? b("btn-outlined tone-error", "withdraw()", "undo-variant", "Withdraw before it starts") : "") + "</div>";
+}
+function deleteDraft() { Proto.confirm({ title: "Delete this draft?", message: "Nothing published changes.", confirm: "Delete", destructive: true, onConfirm: function () { Proto.snack("Draft deleted"); } }); }
+var sum = r.rules.factors.reduce(function (s, x) { return s + x.weight; }, 0);
+document.getElementById("page").innerHTML =
+  '<div class="section"><div class="section-body"><dl class="facts">' + facts.map(function (x) { return "<dt>" + x[0] + "</dt><dd>" + x[1] + "</dd>"; }).join("") + "</dl>" +
+    ((r.notes || draft) ? '<div class="row between gap-2" style="align-items:flex-start"><span class="text-body-md" style="white-space:pre-line">' + (r.notes ? esc(r.notes) : '<span class="tone-muted">No notes yet</span>') + "</span>" +
+      (draft ? '<button class="btn btn-outlined btn-sm" type="button" data-roles="' + R.publish + '" id="edit-notes" onclick="editNotes()">' + icon("pencil-outline") + "Edit notes</button>" : "") + "</div>" : "") + "</div></div>" + actionsRow() + banner() + diffLine() +
+  '<div class="two-col"><div class="col gap-4">' +
+    '<div class="section"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">Factors</span><span class="text-body-sm tone-muted">Weights add up to ' + sum + "</span></div>" +
+      (draft ? '<button class="btn btn-outlined btn-sm" type="button" data-roles="' + R.publish + '" id="edit-factors" onclick="editFactors()">' + icon("pencil-outline") + "Edit</button>" : "") + "</div>" +
+      '<div class="table-wrap"><table class="table"><thead><tr><th>Factor</th><th class="num">Weight</th><th>Settings</th></tr></thead><tbody>' + r.rules.factors.map(function (x) {
+        return '<tr><td class="primary-cell">' + L.factor[x.key] + '<span class="cell-sub"><code>' + x.key + "</code>" + (x.key === "repayment" ? " · from loans (26), not built" : "") + '</span></td><td class="num">' + x.weight + '</td><td class="text-body-sm">' + esc(PARAMS[x.key](x.params)) + "</td></tr>";
+      }).join("") + "</tbody></table></div></div></div>" +
+    (draft ? '<div class="section" data-roles="owner full"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">Preview</span><span class="text-body-sm tone-muted">Up to 50 members under version ' + base.version + " and under this draft. Nothing is written</span></div></div>" +
+      '<div class="row gap-2 wrap"><div class="field search" style="flex:1;min-width:200px"><div class="field-box"><span class="lead">' + icon("magnify") + '</span><input class="field-input" id="pv-q" type="search" placeholder="Add a member by name or number" aria-label="Add a member to the preview"></div><div class="combo-list" id="pv-list" hidden></div></div>' +
+      '<select class="field-input" id="pv-coop" aria-label="Preview a cooperative" style="width:auto"><option value="">Or a whole cooperative…</option>' + GF.cooperatives.filter(function (co) { return C.scored.some(function (m) { return m.cooperative === co.id; }); }).map(function (co) { return '<option value="' + co.id + '">' + esc(co.profile.short_name) + "</option>"; }).join("") + "</select></div>" +
+      '<span class="text-body-sm tone-muted" id="pv-count"></span>' +
+      '<div class="table-wrap"><table class="table"><thead><tr><th>Member</th><th class="num">v' + base.version + '</th><th class="num">Draft</th><th>Step</th><th></th></tr></thead><tbody id="preview"></tbody></table></div></div></div>' : "") +
+  '</div><div class="col gap-4">' +
+    '<div class="section"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">Ladder</span></div>' +
+      (draft ? '<button class="btn btn-outlined btn-sm" type="button" data-roles="' + R.publish + '" id="edit-ladder" onclick="editLadder()">' + icon("pencil-outline") + "Edit</button>" : "") + "</div>" +
+      '<span class="text-body-sm tone-muted">The highest step whose minimum the score meets; below step 1 the limit is 0</span>' +
+      '<div class="table-wrap"><table class="table"><thead><tr><th>Step</th><th class="num">From score</th><th class="num">Limit</th></tr></thead><tbody>' + r.rules.ladder.map(function (x) {
+        return '<tr><td>' + x.step + '</td><td class="num' + (x.min_score > 850 ? " tone-error" : "") + '">' + x.min_score + '</td><td class="num">' + U.money(x.limit_cents) + "</td></tr>";
+      }).join("") + "</tbody></table></div></div></div>" +
+  "</div></div>";
+
+var sample = ["m-kij-0142", "m-kij-0031", "m-kij-0217", "m-kij-0088", "m-maw-0907", "m-maw-MCG-0005", "m-kij-M-0013", "m-kij-0199", "m-gat-GA-0001", "m-kij-M-0004"];
+function drawPreview() {
+  document.getElementById("pv-count").textContent = sample.length + " of at most 50 members";
+  document.getElementById("preview").innerHTML = sample.map(function (id) {
+    var m = GF.get(id), a = C.compute(m, GF.NOW, "STAFF", base), b = C.compute(m, GF.NOW, "STAFF", r), d = b.score - a.score;
+    return '<tr><td class="primary-cell">' + esc(m.full_name) + '<span class="cell-sub">' + esc(U.coopName(m)) + '</span></td><td class="num">' + a.score + '</td><td class="num">' + b.score + (d ? ' <span class="text-body-sm tone-muted">(' + (d > 0 ? "+" : "") + d + ")</span>" : "") +
+      "</td><td>" + (a.ladder_step === b.ladder_step ? a.ladder_step : a.ladder_step + " → " + b.ladder_step) + '</td><td><button class="icon-btn" type="button" aria-label="Take ' + esc(m.full_name) + ' out" onclick="dropPv(\'' + id + '\')">' + icon("close") + "</button></td></tr>";
+  }).join("");
+}
+function dropPv(id) { sample.splice(sample.indexOf(id), 1); drawPreview(); }
+if (draft) {
+  drawPreview();
+  var pq = document.getElementById("pv-q"), pl = document.getElementById("pv-list");
+  pq.addEventListener("input", function () {
+    var t = pq.value.trim().toLowerCase();
+    var found = t.length < 2 ? [] : C.scored.filter(function (m) { return sample.indexOf(m.id) === -1 && (m.full_name.toLowerCase().indexOf(t) > -1 || m.member_no.toLowerCase() === t); }).slice(0, 6);
+    pl.innerHTML = found.map(function (m) { return '<div class="combo-item" role="option" data-id="' + m.id + '"><span class="grow"><span class="text-body-lg">' + esc(m.full_name) + '</span><span class="text-body-sm tone-muted">' + esc(U.coopName(m)) + "</span></span></div>"; }).join("");
+    pl.hidden = !found.length;
+  });
+  pl.addEventListener("click", function (e) { var b = e.target.closest("[data-id]"); if (!b) return; if (sample.length >= 50) return Proto.snack("At most 50 members"); sample.push(b.getAttribute("data-id")); pq.value = ""; pl.hidden = true; drawPreview(); });
+  document.getElementById("pv-coop").addEventListener("change", function (e) { if (!e.target.value) return; sample = C.scored.filter(function (m) { return m.cooperative === e.target.value; }).slice(0, 50).map(function (m) { return m.id; }); drawPreview(); });
+}
+
+/* -------------------------------------------------------------- actions */
+function publish() {
+  var bad = [];
+  if (sum !== 100) bad.push("Weights add up to " + sum + ", not 100");
+  r.rules.ladder.forEach(function (x, i) { var p = r.rules.ladder[i - 1]; if (x.min_score < 300 || x.min_score > 850) bad.push("Step " + x.step + "'s minimum is outside 300–850"); if (p && (x.min_score <= p.min_score || x.limit_cents <= p.limit_cents)) bad.push("Step " + x.step + " doesn't rise above step " + p.step); });
+  if (bad.length) return Proto.dialog({ title: "Can't publish yet", body: "<ul>" + bad.map(function (b) { return "<li>" + b + "</li>"; }).join("") + "</ul>" });
+  var taken = C.ruleSets.filter(function (x) { return x.status === "PUBLISHED"; }).map(function (x) { return x.effective_from.slice(0, 10); });
+  Proto.dialog({ title: "Publish version " + r.version,
+    body: '<p class="text-body-md tone-muted">Once published it never changes. Staff are told; the nightly run after it starts scores everyone under it.</p>' +
+      '<label class="check"><input type="checkbox" id="now"' + (r.effective_from ? "" : " checked") + '><span>Take effect now</span></label>' +
+      '<div class="form-grid"><div class="field"><label class="field-label" for="ed">Takes effect on</label><input class="field-input tabular" id="ed" type="date" min="' + GF.TODAY + '" value="' + (r.effective_from ? r.effective_from.slice(0, 10) : GF.TODAY) + '"></div>' +
+      '<div class="field"><label class="field-label" for="et">At</label><input class="field-input tabular" id="et" type="time" value="' + (r.effective_from ? r.effective_from.slice(11, 16) : "00:00") + '"></div></div>' +
+      '<span class="field-help">' + (r.effective_from ? "The draft's own date." : "Or choose a later moment.") + "</span>",
+    submit: "Publish", onSubmit: function (d) {
+      if (d.querySelector("#now").checked) return Proto.snack("Version " + r.version + " published. It takes effect now");
+      var day = d.querySelector("#ed").value;
+      if (!day || day < GF.TODAY) return Proto.snack("It can't start in the past");
+      if (taken.indexOf(day) > -1 && d.querySelector("#et").value === "00:00") return Proto.snack("Another published version starts then. Withdraw it first, or pick another moment");
+      Proto.snack("Version " + r.version + " published. It takes effect " + f.date(day, "short"));
+    } });
+}
+function withdraw() {
+  Proto.dialog({ title: "Withdraw version " + r.version + "?", body: '<p class="text-body-md tone-muted">It hasn\'t taken effect, so no score used it. Its date is freed for a corrected version. Staff are told.</p>' +
+    '<div class="field"><label class="field-label" for="wr">Reason</label><textarea class="field-input" id="wr" placeholder="Added to the version\'s notes"></textarea></div>',
+    submit: "Withdraw", onSubmit: function (d) { if (!d.querySelector("#wr").value.trim()) return Proto.snack("A reason is needed"); Proto.snack("Version " + r.version + " withdrawn"); } });
+}
+/* update_rule_set (credit.publish, drafts only): weights, each factor's settings, refresh time, notes and the ladder.
+ * Checked as the service does, so errors show while editing. */
+var PFIELDS = {
+  repayment: [["no_history", "No loans yet counts as (0 to 1)", 1]],
+  delivery: [["window_weeks", "Weeks looked back", 0], ["full_weeks", "Weeks with a delivery for full marks", 0], ["full_value_cents", "Produce paid in 12 months for full marks (Ksh)", 100], ["consistency_share_bps", "Share for weeks, not value (%)", 100]],
+  circle: [["none", "No circle (0 to 1)", 1], ["forming", "Forming", 1], ["complete", "Complete", 1], ["complete_verified", "Complete, every member verified", 1], ["behind_penalty", "Taken off per member behind", 1]],
+  tenure: [["full_months", "Months for full marks", 0]],
+  declared: []
+};
+function editFactors() {
+  var reg = Object.keys(C.FACTORS), DEF = {};
+  C.DEFAULT_FACTORS.forEach(function (x) { DEF[x.key] = x; });
+  var card = function (x) {
+    return '<div class="card card-outlined col gap-2" data-factor="' + x.key + '"><div class="row between gap-2"><span class="text-title-sm">' + L.factor[x.key] + '</span><button class="btn btn-text btn-sm" type="button" data-remove>Remove</button></div>' +
+      '<div class="form-grid"><div class="field"><label class="field-label" for="w-' + x.key + '">Weight</label><input class="field-input tabular" id="w-' + x.key + '" inputmode="numeric" value="' + x.weight + '"></div>' +
+      PFIELDS[x.key].map(function (f) { var v = x.params[f[0]]; return '<div class="field"><label class="field-label" for="p-' + x.key + "-" + f[0] + '">' + f[1] + '</label><input class="field-input tabular" id="p-' + x.key + "-" + f[0] + '" inputmode="decimal" value="' + (f[2] === 100 ? v / 100 : v) + '"></div>'; }).join("") +
+      "</div></div>";
+  };
+  var el = Proto.dialog({ title: "Weights and settings",
+    body: '<p class="text-body-md tone-muted">Weights are whole numbers from 0 to 100; they must add up to 100 before publishing. A factor at 0 is worked out and recorded, but doesn\'t count. Only factors registered in code can be added.</p>' +
+      '<div class="col gap-2" id="factors">' + r.rules.factors.map(card).join("") + "</div>" +
+      '<div class="row gap-2 wrap" style="align-items:end"><div class="field"><label class="field-label" for="addf">Add a factor</label><select class="field-input" id="addf"></select></div><button class="btn btn-outlined btn-sm" type="button" id="addf-btn">Add</button></div>' +
+      '<span class="text-body-md" id="wsum"></span>' +
+      '<div class="field"><label class="field-label" for="rh">Work a score out again after (hours)</label><input class="field-input tabular" id="rh" inputmode="numeric" value="' + r.rules.refresh_hours + '" style="max-width:120px"><span class="field-help">When a member opens the app; 1 or more</span></div>',
+    submit: "Save draft", onSubmit: function (d) {
+      var g = function (id) { return +d.querySelector("#" + id).value; };
+      var keys = [].map.call(d.querySelectorAll("[data-factor]"), function (x) { return x.getAttribute("data-factor"); }), has = function (k) { return keys.indexOf(k) > -1; };
+      if (!keys.length) return Proto.snack("Keep at least one factor");
+      if (keys.some(function (k) { var w = d.querySelector("#w-" + k).value.trim(); return w === "" || !(+w >= 0 && +w <= 100) || +w % 1; })) return Proto.snack("Each weight is a whole number from 0 to 100");
+      var bad = ["repayment", "circle"].filter(has).some(function (k) { return PFIELDS[k].some(function (f) { var v = g("p-" + k + "-" + f[0]); return !(v >= 0 && v <= 1); }); });
+      if (bad) return Proto.snack("Repayment and circle values are between 0 and 1");
+      if (has("delivery") && !(g("p-delivery-full_weeks") >= 1 && g("p-delivery-full_weeks") <= g("p-delivery-window_weeks"))) return Proto.snack("Full-marks weeks must be at least 1 and no more than the weeks looked back");
+      if (has("delivery") && (!(g("p-delivery-consistency_share_bps") >= 0 && g("p-delivery-consistency_share_bps") <= 100) || !(g("p-delivery-full_value_cents") > 0))) return Proto.snack("The weeks share is 0 to 100%, and the full-marks value above 0");
+      if (has("tenure") && !(g("p-tenure-full_months") >= 1)) return Proto.snack("Full marks for time needs at least 1 month");
+      if (!(g("rh") >= 1)) return Proto.snack("At least 1 hour");
+      var t = keys.reduce(function (s, k) { return s + g("w-" + k); }, 0);
+      Proto.snack(t === 100 ? "Draft saved" : "Draft saved. Before publishing: the weights add up to " + t + ", not 100");
+    } });
+  var host = el.querySelector("#factors"), sel = el.querySelector("#addf");
+  function options() {
+    var used = [].map.call(host.querySelectorAll("[data-factor]"), function (x) { return x.getAttribute("data-factor"); });
+    var free = reg.filter(function (k) { return used.indexOf(k) === -1; });
+    sel.innerHTML = free.length ? free.map(function (k) { return '<option value="' + k + '">' + L.factor[k] + "</option>"; }).join("") : "<option value=\"\">Every registered factor is in use</option>";
+    sel.disabled = !free.length; el.querySelector("#addf-btn").disabled = !free.length;
+    var t = [].reduce.call(host.querySelectorAll('[id^="w-"]'), function (s, i) { return s + (+i.value || 0); }, 0);
+    el.querySelector("#wsum").textContent = "Weights total " + t + (t === 100 ? "" : ": must be 100 before publishing");
+  }
+  host.addEventListener("click", function (e) { var b = e.target.closest("[data-remove]"); if (b) { b.closest("[data-factor]").remove(); options(); } });
+  host.addEventListener("input", options);
+  el.querySelector("#addf-btn").addEventListener("click", function () { var k = sel.value; if (!k) return; host.insertAdjacentHTML("beforeend", card({ key: k, weight: 0, params: JSON.parse(JSON.stringify(DEF[k].params)) })); options(); });
+  options();
+}
+function editLadder() {
+  var row = function (x) { return '<div class="form-grid" data-step style="align-items:end"><div class="field"><label class="field-label">From score</label><input class="field-input tabular" inputmode="numeric" value="' + (x ? x.min_score : "") + '"></div>' +
+    '<div class="field"><label class="field-label">Limit (Ksh)</label><input class="field-input tabular" inputmode="numeric" value="' + (x ? x.limit_cents / 100 : "") + '"></div>' +
+    '<button class="btn btn-text btn-sm" type="button" data-drop>Remove</button></div>'; };
+  var el = Proto.dialog({ title: "The ladder",
+    body: '<p class="text-body-md tone-muted">Steps in order, lowest first. Each needs a higher score and gives a higher limit than the one before; scores are 300 to 850. Below the first step the limit is 0.</p>' +
+      '<div class="col gap-2" id="steps">' + r.rules.ladder.map(row).join("") + "</div>" +
+      '<div class="actions actions-start"><button class="btn btn-outlined btn-sm" type="button" id="add-step">Add a step</button></div>',
+    submit: "Save draft", onSubmit: function (d) {
+      var rows = [].map.call(d.querySelectorAll("[data-step]"), function (x) { var v = x.querySelectorAll("input"); return [+v[0].value, +v[1].value]; });
+      if (!rows.length) return Proto.snack("The ladder needs at least one step");
+      for (var i = 0; i < rows.length; i++) if (!(rows[i][0] > 0) || !(rows[i][1] > 0)) return Proto.snack("Fill in step " + (i + 1) + "'s score and limit");
+      var warn = "";
+      for (i = 0; i < rows.length && !warn; i++) {
+        if (rows[i][0] < 300 || rows[i][0] > 850) warn = "step " + (i + 1) + "'s score must be 300 to 850";
+        else if (i && (rows[i][0] <= rows[i - 1][0] || rows[i][1] <= rows[i - 1][1])) warn = "step " + (i + 1) + " must rise above step " + i;
+      }
+      Proto.snack("Ladder saved: " + rows.length + " steps" + (warn ? ". Before publishing: " + warn : ""));
+    } });
+  var host = el.querySelector("#steps");
+  el.querySelector("#add-step").addEventListener("click", function () { host.insertAdjacentHTML("beforeend", row(null)); });
+  host.addEventListener("click", function (e) { var b = e.target.closest("[data-drop]"); if (b) b.closest("[data-step]").remove(); });
+}
+function editDate() {
+  var e = r.effective_from;
+  Proto.dialog({ title: "When it takes effect", body: '<div class="form-grid"><div class="field"><label class="field-label" for="dd">On</label><input class="field-input tabular" id="dd" type="date" min="' + GF.TODAY + '" value="' + (e ? e.slice(0, 10) : "") + '"></div>' +
+    '<div class="field"><label class="field-label" for="dt">At</label><input class="field-input tabular" id="dt" type="time" value="' + (e ? e.slice(11, 16) : "00:00") + '"></div></div><span class="field-help">Now or later. Leave it empty to decide when publishing.</span>',
+    submit: "Save draft", onSubmit: function (d) { var v = d.querySelector("#dd").value; if (v && v < GF.TODAY) return Proto.snack("It can't start in the past"); Proto.snack(v ? "It takes effect " + f.date(v, "short") + " once published" : "Date cleared"); } });
+}
+/* draft_rule_set(from_version): one draft at a time (C1). */
+function draftFrom() {
+  var d = C.ruleSets.find(function (x) { return x.status === "DRAFT"; });
+  if (d) return Proto.dialog({ title: "A draft is already open", body: '<p class="text-body-md">Version ' + d.version + " is a draft. Finish or delete it first: one draft at a time.</p>" + '<div class="actions"><a class="btn btn-filled" href="rule-set.html?r=' + d.id + '">Open version ' + d.version + "</a></div>" });
+  Proto.snack("Draft opened as a copy of version " + r.version); location.href = "rule-set.html?r=" + r.id;
+}
+function editNotes() {
+  Proto.dialog({ title: "What changed and why", body: '<div class="field"><label class="field-label" for="nt">Notes</label><textarea class="field-input" id="nt" rows="5">' + esc(r.notes) + '</textarea><span class="field-help">Shown to whoever reviews or publishes it</span></div>',
+    submit: "Save draft", onSubmit: function () { Proto.snack("Notes saved"); } });
+}
+</script>
+</body>
+</html>

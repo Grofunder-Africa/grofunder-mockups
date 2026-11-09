@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Read and agree · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen id="screen" data-title="Read and agree" data-flow data-back="index.html" data-compact>
+
+  <p class="proto-note"><b>MS2 · Read and agree (note 22, step 3; the kit's <code>slots/{slot}/</code>).</b> The version in force for the slot, in the member's language, with a switch to the other. The summary comes first, then the whole wording. When a new version asks the member to agree again, its change note leads. The app sends back the version id it showed; a version that changed meanwhile is refused (<code>CONSENT_VERSION_SUPERSEDED</code>) and shown again.</p>
+  <p class="proto-note"><b>Agreement or consent.</b> A consent (lending, sharing with a lender) can be agreed to or refused: <i>No thanks</i> records a decline, and nothing outside lending changes. An agreement (the terms, a loan agreement) is accepted to go ahead and has no decline.</p>
+  <p class="proto-note"><b>Where it is asked</b> (<code>?for=</code>): <code>kyc</code>, the first step of <i>Your farm and money</i>; <code>prompt</code>, the Home prompt after a version that asks again; <code>credit</code>, from <i>What can I borrow</i>; <code>account</code>, from Consents. A sign-up's terms are asked on M3. <code>&amp;v=</code> shows an exact version read only, as agreed.</p>
+  <p class="proto-note"><b>The terms (G100, the owner, 2026-11-09; closed).</b> A version that asks again can be published to apply later; members agree to it early here (<code>?d=cd-terms&amp;for=prompt</code>: version 2, from 16 Nov). Until a member agrees to a version in force, they keep using the app (<i>Not now</i>), but nothing new starts, including a new consent: <i>termsblock</i> shows the lending wording refused for that reason.</p>
+
+  <div data-roles="out" class="empty"><span class="mdi mdi-account-lock-outline" aria-hidden="true"></span><span class="text-headline-sm">You're signed out</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a></div>
+
+  <div data-state="loaded termsblock" class="col gap-4" data-roles="in" id="doc"></div>
+
+  <div data-state="loading" class="col gap-4" data-roles="in"><div class="skeleton-card" style="height:120px"></div><div class="skeleton-card" style="height:300px"></div></div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">Nothing was recorded. Try again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+  <div data-footer data-roles="in" id="foot"></div>
+</div>
+<script>
+var A = MemberApp, C = GF.consents, f = GF.fmt, esc = A.esc;
+var qs = new URLSearchParams(location.search);
+var d = C.doc(qs.get("d") || "cd-lending") || C.doc("cd-lending"), ctx = qs.get("for") || "account";
+var m = qs.get("m") ? GF.get(qs.get("m")) : A.current, fixed = qs.get("v") ? C.version(qs.get("v")) : null;
+var lang = fixed ? fixed.locale : (m.profile && m.profile.language) || "en";
+var BACK = { kyc: "../kyc/index.html", prompt: "../home/index.html", credit: "../credit/index.html", account: "index.html" };
+var scr = document.getElementById("screen"); scr.setAttribute("data-back", BACK[ctx] || "index.html");
+var rec = d.slug === "member-terms" ? C.currentTerms(A.login.id) : C.current(m.id, d.id);
+var blocked = false;
+function draw() {
+  var ts = C.termsState(A.login.id), early = !fixed && d.slug === "member-terms" && ts.state === "EARLY";
+  var v = fixed || (early ? C.upcoming(d.id, lang) || ts.version : null) || C.live(d.id, lang) || C.live(d.id, lang === "en" ? "sw" : "en");
+  /* G100: no new consent until the terms in force are agreed. */
+  if (d.slug !== "member-terms" && !fixed && (blocked || ts.state === "BLOCKED")) {
+    document.getElementById("doc").innerHTML = '<div class="banner banner-warning"><span class="mdi mdi-file-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Agree to our new terms first</span><span class="text-body-md">Until you do, nothing new starts. You can still see everything you have.</span><div class="banner-actions"><a class="btn btn-text" href="../consents/agree.html?d=cd-terms&amp;for=prompt">Read and agree</a></div></div></div>';
+    document.getElementById("foot").innerHTML = '<a class="btn btn-tonal btn-block" href="../home/index.html">Not now</a>';
+    return;
+  }
+  var again = !fixed && rec && rec.decision === "GRANTED" && C.needsReconsent(rec) && v.requires_reconsent;
+  var already = !fixed && rec && rec.decision === "GRANTED" && !C.needsReconsent(rec) && C.version(rec.version).number === v.number;
+  document.getElementById("doc").innerHTML =
+    (fixed ? "" : '<div class="chip-row" data-choice role="radiogroup" aria-label="Language">' + ["en", "sw"].map(function (l) { return '<button class="chip" type="button" role="radio" data-l="' + l + '" aria-checked="' + (l === lang) + '">' + (l === "sw" ? "Kiswahili" : "English") + "</button>"; }).join("") + "</div>") +
+    (again || early ? '<div class="banner banner-info"><span class="mdi mdi-file-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">What changed</span><span class="text-body-md">' + esc(v.change_note) + "</span>" + (early ? '<span class="text-body-sm">Applies from ' + f.date(ts.from) + ". You can agree now.</span>" : "") + "</div></div>" : "") +
+    '<div class="col gap-1"><h1 class="text-headline-sm">' + esc(v.title) + '</h1><span class="text-body-sm tone-muted">' + (d.owner ? esc(GF.partners.get(d.owner).name) + " · " : "") + "Version " + v.number + (m && d.slug !== "member-terms" ? " · for " + esc(A.coopName(m)) : "") + "</span></div>" +
+    '<div class="card card-outlined"><span class="text-body-lg">' + esc(v.summary) + "</span></div>" +
+    v.body.map(function (b) { var p = b.split("\n"); return '<div class="col gap-1"><span class="text-title-sm">' + esc(p[0].replace(/^##\s*/, "")) + '</span><span class="text-body-md">' + esc(p.slice(1).join(" ")) + "</span></div>"; }).join("") +
+    (fixed && rec ? '<p class="text-body-sm tone-muted">You agreed to this version on ' + f.date(rec.occurred_at) + ".</p>" : "") +
+    (already ? '<div class="banner banner-success"><span class="mdi mdi-check-circle-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">You agreed to this on ' + f.date(rec.occurred_at) + ".</span></div></div>" : "");
+  var consent = d.kind === "CONSENT";
+  document.getElementById("foot").innerHTML = fixed || already ? '<a class="btn btn-tonal btn-block" href="' + (BACK[ctx] || "index.html") + '">Done</a>' :
+    '<div class="col gap-2" style="width:100%"><button class="btn btn-filled btn-block" type="button" onclick="agree(' + v.number + ')">I agree</button>' +
+    (consent ? '<button class="btn btn-text btn-block" type="button" onclick="decline()">No thanks</button>' : d.slug === "member-terms" ? '<a class="btn btn-text btn-block" href="../home/index.html">Not now</a>' : "") + "</div>";
+  var lr = document.querySelector('[aria-label="Language"]');
+  if (lr) lr.addEventListener("click", function (e) { var b = e.target.closest("[data-l]"); if (!b) return; lang = b.getAttribute("data-l"); draw(); });
+}
+function agree(n) {
+  Proto.snack("Recorded: you agreed to version " + n);
+  var next = ctx === "kyc" ? "../kyc/declare.html" : BACK[ctx] || "index.html";
+  setTimeout(function () { location.href = next; }, 1200);
+}
+function decline() {
+  Proto.confirm({ title: "Say no?", message: d.slug === "lending" ? "GroFunder won't collect your details or work out a loan for you. Your deliveries and payments don't change. You can agree later in Account › Consents." : "GroFunder won't send your request to this lender.",
+    confirm: "Say no", onConfirm: function () { Proto.snack("Recorded: you said no"); setTimeout(function () { location.href = BACK[ctx] || "index.html"; }, 1200); } });
+}
+draw();
+document.addEventListener("proto:state", function (e) { if (e.detail === "termsblock" || e.detail === "loaded") { blocked = e.detail === "termsblock"; draw(); } });
+</script>
+</body>
+</html>

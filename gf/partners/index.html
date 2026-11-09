@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lending partners · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../assets/console.js"></script>
+<script src="partners-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Lending partners" data-dest="partners" data-wide
+     data-action='{"label":"Add a partner","icon":"plus","roles":"owner full","on":"addPartner()"}'>
+
+  <p class="proto-note"><b>LP1 · Partners (note 24 part 1, signed off 2026-11-08).</b> The lenders GroFunder forwards loans to. Each row: name, code, mode, status, environment, products in force and cooperatives covered (<code>GET partners/</code>). Filters: status and mode; search by name or code. GroFunder staff enter all of it; partners can't change it.</p>
+  <p class="proto-note"><b>Who does what (note 24):</b> every office role reads (<code>lending_partners.view</code>), never secrets. Full and Owner add and edit partners, products, drafts and coverage, and activate, pause and end partners (<code>manage</code>); publish terms (<code>publish</code>, Q1); and record remittances (<code>settle</code>). Only the Owner touches connections and their secrets (<code>credentials</code>).</p>
+  <p class="proto-note"><b>Drawn as the production console:</b> this deployment allows PRODUCTION only (<code>GROFUNDER['LENDING']['ENVIRONMENTS']</code>, S2), so every partner here is PRODUCTION. Staging's console is the same, with SANDBOX.</p>
+  <p class="proto-note"><b>Nobody can be activated yet.</b> An API partner needs a verified connection, and the test call needs its adapter, which comes with the gateway (L4, S1). A PORTAL partner needs the partner portal (L6, P4). Tegemeo is drawn ACTIVE as it will be after L4, so its history and remittances can be shown.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="partners" data-current="partners" data-label="Lending partners"></div>
+    <div class="section">
+      <div class="section-toolbar stack">
+        <div class="row gap-3 wrap">
+          <div class="field search"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>
+            <input class="field-input" id="q" type="search" placeholder="Name or code" aria-label="Search partners"></div></div>
+          <select class="field-input" id="f-mode" aria-label="Mode" style="width:auto"><option value="">API and portal</option><option value="API">API</option><option value="PORTAL">Partner portal</option></select>
+        </div>
+        <div class="chip-row scroll" data-choice role="radiogroup" aria-label="Status" id="f-status">
+          <button class="chip" type="button" role="radio" aria-checked="true" data-s="">All</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="ONBOARDING">Onboarding</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="ACTIVE">Active</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="PAUSED">Paused</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="ENDED">Ended</button>
+        </div>
+      </div>
+      <div class="table-wrap only-wide">
+        <table class="table">
+          <thead><tr><th>Partner</th><th>Mode</th><th>Status</th><th>Environment</th><th class="num">Products in force</th><th class="num">Cooperatives covered</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="rowcards only-compact" id="cards"></div>
+      <div class="empty hidden" id="none"><span class="mdi mdi-filter-off-outline" aria-hidden="true"></span><span class="text-title-lg">No partner matches</span>
+        <span class="text-body-md">Try another status, or clear the search.</span></div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:40px"></div><div class="skeleton-card" style="height:240px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-handshake-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No lending partners yet</span><span class="text-body-md">Add the first lender GroFunder works with. It starts onboarding: add its connection, products and terms, and the cooperatives it covers, then activate it.</span>
+    <button class="btn btn-filled" type="button" data-roles="owner full" onclick="addPartner()"><span class="mdi mdi-plus" aria-hidden="true"></span>Add a partner</button></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load partners</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var P = GF.partners, U = PartnersUI, esc = U.esc, L = P.L;
+var status = "";
+function counts(p) {
+  var prods = P.productsOf(p.id), inForce = prods.filter(function (x) { return x.status === "ACTIVE" && P.inForce(x.id); }).length;
+  var coops = {}; prods.forEach(function (x) { P.coverageOf(x.id).forEach(function (c) { coops[c.cooperative] = 1; }); });
+  return { inForce: inForce, coops: Object.keys(coops).length };
+}
+function draw() {
+  var term = document.getElementById("q").value.trim().toLowerCase(), mode = document.getElementById("f-mode").value;
+  var list = P.partners.filter(function (p) { return (!status || p.status === status) && (!mode || p.mode === mode) && (!term || (p.name + " " + p.code).toLowerCase().indexOf(term) > -1); });
+  var url = function (p) { return "partner.html?p=" + p.id; };
+  document.getElementById("rows").innerHTML = list.map(function (p) {
+    var n = counts(p);
+    return '<tr onclick="location.href=\'' + url(p) + '\'"><td class="primary-cell"><a href="' + url(p) + '" style="color:inherit;text-decoration:none">' + esc(p.name) + '</a><span class="cell-sub tabular">' + p.code + "</span></td>" +
+      "<td>" + L.mode[p.mode] + "</td><td>" + U.chip(L.status[p.status]) + "</td><td>" + L.env[p.environment] + '</td><td class="num">' + n.inForce + '</td><td class="num">' + n.coops + "</td></tr>";
+  }).join("");
+  document.getElementById("cards").innerHTML = list.map(function (p) {
+    var n = counts(p);
+    return '<a class="rowcard" href="' + url(p) + '"><span class="grow"><span class="text-body-lg">' + esc(p.name) + '</span><span class="text-body-md tone-muted">' + p.code + " · " + L.mode[p.mode] + " · " + L.env[p.environment] + "</span>" +
+      '<span class="text-body-sm tone-muted">' + n.inForce + " in force · " + n.coops + (n.coops === 1 ? " cooperative" : " cooperatives") + "</span></span>" + U.chip(L.status[p.status]) + "</a>";
+  }).join("");
+  document.getElementById("none").classList.toggle("hidden", list.length > 0);
+}
+document.querySelectorAll("#f-status .chip").forEach(function (chip) { chip.addEventListener("click", function () { status = chip.getAttribute("data-s"); draw(); }); });
+document.getElementById("f-mode").addEventListener("change", draw);
+document.getElementById("q").addEventListener("input", draw);
+draw();
+
+/* LP2 · Add a partner (add_partner): creates its kit account in the PARTNER category; starts ONBOARDING. */
+function addPartner() {
+  Proto.dialog({ title: "Add a partner",
+    body: '<p class="text-body-md tone-muted">This creates the partner\'s own account, as adding a cooperative does. It starts onboarding: nothing reaches it until it is activated.</p>' +
+      '<div class="field"><label class="field-label" for="pe">Environment</label><select class="field-input" id="pe">' + P.CONFIG.environments.map(function (e) { return "<option>" + L.env[e] + "</option>"; }).join("") +
+      '</select><span class="field-help">Only what this deployment allows</span></div>' + U.partnerForm(null),
+    submit: "Add partner", onSubmit: function (d) { var e = U.checkPartner(d, null); if (e) return Proto.snack(e); Proto.snack(d.querySelector("#pn").value.trim() + " added. It's onboarding"); } });
+}
+</script>
+</body>
+</html>

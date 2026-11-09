@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="../../assets/kit.css">
 <script src="../../assets/data/canon.js"></script>
 <script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/consents.js"></script>
 <script src="../assets/app.js"></script>
 <script src="../assets/nav.js" defer></script>
 <script src="../../assets/proto.js" defer></script>
@@ -20,11 +21,13 @@
 
 <div data-screen data-title="Your farm and money" data-flow data-back="index.html" data-compact>
 
-  <p class="proto-note"><b>MK2 · Your farm and money (note 20, draft revision 2; UI-60).</b> The member's own items: BACKGROUND, FARM, CROP, INCOME, OBLIGATION and NEXT_OF_KIN, source MEMBER. Identity, photo, phone and home are the agent's, at the visit. One step at a time on a phone; nothing is sent until <i>Send to GroFunder</i>. Steps for other income and for loans appear only when the member says yes on <i>About you</i>.</p>
+  <p class="proto-note"><b>MK2 · Your farm and money (note 20, signed off 2026-11-07; UI-60, UI-63).</b> The member's own items: BACKGROUND, FARM, CROP, INCOME, OBLIGATION and NEXT_OF_KIN, source MEMBER. Identity, photo, phone and home are the agent's, at the visit. One step at a time on a phone; nothing is sent until <i>Send to GroFunder</i>. Steps for other income and for loans appear only when the member says yes on <i>About you</i>.</p>
   <p class="proto-note"><b>Replace, don't edit (note 20).</b> Each change writes a new item that replaces the old one, so the old answer is kept. A verified item changed here goes back to <i>You told us</i> until the next visit checks it; editing such a farm says so before saving.</p>
+  <p class="proto-note"><b>Audit, 2026-11-08:</b> a sole other income or loan can be removed too. A farm checked at a visit can't be removed by the member (ruling 2): "an agent removes it at your next visit". Crops from the cooperative's records can't be the member's main-crop choice, and a main crop set by them is locked (ruling 3). While suspended or ended, nothing can be changed (<i>suspended</i>).</p>
   <p class="proto-note"><b>Crops from deliveries</b> (CROP, source COOPERATIVE_RECORD) come in verified and locked: they are the cooperative's record, not the member's word. The member adds what else they grow.</p>
-  <p class="proto-note proto-gap"><b>G60:</b> consent isn't designed yet (note 20 Q6). The first step stands in for the consents app; its wording is a placeholder.</p>
-  <p class="proto-note proto-gap"><b>G62:</b> drawn from note 20 while it is still a draft (owner's request, 2026-10-24).</p>
+  <p class="proto-note"><b>Consent first (phase 15, note 22; closes G60).</b> A member without a lending consent that counts for this membership starts with <i>Agree</i>: the <code>lending.consent</code> slot's version in force, in their language, with the whole wording a tap away. It is recorded (context <code>kyc</code>) with the first details they send, in the same transaction; a version that changed meanwhile sends them back to read it. A member who has agreed skips the step. Wanjiku has agreed at both cooperatives; <i>consent</i> shows the step as it is for someone who hasn't.</p>
+  <p class="proto-note"><b>Removing (note 20, lifecycle):</b> a member can remove a farm, income or payment they declared that hasn't been checked; it is ended, not deleted. A farm checked at a visit can be changed (it goes back to <i>You told us</i>) but not removed here.</p>
+  <p class="proto-note"><b>Crops (note 20 Q7)</b> come from GroFunder's catalog, which adds what members grow that no cooperative handles (poultry, livestock), plus <i>Something else</i>, named in words.</p>
 
   <div data-roles="out" class="empty">
     <span class="mdi mdi-account-lock-outline" aria-hidden="true"></span>
@@ -32,7 +35,7 @@
     <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a>
   </div>
 
-  <div data-state="loaded" class="col gap-4" data-roles="in">
+  <div data-state="loaded consent" class="col gap-4" data-roles="in">
     <div class="stepper" id="stepper" aria-label="Steps"></div>
     <div class="col gap-4" id="step-body"></div>
   </div>
@@ -42,6 +45,9 @@
     <div class="skeleton" style="width:60%;height:28px"></div>
     <div class="skeleton-card" style="height:240px"></div>
   </div>
+  <div data-state="suspended" class="empty" data-roles="in" id="ro"><span class="mdi mdi-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">You can't change your details now</span><span class="text-body-md">Your cooperative has suspended your membership (or has ended). What you told GroFunder stays; you can see it on the previous page.</span>
+    <a class="btn btn-tonal" href="index.html">Back</a></div>
   <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
     <span class="text-headline-sm">Not sent yet</span><span class="text-body-md">There's no connection. What you entered is kept on this phone; send it when you're back online.</span>
     <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
@@ -67,6 +73,8 @@ var delivered = {};
 GF.q.deliveries({ member: me.id, from: since, recorded: true }).forEach(function (d) { delivered[GF.get(GF.get(d.product).product).value_chain] = true; });
 of("CROP").forEach(function (c) { if (c.source === "COOPERATIVE_RECORD" && c.data.value_chain) delivered[c.data.value_chain] = true; });
 var mainCrop = of("CROP").filter(function (c) { return c.data.is_main; })[0];
+/* Ruling 3 (2026-11-08): crops from the cooperative's records are locked, the main-crop choice included. */
+var lockedMain = mainCrop && mainCrop.source === "COOPERATIVE_RECORD" ? mainCrop : null;
 
 var S = {
   consent: false,
@@ -88,7 +96,9 @@ of("CROP").forEach(function (c) { if (c.data.value_chain) S.crops[c.data.value_c
 
 var STEPS = [["consent", "Agree"], ["background", "About you"], ["farms", "Farms"], ["crops", "What you grow"], ["income", "Other income"], ["loans", "Loans and payments"], ["kin", "Next of kin"], ["check", "Check"]];
 var at = 0;
-function steps() { return STEPS.filter(function (s) { return (s[0] !== "income" || S.hasIncome) && (s[0] !== "loans" || S.hasOb); }); }
+/* Note 22: the Agree step only while there is no lending consent that counts for this membership. */
+var NEED_CONSENT = !GF.consents.allows(me.id, "LENDING").ok;
+function steps() { return STEPS.filter(function (s) { return (s[0] !== "consent" || NEED_CONSENT) && (s[0] !== "income" || S.hasIncome) && (s[0] !== "loans" || S.hasOb); }); }
 
 var yesNo = function (name, val) {
   return '<div class="chip-row" data-choice role="radiogroup" aria-label="' + name + '">' +
@@ -103,10 +113,15 @@ var money = function (id, label, c, help) {
 
 var draw = {
   consent: function () {
-    return head("Before you start", "GroFunder asks about your farm and money so it can offer you a loan you can repay.") +
-      '<div class="card card-outlined col gap-2"><p class="text-body-md">What you tell us is used to assess loans for you and is checked by a GroFunder Farmer Support Agent at a visit. ' + esc(coop) + " only sees whether you're verified, not what you tell us.</p>" +
-      '<label class="check"><input type="checkbox" id="consent"' + (S.consent ? " checked" : "") + '><span class="grow"><span class="text-body-lg">I agree to GroFunder using these details to assess loans</span></span></label>' +
-      '<span class="field-error hidden" id="consent-e">Tick the box to go on.</span></div>';
+    var lang = (me.profile && me.profile.language) || "en", v = GF.consents.live("cd-lending", lang);
+    return head("Before you start", "GroFunder asks about your farm and money so it can offer you a loan you can repay. First, agree to how your details are used.") +
+      '<div class="card card-outlined col gap-2"><span class="text-title-sm">' + esc(v.title) + '</span><p class="text-body-md">' + esc(v.summary) + "</p>" +
+      '<span class="text-body-sm tone-muted">Version ' + v.number + " · " + esc(coop) + " only sees whether you're verified, not what you tell us.</span>" +
+      '<div class="disclosure"><div class="disclosure-item"><button class="disclosure-trigger" type="button" aria-expanded="false">Read it all</button><div class="disclosure-panel" hidden>' +
+      v.body.map(function (b) { var p = b.split("\n"); return '<span class="text-title-sm">' + esc(p[0].replace(/^##\s*/, "")) + '</span><span class="text-body-md">' + esc(p.slice(1).join(" ")) + "</span>"; }).join("") + "</div></div></div>" +
+      '<label class="check"><input type="checkbox" id="consent"' + (S.consent ? " checked" : "") + '><span class="grow"><span class="text-body-lg">I agree to GroFunder using my details for loans</span></span></label>' +
+      '<span class="field-error hidden" id="consent-e">Tick the box to go on. Saying no doesn\'t change your deliveries or payments.</span></div>' +
+      '<a class="btn btn-text" href="../consents/agree.html?d=cd-lending&amp;for=kyc">Read it in Kiswahili or English</a>';
   },
   background: function () {
     return head("About you", "Your name, ID and phone come from " + esc(coop) + "'s record, so we don't ask again.") +
@@ -136,14 +151,17 @@ var draw = {
       (lockedNames.length ? '<div class="banner banner-success"><span class="mdi mdi-check-decagram-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">' + esc(lockedNames.join(" and ")) + ": from your deliveries to " + esc(coop) + ". Already verified.</span></div></div>" : "") +
       '<div class="chip-row" id="crops">' + vcs.map(function (v) { return chip(v.id, v.name, delivered[v.id]); }).join("") + chip("other", "Something else", false) + "</div>" +
       '<div class="field' + (S.crops.other ? "" : " hidden") + '" id="other-f"><label class="field-label" for="other">What else?</label><input class="field-input" id="other" value="' + esc(S.other) + '" placeholder="For example poultry, or bees"></div>' +
+      (lockedMain ? '<div class="field"><span class="field-label">Which brings you the most income?</span><span class="text-body-lg">' + esc(GF.get(lockedMain.data.value_chain).name) + ' <span class="mdi mdi-lock-outline" aria-hidden="true"></span></span>' +
+        '<span class="field-help">From your deliveries to ' + esc(coop) + ". Your agent can change it at your visit.</span></div>" :
       '<div class="field"><label class="field-label" for="main">Which brings you the most income?</label><select class="field-input" id="main"><option value="">Choose</option>' +
-      chosen.map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === S.main ? " selected" : "") + ">" + esc(c[1]) + "</option>"; }).join("") + "</select></div>";
+      chosen.filter(function (c) { return !delivered[c[0]]; }).map(function (c) { return '<option value="' + c[0] + '"' + (c[0] === S.main ? " selected" : "") + ">" + esc(c[1]) + "</option>"; }).join("") + "</select>" +
+      (lockedNames.length ? '<span class="field-help">Crops from your deliveries are set by the cooperative\'s records.</span>' : "") + "</div>");
   },
   income: function () {
     return head("Your other income", "About how much, each month. An estimate is fine.") +
       S.income.map(function (r, i) {
         return '<div class="card card-outlined col gap-3"><div class="row between"><span class="text-title-sm">Income ' + (i + 1) + "</span>" +
-          (S.income.length > 1 ? '<button class="btn btn-text btn-sm" type="button" onclick="drop(\'income\',' + i + ')">Remove</button>' : "") + "</div>" +
+          (S.income.length >= 1 ? '<button class="btn btn-text btn-sm" type="button" onclick="drop(\'income\',' + i + ')">Remove</button>' : "") + "</div>" +
           '<div class="field"><label class="field-label" for="ik' + i + '">What kind</label><select class="field-input" id="ik' + i + '">' + opts(L.incomeKind, r.kind, "Choose") + "</select></div>" +
           '<div class="col gap-2"><span class="text-label-lg">About how much a month</span><div class="chip-row" data-choice role="radiogroup" aria-label="About how much a month" id="ib' + i + '">' +
           Object.keys(L.band).map(function (b) { return '<button class="chip" type="button" role="radio" data-v="' + b + '" aria-checked="' + (b === r.band) + '">' + L.band[b] + "</button>"; }).join("") + "</div></div></div>";
@@ -155,7 +173,7 @@ var draw = {
       S.obs.map(function (r, i) {
         var loan = r.kind === "LOAN";
         return '<div class="card card-outlined col gap-3"><div class="row between"><span class="text-title-sm">Payment ' + (i + 1) + "</span>" +
-          (S.obs.length > 1 ? '<button class="btn btn-text btn-sm" type="button" onclick="drop(\'obs\',' + i + ')">Remove</button>' : "") + "</div>" +
+          (S.obs.length >= 1 ? '<button class="btn btn-text btn-sm" type="button" onclick="drop(\'obs\',' + i + ')">Remove</button>' : "") + "</div>" +
           '<div class="field"><label class="field-label" for="ok' + i + '">What is it</label><select class="field-input" id="ok' + i + '" onchange="collect();redraw()">' + opts(L.obligationKind, r.kind, "Choose") + "</select></div>" +
           (loan ? '<div class="field"><label class="field-label" for="ol' + i + '">Who lent it</label><select class="field-input" id="ol' + i + '">' + opts(L.lender, r.lender, "Choose") + "</select></div>" +
             money("oo" + i, "How much do you still owe?", r.owed) : "") +
@@ -264,7 +282,9 @@ function farm(i) {
       '<div class="col gap-2"><span class="text-label-lg">How do you hold it?</span><div class="chip-row" data-choice role="radiogroup" aria-label="How do you hold it" id="ft">' +
       Object.keys(L.tenure).map(function (t) { return '<button class="chip" type="button" role="radio" data-v="' + t + '" aria-checked="' + (t === fm.tenure) + '">' + { OWNED: "I own it", FAMILY: "Family land", LEASED: "I lease it", COMMUNAL: "Communal" }[t] + "</button>"; }).join("") + "</div></div>" +
       '<div class="col gap-1"><button class="btn btn-outlined" type="button" id="pin"><span class="mdi mdi-crosshairs-gps" aria-hidden="true"></span>' + (pinned ? "Pin it again here" : "Pin it on the map") + "</button>" +
-      '<span class="field-help" id="pin-h">' + (pinned ? "Pinned, about 35 m either way. " : "Optional, if you're standing on it now. ") + "Your agent takes the exact point at the visit.</span></div>",
+      '<span class="field-help" id="pin-h">' + (pinned ? "Pinned, about 35 m either way. " : "Optional, if you're standing on it now. ") + "Your agent takes the exact point at the visit.</span></div>" +
+      (i > -1 && !fm.checked ? '<div class="actions actions-start"><button class="btn btn-text tone-error" type="button" id="fdrop">Remove this farm</button></div>' :
+        i > -1 ? '<span class="text-body-sm tone-muted">Checked at your visit. If it\'s no longer yours, an agent removes it at your next visit.</span>' : ""),
     submit: i > -1 ? "Save" : "Add",
     onSubmit: function (d) {
       var t = d.querySelector('#ft [aria-checked="true"]');
@@ -276,12 +296,15 @@ function farm(i) {
       Proto.snack(i > -1 ? "Farm changed" : "Farm added");
     }
   });
+  var drop = el.querySelector("#fdrop");
+  if (drop) drop.addEventListener("click", function () { Proto.close(); S.farms.splice(i, 1); redraw(); Proto.snack("Farm removed"); });
   el.querySelector("#pin").addEventListener("click", function () {
     pinned = true;
     el.querySelector("#pin-h").textContent = "Pinned, about 35 m either way. Your agent takes the exact point at the visit.";
   });
 }
 
+document.addEventListener("proto:state", function (e) { if (e.detail === "consent" || e.detail === "loaded") { NEED_CONSENT = e.detail === "consent" || !GF.consents.allows(me.id, "LENDING").ok; at = 0; redraw(); } });
 redraw();
 </script>
 </body>

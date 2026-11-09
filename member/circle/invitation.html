@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Invitation · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Invitation" data-dest="home" data-back="index.html" data-compact>
+
+  <p class="proto-note"><b>MC3 · Invitation (note 23, <code>GET circle-invitations/</code>, accept and decline).</b> The circle's name, leader, meeting and everyone already in or invited, and the days left (14 in all). <b>Accepting vouches for them</b> (Q1): you say you know these people. You're then <i>joining</i> for 5 days, while the others may object; with no objection you become a member.</p>
+  <p class="proto-note"><b>Accepting</b> needs an ACTIVE membership with no circle, in a cooperative taking new work; it withdraws your other open invitations. Members without the app answer through GroFunder with an SMS code (GC2).</p>
+  <p class="proto-note"><b>Suspended (G74, decided 2026-11-08):</b> a member whose cooperative has suspended them sees the app as usual with a "suspended" banner, but can't accept (declining is still possible). See <i>suspended</i>.</p>
+  <p class="proto-note"><b>Borrowed data:</b> this is Ruth Wachira's invitation to Umoja Gathiru, from Wanjiku. The prototype's login is Wanjiku, who is already in a circle and can't be invited.</p>
+
+  <div data-roles="out" class="empty"><span class="mdi mdi-account-lock-outline" aria-hidden="true"></span><span class="text-headline-sm">You're signed out</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a></div>
+
+  <div data-state="loaded suspended" class="col gap-6" data-roles="in" id="inv"></div>
+  <div data-state="gone" class="empty" data-roles="in"><span class="mdi mdi-email-off-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">This invitation has ended</span><span class="text-body-md">It ran out, was withdrawn, or you joined another circle. Ask the leader to invite you again.</span>
+    <a class="btn btn-tonal" href="index.html">Your Growth Circle</a></div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">The invitation shows again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var A = MemberApp, G = GF.groups, f = GF.fmt, esc = A.esc;
+var x = G.get(new URLSearchParams(location.search).get("p")) || G.get("cp-105");
+var c = G.get(x.circle), g = c.details.meeting, d = G.daysLeft(G.expiresAt(x));
+var others = G.placesOf(c.id, G.OPEN).filter(function (y) { return y.id !== x.id; });
+var joinOn = f.date(G.addDays(GF.NOW, G.RULES.OBJECTION_WINDOW_DAYS), "short");
+var leader = GF.get(G.leaderOf(c.id).member).full_name;
+document.getElementById("inv").innerHTML =
+  '<div class="banner banner-warning hidden" id="sus"><span class="mdi mdi-account-cancel-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">' + esc(MemberApp.coopName(MemberApp.current)) + " has suspended your membership</span>" +
+    '<span class="text-body-md">You can\'t accept while suspended. You can decline, or wait: the invitation lasts ' + d + (d === 1 ? " more day" : " more days") + ".</span></div></div>" +
+  '<div class="col gap-2"><span class="text-body-md tone-muted">You\'re invited to join</span>' +
+    '<span class="text-headline-sm">' + esc(c.name) + '</span><span class="text-body-md tone-muted">' + esc(GF.get(c.cooperative).profile.short_name) + (c.cluster ? " · " + esc(GF.get(c.cluster).name) + " cluster" : "") + " · " + d + (d === 1 ? " day" : " days") + " left to answer</span></div>" +
+  (c.details.description ? '<span class="text-body-md">' + esc(c.details.description) + "</span>" : "") +
+  '<section class="section"><div class="list rowcards"><div class="rowcard"><span class="mdi mdi-calendar-clock-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">' + G.L.day[g.day] + "s at " + g.time +
+    '</span><span class="text-body-md tone-muted">' + esc(g.place) + "</span></span></div></div></section>" +
+  '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Who is in it</span><span class="text-body-md tone-muted">Do you know them all?</span></div></div><div class="list rowcards">' +
+    others.map(function (y) {
+      var m = GF.get(y.member);
+      return '<div class="rowcard"><span class="avatar" aria-hidden="true">' + f.initials(m.full_name) + '</span><span class="grow"><span class="text-body-lg">' + esc(m.full_name) + '</span><span class="text-body-sm tone-muted">' +
+        (y.role === "LEADER" ? "Leader" : y.status === "MEMBER" ? "Member" : y.status === "JOINING" ? "Joining" : "Invited") + "</span></span></div>";
+    }).join("") + "</div></section>" +
+  '<div class="banner banner-info"><span class="mdi mdi-handshake-outline" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Accepting means you vouch for them</span>' +
+    '<span class="text-body-md">You say you know these people. You join on ' + joinOn + " unless a member objects in the meantime. Your other invitations end.</span></div></div>" +
+  '<div class="actions"><button class="btn btn-text" type="button" onclick="decline()">Decline</button><button class="btn btn-filled" type="button" id="accept" onclick="accept()">Accept and join</button></div>';
+document.getElementById("inv").querySelector(".col").insertAdjacentHTML("beforeend", '<span class="text-body-md">Led by ' + esc(leader) + "</span>");
+document.addEventListener("proto:state", function (e) {
+  var sus = e.detail === "suspended";
+  document.getElementById("sus").classList.toggle("hidden", !sus);
+  document.getElementById("accept").classList.toggle("hidden", sus);
+});
+function accept() { Proto.snack("You join " + c.name + " on " + joinOn + " unless a member objects"); }
+function decline() { Proto.confirm({ title: "Decline the invitation?", message: "The circle sees that you declined. You can be invited again later.", confirm: "Decline", onConfirm: function () { Proto.snack("Declined"); } }); }
+</script>
+</body>
+</html>

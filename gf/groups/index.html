@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Growth Circles · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../assets/console.js"></script>
+<script src="groups-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Growth Circles" data-dest="groups" data-wide
+     data-action='{"label":"Start a circle","icon":"plus","roles":"owner full ops","href":"start.html"}'
+     data-menu='[{"label":"Download as CSV","icon":"download","on":"Proto.snack(&apos;Downloading the list as shown&apos;)"}]'>
+
+  <p class="proto-note"><b>GC1 · Growth Circles (note 23, signed off 2026-11-08).</b> Every circle in every cooperative (<code>groups.view</code>). It opens on the open circles, forming first, as the note's list is ordered. <b>Needs an agent</b> is the office's daily queue: complete circles with no Farmer Support Agent (the <code>needs_agent</code> filter). Filters: cooperative, cluster, agent; search by circle name.</p>
+  <p class="proto-note"><b>Who does what (note 23):</b> View only reads (<code>groups.view</code>). Operations and up start circles for members, invite, remove, hand over, dissolve and change borrowing spaces (<code>groups.manage</code>), and assign agents (<code>groups.assign</code>). Agents see only their own circles, under <b>My circles</b>. Cooperative staff see nothing of circles in v1 (Q7): the portal has no circle screen.</p>
+  <p class="proto-note proto-gap"><b>G75:</b> a list row (<code>CircleRow</code>) has no <code>dissolved_at</code> or <code>dissolve_reason</code>, which the Dissolved rows here show. Proposed: add both.</p>
+  <p class="proto-note"><b>The rules</b> are one GroFunder setting, <code>GROFUNDER['GROUPS']</code>, the same everywhere (Q2): 5 to 10 members, 5 days to object, 14 days to answer an invitation, 2 borrowing spaces for a new circle. Only a circle's borrowing spaces change per circle, here in the console (Q3).</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div class="section">
+      <div class="section-toolbar stack">
+        <div class="row gap-3 wrap">
+          <div class="field search"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>
+            <input class="field-input" id="q" type="search" placeholder="Circle name" aria-label="Search circles"></div></div>
+          <select class="field-input" id="f-coop" aria-label="Cooperative" style="width:auto"><option value="">All cooperatives</option></select>
+          <select class="field-input" id="f-cluster" aria-label="Cluster" style="width:auto"><option value="">All clusters</option></select>
+          <select class="field-input" id="f-agent" aria-label="Agent" style="width:auto"><option value="">All agents</option><option value="none">No agent</option></select>
+        </div>
+        <div class="chip-row scroll" data-choice role="radiogroup" aria-label="Status" id="f-status">
+          <button class="chip" type="button" role="radio" aria-checked="true" data-s="FORMING COMPLETE">Open</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="NEEDS_AGENT">Needs an agent</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="FORMING">Forming</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="COMPLETE">Complete</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="DISSOLVED">Dissolved</button>
+          <button class="chip" type="button" role="radio" aria-checked="false" data-s="">All</button>
+        </div>
+      </div>
+      <div class="section-band">
+        <div class="section-figure lg"><span class="k">Needs an agent</span><span class="v" id="b-agent"></span></div>
+        <div class="section-figure"><span class="k">Forming</span><span class="v" id="b-forming"></span></div>
+        <div class="section-figure"><span class="k">Complete</span><span class="v" id="b-complete"></span></div>
+        <div class="section-figure"><span class="k">Members in a circle</span><span class="v" id="b-members"></span></div>
+      </div>
+      <div class="table-wrap only-wide">
+        <table class="table">
+          <thead><tr><th>Circle</th><th>Cooperative</th><th>Status</th><th>Members</th><th class="num">Spaces</th><th>Agent</th><th>Since</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div class="rowcards only-compact" id="cards"></div>
+      <div class="empty hidden" id="none"><span class="mdi mdi-filter-off-outline" aria-hidden="true"></span><span class="text-title-lg">No circle matches</span>
+        <span class="text-body-md">Try another status, or clear the filters.</span><button class="btn btn-tonal" type="button" onclick="clearFilters()">Show all</button></div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:40px"></div><div class="skeleton-card"></div><div class="skeleton-card" style="height:300px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-account-group-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No Growth Circles yet</span><span class="text-body-md">Members start circles in the app. For members without the app, start one here and they accept with an SMS code.</span>
+    <a class="btn btn-filled" data-roles="owner full ops" href="start.html"><span class="mdi mdi-plus" aria-hidden="true"></span>Start a circle</a></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load circles</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var G = GF.groups, U = GroupsUI, f = GF.fmt, esc = U.esc;
+var opt = function (v, t) { return '<option value="' + v + '">' + t + "</option>"; };
+var status = "FORMING COMPLETE";
+var ORDER = { FORMING: 0, COMPLETE: 1, DISSOLVED: 2 };
+document.getElementById("f-coop").insertAdjacentHTML("beforeend", GF.cooperatives.filter(function (c) { return G.circles.some(function (x) { return x.cooperative === c.id; }); })
+  .map(function (c) { return opt(c.id, c.profile.short_name); }).join(""));
+document.getElementById("f-agent").insertAdjacentHTML("beforeend", GF.kyc.agents.map(function (a) { return opt(a.id, a.name); }).join(""));
+function fillClusters() {
+  var coop = document.getElementById("f-coop").value, sel = document.getElementById("f-cluster");
+  sel.innerHTML = opt("", "All clusters") + GF.clusters.filter(function (c) { return (!coop || c.cooperative === coop) && G.circles.some(function (x) { return x.cluster === c.id; }); })
+    .map(function (c) { return opt(c.id, c.name + (coop ? "" : " (" + U.coopName(c.cooperative) + ")")); }).join("");
+}
+fillClusters();
+var since = function (c) { return c.status === "DISSOLVED" ? c.dissolved_at : c.status === "COMPLETE" ? c.completed_at : c.created_at; };
+var sinceWord = function (c) { return c.status === "DISSOLVED" ? "Dissolved" : c.status === "COMPLETE" ? "Complete" : "Started"; };
+function statusCell(c) {
+  if (c.status === "DISSOLVED") return U.chip(G.L.status.DISSOLVED) + '<span class="cell-sub">' + G.L.dissolve[c.dissolve_reason] + "</span>";
+  var hold = !G.newWork(c) ? '<span class="cell-sub">' + U.coopName(c.cooperative) + " is on hold</span>" : "";
+  return U.chip(G.L.status[c.status]) + (c.status === "COMPLETE" && !c.agent ? '<span class="cell-sub tone-error">Needs an agent</span>' : "") + hold;
+}
+function draw() {
+  var term = document.getElementById("q").value.trim().toLowerCase(), coop = document.getElementById("f-coop").value,
+    cluster = document.getElementById("f-cluster").value, agent = document.getElementById("f-agent").value;
+  var list = G.circles.filter(function (c) {
+    var st = status === "NEEDS_AGENT" ? c.status === "COMPLETE" && !c.agent : !status || status.split(" ").indexOf(c.status) > -1;
+    return st && (!coop || c.cooperative === coop) && (!cluster || c.cluster === cluster) && (!agent || (agent === "none" ? !c.agent : c.agent === agent)) &&
+      (!term || c.name.toLowerCase().indexOf(term) > -1);
+  }).sort(function (a, b) { return ORDER[a.status] - ORDER[b.status] || (a.created_at < b.created_at ? 1 : -1); });
+  var open = G.circles.filter(function (c) { return c.status !== "DISSOLVED"; });
+  document.getElementById("b-agent").textContent = G.needsAgent().length;
+  document.getElementById("b-forming").textContent = open.filter(function (c) { return c.status === "FORMING"; }).length;
+  document.getElementById("b-complete").textContent = open.filter(function (c) { return c.status === "COMPLETE"; }).length;
+  document.getElementById("b-members").textContent = open.reduce(function (n, c) { return n + G.count(c.id); }, 0);
+  var url = function (c) { return "circle.html?c=" + c.id; };
+  document.getElementById("rows").innerHTML = list.map(function (c) {
+    return '<tr onclick="location.href=\'' + url(c) + '\'"><td class="primary-cell"><a href="' + url(c) + '" style="color:inherit;text-decoration:none">' + esc(c.name) + "</a>" +
+      '<span class="cell-sub">' + (c.cluster ? esc(GF.get(c.cluster).name) + " cluster" : "No clusters") + "</span></td>" +
+      "<td>" + esc(U.coopName(c.cooperative)) + "</td><td>" + statusCell(c) + "</td>" +
+      '<td class="tabular">' + (c.status === "DISSOLVED" ? '<span class="tone-muted">–</span>' : esc(U.sizeLine(c))) + "</td>" +
+      '<td class="num">' + c.borrowing_spaces + "</td><td>" + (c.agent ? esc(G.who(c.agent)) : '<span class="tone-muted">None</span>') + "</td>" +
+      '<td class="tabular">' + sinceWord(c) + " " + f.date(since(c), "short") + "</td></tr>";
+  }).join("");
+  document.getElementById("cards").innerHTML = list.map(function (c) {
+    return '<a class="rowcard" href="' + url(c) + '"><span class="grow"><span class="text-body-lg">' + esc(c.name) + '</span><span class="text-body-md tone-muted">' + esc(U.where(c)) + "</span>" +
+      '<span class="text-body-sm tone-muted">' + (c.status === "DISSOLVED" ? G.L.dissolve[c.dissolve_reason] : esc(U.sizeLine(c)) + " · " + (c.agent ? esc(G.who(c.agent)) : "no agent")) + "</span></span>" +
+      '<span class="trail">' + U.chip(G.L.status[c.status]) + (c.status === "COMPLETE" && !c.agent ? '<span class="text-body-sm tone-error">Needs an agent</span>' : "") + "</span></a>";
+  }).join("");
+  document.getElementById("none").classList.toggle("hidden", list.length > 0);
+}
+function clearFilters() {
+  ["q", "f-coop", "f-agent"].forEach(function (id) { document.getElementById(id).value = ""; });
+  fillClusters(); status = "";
+  document.querySelectorAll("#f-status .chip").forEach(function (c) { c.setAttribute("aria-checked", String(c.getAttribute("data-s") === "")); });
+  draw();
+}
+document.querySelectorAll("#f-status .chip").forEach(function (chip) { chip.addEventListener("click", function () { status = chip.getAttribute("data-s"); draw(); }); });
+document.getElementById("f-coop").addEventListener("change", function () { fillClusters(); draw(); });
+["f-cluster", "f-agent"].forEach(function (id) { document.getElementById(id).addEventListener("change", draw); });
+document.getElementById("q").addEventListener("input", draw);
+/* ?status=NEEDS_AGENT deep-links the queue (from the overview or a notice). */
+var asked = new URLSearchParams(location.search).get("status");
+if (asked) { status = asked; document.querySelectorAll("#f-status .chip").forEach(function (c) { c.setAttribute("aria-checked", String(c.getAttribute("data-s") === asked)); }); }
+draw();
+</script>
+</body>
+</html>

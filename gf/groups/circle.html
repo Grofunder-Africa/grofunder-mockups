@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Growth Circle · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../assets/console.js"></script>
+<script src="groups-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Growth Circle" data-dest="groups" data-wide data-back="index.html" id="screen">
+
+  <p class="proto-note"><b>GC2 · Growth Circle (note 23, signed off 2026-11-08).</b> One circle: where it meets, who supports it, every place from invitation to leaving, and its audit entries. With <code>groups.view</code> staff also see the ended places, including <b>who objected</b> and the note (<code>ended_by</code>, <code>details.note</code>), which members never see.</p>
+  <p class="proto-note"><b>Members and verification:</b> each member shows whether their KYC counts now (<code>standing</code>, from kyc). A SUSPENDED member keeps their place and counts towards the size, but never counts as verified while suspended (gap 1). Only an EXITED member loses their place.</p>
+  <p class="proto-note"><b>Members without the app (Q6):</b> staff invite them here and accept or decline for them with an SMS code the member reads out (kit OTP, purpose <code>CIRCLE_ACCEPT</code>: 5 minutes, 5 tries). The audit entry records who took the code.</p>
+  <p class="proto-note"><b>Assigning an agent</b> (<code>groups.assign</code>) is allowed on any circle not dissolved (S3). It opens a KYC visit, with that agent, for each member who isn't verified and has no visit open (note 20), and one later for each member who joins.</p>
+  <p class="proto-note"><b>UI-93:</b> while the cooperative is on hold, an invitation can still be <b>declined</b> by SMS code (accepting is refused). Members see ended invitations as "declined" or "didn't answer" (G70). No notice says an invitation was withdrawn.</p>
+  <p class="proto-note"><b>Edit name and meeting</b> (owner amendment, UI-92): name, day, time, place, the meeting's map point (optional: taken where you stand or typed, both coordinates or neither) and the description (<code>PATCH circles/{id}/</code>).</p>
+  <p class="proto-note"><b>Try:</b> <a href="?c=ci-kij-01">Umoja Gathiru, forming</a> · <a href="?c=ci-kij-02">Tujenge Kiamwangi, needs an agent</a> · <a href="?c=ci-kij-03">Ndumberi Wakulima, a suspended member and 3 spaces</a> · <a href="?c=ci-rui-01">Juja Farm Mothers, cooperative on hold</a> · <a href="?c=ci-kij-04">emptied</a> · <a href="?c=ci-gat-01">never completed</a> · <a href="?c=ci-maw-02">dissolved by GroFunder</a></p>
+  <p class="proto-note"><b>Checked against the API (grofunder-api a50769c, <code>GET circles/{id}/</code>):</b> each place carries the member's name, number, status and phone, so the app use isn't shown; "Started by" and "Dissolved by" come from the circle's audit entries (<code>history</code>). See G75 for what the API doesn't return yet.</p>
+  <p class="proto-note proto-gap"><b>G75:</b> the API doesn't yet return three things these screens show: each member's KYC standing on a place (the note's <code>standing</code>; it comes with kyc, B2), and on the list rows (GC1) a dissolved circle's <code>dissolved_at</code> and <code>dissolve_reason</code>. Proposed: add them to <code>CircleDetail.places</code> and <code>CircleRow</code>.</p>
+  <p class="proto-note"><b>Every action on the page (owner amendment UI-112).</b> Nothing is only in the ⋮ menu: <i>Hand over</i> and <i>Dissolve</i> sit beside the status, <i>Assign</i>, <i>Change</i> and <i>Remove</i> beside the agent, <i>Edit</i> on Meeting, <i>Change spaces</i> under Borrowing, and each place shows its own actions (by code, withdraw, make leader, remove). Operations and up.</p>
+  <p class="proto-note"><b>Borrowing spaces and live loans (owner amendment UI-111; note 26; closes G73).</b> Spaces in use are the live loans through this circle (a draft to a defaulted loan), which hold their space whoever has since left, until each ends. Staff see each one. Loans' <code>can_release</code> refuses removing a member with a live loan and dissolving while any loan through the circle is live; exiting the cooperative isn't blocked (23 gap 1). <a href="?c=ci-kij-02">Tujenge Kiamwangi</a> has 2 of 2 in use.</p>
+
+  <div data-state="loaded" class="col gap-4" id="page">
+    <div id="head"></div>
+    <div id="banners" class="col gap-4"></div>
+    <div class="two-col">
+      <div class="col gap-4">
+        <div class="section"><div class="section-body" style="gap:8px">
+          <div class="section-header"><div class="grow"><span class="text-title-md">Members</span><span class="text-body-sm tone-muted" id="size"></span></div>
+            <button class="btn btn-outlined btn-sm" type="button" data-roles="owner full ops" id="invite-btn" onclick="invite()"><span class="mdi mdi-account-plus-outline" aria-hidden="true"></span>Invite</button></div>
+          <div class="rowcards" id="roster"></div>
+        </div></div>
+        <div class="section" id="ended-sec"><div class="section-body" style="gap:8px">
+          <div class="section-header"><div class="grow"><span class="text-title-md">Didn't join, or left</span><span class="text-body-sm tone-muted">GroFunder staff only: members see "declined", "didn't answer", "didn't join" or "left", never who objected or why</span></div></div>
+          <div class="rowcards" id="ended"></div>
+        </div></div>
+      </div>
+      <div class="col gap-4">
+        <div class="section"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">Meeting</span></div>
+          <button class="btn btn-outlined btn-sm" type="button" data-roles="owner full ops" id="edit-meeting" onclick="edit()"><span class="mdi mdi-pencil-outline" aria-hidden="true"></span>Edit</button></div><div id="meeting"></div></div></div>
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">Borrowing</span><div id="borrowing"></div></div></div>
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">History</span><div class="rowcards" id="history"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton" style="height:72px"></div><div class="two-col"><div class="skeleton-card" style="height:360px"></div><div class="skeleton-card" style="height:240px"></div></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load this circle</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var G = GF.groups, U = GroupsUI, f = GF.fmt, esc = U.esc, icon = U.icon, K = GF.kyc;
+var c = G.get(new URLSearchParams(location.search).get("c")) || G.get("ci-kij-01");
+var coop = GF.get(c.cooperative), screen = document.getElementById("screen");
+var MANAGE = "owner full ops", ASSIGN = "owner full ops";
+var live = c.status !== "DISSOLVED", fresh = G.newWork(c), ended = coop.status === "ENDED";
+var open = G.placesOf(c.id, G.OPEN), room = G.RULES.MAX_SIZE - open.length;
+var leader = G.leaderOf(c.id), st = G.standing(c.id);
+var first = function (m) { return m.full_name.split(" ")[0]; };
+
+screen.setAttribute("data-title", c.name);
+screen.setAttribute("data-sub", "Growth Circle · " + U.where(c));
+/* The main action: the agent while it has none; otherwise inviting while there's room. */
+if (live && !c.agent && !ended) screen.setAttribute("data-action", JSON.stringify({ label: "Assign an agent", icon: "account-arrow-right-outline", roles: ASSIGN, on: "assignAgent()", variant: c.status === "COMPLETE" ? "btn-filled" : "btn-tonal" }));
+var menu = [];
+if (live && !ended) {
+  menu.push({ label: "Edit name and meeting", icon: "pencil-outline", roles: MANAGE, on: "edit()" });
+  menu.push({ label: "Change borrowing spaces", icon: "account-cash-outline", roles: MANAGE, on: "spaces()" });
+  if (c.agent) menu.push({ label: "Change agent", icon: "account-switch-outline", roles: ASSIGN, on: "assignAgent()" }, { label: "Remove the agent", icon: "account-off-outline", roles: ASSIGN, on: "unassign()" });
+  menu.push({ label: "Hand over to another member", icon: "account-star-outline", roles: MANAGE, on: "handOver()" });
+}
+if (live) menu.push({ label: "Dissolve the circle", icon: "close-circle-outline", roles: MANAGE, on: "dissolve()", destructive: true, sep: true });
+if (menu.length) screen.setAttribute("data-menu", JSON.stringify(menu));
+
+function header() {
+  var g = c.details.meeting;
+  var facts = [
+    ["Leader", leader ? esc(GF.get(leader.member).full_name) : '<span class="tone-muted">None</span>'],
+    ["Agent", (c.agent ? esc(G.who(c.agent)) : '<span class="tone-muted">Not assigned</span>') + (live && !ended ? ' <span class="row gap-1 wrap" data-roles="' + ASSIGN + '" style="display:inline-flex">' +
+      (c.agent ? '<button class="btn btn-text btn-sm" type="button" id="agent-change" onclick="assignAgent()">Change</button><button class="btn btn-text btn-sm" type="button" id="agent-remove" onclick="unassign()">Remove</button>'
+        : '<button class="btn btn-text btn-sm" type="button" id="agent-assign" onclick="assignAgent()">Assign</button>') + "</span>" : "")],
+    ["Started", U.when(c.created_at) + " by " + esc(G.who(c.created_by)) + (GF.get(c.created_by) ? ", in the console" : ", in the app")],
+    ["Complete", c.completed_at ? U.when(c.completed_at) + (c.status === "FORMING" ? " (since fallen below 5)" : "") : '<span class="tone-muted">Not yet</span>']
+  ];
+  if (c.status === "DISSOLVED") facts.push(["Dissolved", U.when(c.dissolved_at) + " · " + G.L.dissolve[c.dissolve_reason] + (c.dissolved_by ? " · " + esc(G.who(c.dissolved_by)) : "")]);
+  return '<div class="section"><div class="section-body">' +
+    '<div class="row gap-2 wrap">' + U.chip(G.L.status[c.status]) + (c.status === "COMPLETE" && !c.agent ? U.chip(["error", "Needs an agent"]) : "") +
+      (live ? '<span class="row gap-1 wrap" data-roles="' + MANAGE + '" id="head-acts">' + (!ended && leader ? '<button class="btn btn-text btn-sm" type="button" onclick="handOver()">Hand over</button>' : "") +
+        '<button class="btn btn-text btn-sm tone-error" type="button" onclick="dissolve()">Dissolve</button></span>' : "") + "</div>" +
+    '<span class="text-body-md tone-muted">' + esc(U.where(c)) + (live ? " · " + esc(U.sizeLine(c)) : "") + "</span>" +
+    (c.details.description ? '<span class="text-body-md">' + esc(c.details.description) + "</span>" : "") +
+    '<dl class="facts">' + facts.map(function (x) { return "<dt>" + x[0] + "</dt><dd>" + x[1] + "</dd>"; }).join("") + "</dl></div></div>";
+}
+function banners() {
+  var out = "", n = G.count(c.id);
+  if (live && !fresh) out += '<div class="banner banner-warning">' + icon("pause-circle-outline") + '<div class="grow"><span class="text-title-sm">' + esc(coop.profile.short_name) + " is " + (ended ? "ended" : "on hold") + "</span>" +
+    '<span class="text-body-md">' + (ended ? "The circle is read only. GroFunder can still dissolve it." : "Nothing new starts: inviting and accepting are refused. Leaving, removing, objecting, handing over, dissolving and assigning an agent carry on.") + "</span></div></div>";
+  if (c.status === "COMPLETE" && !c.agent) out += '<div class="banner banner-info">' + icon("account-question-outline") + '<div class="grow"><span class="text-body-md">Complete since ' + f.date(c.completed_at) +
+    ". Assign a Farmer Support Agent: they meet the circle and verify its members.</span>" +
+    '<div class="banner-actions" data-roles="' + ASSIGN + '"><button class="btn btn-text" type="button" onclick="assignAgent()">Assign an agent</button></div></div></div>';
+  if (c.status === "FORMING") out += '<div class="banner banner-info">' + icon("account-group-outline") + '<div class="grow"><span class="text-body-md">' + n + " of " + G.RULES.MIN_SIZE +
+    " members needed. It completes once " + (G.RULES.MIN_SIZE - n) + " more " + (G.RULES.MIN_SIZE - n === 1 ? "joins" : "join") + "; until then no loan starts" + (c.completed_at ? ", though live loans carry on" : "") + ".</span></div></div>";
+  if (c.status === "DISSOLVED") out += '<div class="banner banner-info">' + icon("close-circle-outline") + '<div class="grow"><span class="text-body-md">Dissolved ' + f.date(c.dissolved_at) + ": " +
+    ({ BY_LEADER: "by its leader.", BY_GROFUNDER: "by " + esc(G.who(c.dissolved_by)) + ".", NEVER_COMPLETED: "it had fewer than 2 members 60 days after it started.", EMPTIED: "its last member left the cooperative." })[c.dissolve_reason] +
+    " It stays as history for the loans and scores that point at it.</span></div></div>";
+  return out;
+}
+function kycWord(r) {
+  if (r.suspended) return U.chip(["warning", "Suspended: not verified"]);
+  if (r.verified) return U.chip(["success", "Verified"]);
+  var v = K.liveVisit(r.member.id);
+  return v ? '<a href="../kyc/visit.html?v=' + v.id + '">' + U.chip(["info", v.status === "SUBMITTED" ? "Visit to review" : "Visit open"]) + "</a>" : U.chip(["neutral", "Not verified"]);
+}
+function rowActions(x) {
+  if (!live || ended) return "";
+  var b = function (label, on, cls) { return '<button class="btn btn-text btn-sm' + (cls ? " " + cls : "") + '" type="button" onclick="' + on + '">' + label + "</button>"; };
+  var out = x.status === "INVITED" ? b(fresh ? "Accept or decline by code" : "Decline by code", "byCode('" + x.id + "')") + b("Withdraw", "withdraw('" + x.id + "')") :
+    (x.status === "MEMBER" && x.role !== "LEADER" ? b("Make leader", "handOver('" + x.id + "')") : "") + b("Remove", "removePlace('" + x.id + "')", "tone-error");
+  return '<span class="row gap-1 wrap" data-roles="' + MANAGE + '" style="margin-left:-12px">' + out + "</span>";
+}
+var RANK = { MEMBER: 0, JOINING: 1, INVITED: 2 };
+function roster() {
+  return open.slice().sort(function (a, b) { return (a.role === "LEADER" ? -1 : 0) - (b.role === "LEADER" ? -1 : 0) || RANK[a.status] - RANK[b.status] || ((a.joined_at || a.invited_at) < (b.joined_at || b.invited_at) ? -1 : 1); }).map(function (x) {
+    var m = GF.get(x.member), r = st.rows.find(function (y) { return y.place.id === x.id; });
+    return '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="avatar" aria-hidden="true">' + f.initials(m.full_name) + "</span>" +
+      '<span class="grow"><span class="text-body-lg">' + esc(m.full_name) + (x.role === "LEADER" ? ' <span class="text-body-sm tone-muted">· Leader</span>' : "") + "</span>" +
+      '<span class="text-body-sm tone-muted tabular">' + m.member_no + " · " + f.phone(m.phone) + "</span>" +
+      '<span class="text-body-sm tone-muted">' + esc(U.placeNote(x)) + "</span>" + rowActions(x) + "</span>" +
+      '<span class="trail">' + (x.status === "MEMBER" ? kycWord(r) : U.chip(G.L.place[x.status])) + "</span></div>";
+  }).join("") || '<p class="text-body-md tone-muted">No open places.</p>';
+}
+function endedRows() {
+  var list = G.placesOf(c.id).filter(function (x) { return G.OPEN.indexOf(x.status) === -1; }).sort(function (a, b) { return a.ended_at < b.ended_at ? 1 : -1; });
+  return list.map(function (x) {
+    var m = GF.get(x.member);
+    return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start"><span class="grow"><span class="text-body-lg">' + esc(m.full_name) + "</span>" +
+      '<span class="text-body-sm tone-muted">' + esc(U.placeNote(x)) + "</span>" + (x.details.note ? '<span class="text-body-md">"' + esc(x.details.note) + '"</span>' : "") + "</span>" +
+      '<span class="trail">' + U.chip(G.L.place[x.status]) + "</span></div>";
+  }).join("");
+}
+function meeting() {
+  var g = c.details.meeting;
+  return '<dl class="facts stack"><dt>Every week</dt><dd>' + G.L.day[g.day] + " at " + g.time + "</dd><dt>Where</dt><dd>" + esc(g.place) + "</dd>" +
+    "<dt>Map point</dt><dd>" + (g.lat != null ? '<span class="tabular">' + Math.abs(g.lat).toFixed(5) + "° S, " + g.lng.toFixed(5) + "° E</span>" : '<span class="tone-muted">Not given (optional)</span>') + "</dd></dl>";
+}
+function borrowing() {
+  var n = st.count, ok = st.rows.filter(function (r) { return r.verified; }).length, sus = st.rows.filter(function (r) { return r.suspended; }).length;
+  var Lo = GF.loans, inUse = Lo ? Lo.liveIn(c.id) : [];
+  return '<dl class="facts stack"><dt>Borrowing spaces</dt><dd><span class="text-title-md tabular" id="spaces-used">' + inUse.length + " of " + c.borrowing_spaces + " in use</span> " +
+    (c.borrowing_spaces !== G.RULES.DEFAULT_BORROWING_SPACES ? '<span class="text-body-sm tone-muted">(changed from ' + G.RULES.DEFAULT_BORROWING_SPACES + ")</span>" : '<span class="text-body-sm tone-muted">(the default)</span>') + "</dd>" +
+    "<dt>Members verified now</dt><dd>" + ok + " of " + n + (sus ? " · " + sus + " suspended" : "") + "</dd>" +
+    (inUse.length ? "<dt>Live loans</dt><dd>" + inUse.map(function (l) { return '<a class="tabular" href="../loans/loan.html?l=' + l.id + '">' + l.reference + "</a> · " + esc(GF.get(l.member).full_name) + " · " + Lo.L.status[l.status][1].toLowerCase(); }).join("<br>") + "</dd>" : "") + "</dl>" +
+    '<span class="text-body-sm tone-muted">A loan can start once the circle is complete, every member is verified, and a space is free. Loans (26) checks all three.</span>' +
+    (live && !ended ? '<div class="actions actions-start" data-roles="' + MANAGE + '"><button class="btn btn-outlined btn-sm" type="button" onclick="spaces()">Change spaces</button></div>' : "");
+}
+function history() {
+  return G.auditOf(c.id).map(function (a) {
+    return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start"><span class="grow"><span class="text-body-md">' + esc(a.text) + '</span><span class="text-body-sm tone-muted">' + U.when(a.at) + " · " + esc(G.who(a.by)) + "</span></span></div>";
+  }).join("");
+}
+document.getElementById("head").innerHTML = header();
+document.getElementById("banners").innerHTML = banners();
+document.getElementById("size").textContent = live ? open.length + " of " + G.RULES.MAX_SIZE + " places used (members, joining and invited)" : "No open places";
+document.getElementById("roster").innerHTML = roster();
+var e = endedRows();
+document.getElementById("ended").innerHTML = e;
+document.getElementById("ended-sec").classList.toggle("hidden", !e);
+document.getElementById("meeting").innerHTML = meeting();
+document.getElementById("borrowing").innerHTML = borrowing();
+document.getElementById("history").innerHTML = history();
+if (!live || !fresh || room < 1) document.getElementById("invite-btn").remove();
+if (!live || ended) document.getElementById("edit-meeting").remove();
+
+/* ------------------------------------------------------------ actions */
+function assignAgent() {
+  var unverified = st.rows.filter(function (r) { return !r.verified && !r.suspended && !K.liveVisit(r.member.id); }).length;
+  var el = Proto.dialog({ title: c.agent ? "Change the agent" : "Assign an agent",
+    body: '<p class="text-body-md tone-muted">The agent meets ' + esc(c.name) + " at " + G.L.day[c.details.meeting.day] + "'s meeting and verifies its members. " +
+      (unverified ? "This opens a KYC visit, with the agent, for the " + unverified + " member" + (unverified === 1 ? "" : "s") + " not verified and without a visit." : "Every member is verified or has a visit already, so no visit opens.") +
+      (c.agent ? " Visits still open move to the new agent; those already submitted stay with " + esc(G.who(c.agent)) + "." : "") + "</p>" +
+      '<div class="field"><label class="field-label" for="ag">Agent</label><select class="field-input" id="ag">' + K.agents.map(function (a) {
+        var n = G.circles.filter(function (x) { return x.agent === a.id && x.status !== "DISSOLVED"; }).length;
+        return '<option value="' + a.id + '"' + (a.id === c.agent ? " selected" : "") + ">" + a.name + " · " + n + (n === 1 ? " circle" : " circles") + "</option>";
+      }).join("") + '</select><span class="field-help">Logins that hold <code>groups.assigned</code> (the Farmer Support Agent role).</span></div>',
+    submit: c.agent ? "Change agent" : "Assign", onSubmit: function (d) { Proto.snack(G.who(d.querySelector("#ag").value) + " assigned. The circle and the agent are told"); } });
+}
+function unassign() {
+  Proto.confirm({ title: "Remove " + G.who(c.agent) + " from this circle?", message: "Their open KYC visits stay with them until reassigned in Verifications.", confirm: "Remove agent", destructive: true,
+    onConfirm: function () { Proto.snack("Agent removed"); } });
+}
+function spaces() {
+  Proto.dialog({ title: "Change borrowing spaces",
+    body: '<p class="text-body-md tone-muted">How many members of ' + esc(c.name) + " may have a live loan at once. New circles get " + G.RULES.DEFAULT_BORROWING_SPACES + ". Lowering it below the loans in use is allowed: those carry on, and new requests wait for a free space.</p>" +
+      '<div class="field"><label class="field-label" for="sp">Spaces</label><input class="field-input tabular" id="sp" type="number" min="1" max="' + G.RULES.MAX_SIZE + '" value="' + c.borrowing_spaces + '" style="max-width:120px"><span class="field-help">1 to ' + G.RULES.MAX_SIZE + "</span></div>" +
+      '<div class="field"><label class="field-label" for="spr">Reason</label><textarea class="field-input" id="spr" placeholder="Kept in the audit trail with the old and new numbers"></textarea></div>',
+    submit: "Save", onSubmit: function (d) {
+      var n = +d.querySelector("#sp").value, r = d.querySelector("#spr").value.trim();
+      if (!r) return Proto.snack("Give a reason: it goes to the audit trail");
+      if (!(n >= 1 && n <= G.RULES.MAX_SIZE)) return Proto.snack("Between 1 and " + G.RULES.MAX_SIZE);
+      Proto.snack("Borrowing spaces " + c.borrowing_spaces + " → " + n);
+    } });
+}
+function invite() {
+  var skip = open.map(function (x) { return x.member; });
+  var el = Proto.dialog({ title: "Invite to " + esc(c.name),
+    body: '<p class="text-body-md tone-muted">Active members of ' + esc(coop.profile.short_name) + (c.cluster ? " in the " + esc(GF.get(c.cluster).name) + " cluster" : "") + " who aren't in a circle. " + room + (room === 1 ? " place is" : " places are") + " left. Each gets an SMS and has " + G.RULES.INVITATION_DAYS + " days to answer.</p>" +
+      '<div class="field search"><div class="field-box"><span class="lead">' + icon("magnify") + '</span><input class="field-input" id="iq" type="search" placeholder="Name or member number" aria-label="Find a member"></div></div>' +
+      '<div class="rowcards" id="ilist" style="max-height:280px;overflow:auto"></div>',
+    submit: "Invite", onSubmit: function (d) {
+      var n = d.querySelectorAll("#ilist input:checked").length;
+      if (!n) return Proto.snack("Pick at least one member");
+      if (n > room) return Proto.snack("Only " + room + " places left");
+      Proto.snack(n + (n === 1 ? " invitation" : " invitations") + " sent");
+    } });
+  function list() {
+    el.querySelector("#ilist").innerHTML = G.candidates(c.cooperative, c.cluster, el.querySelector("#iq").value, skip).map(function (m) {
+      return '<label class="check" style="padding:8px 0"><input type="checkbox" value="' + m.id + '"><span class="grow"><span class="text-body-md">' + esc(m.full_name) + '</span><span class="text-body-sm tone-muted tabular">' + m.member_no + (m.cluster ? " · " + esc(GF.get(m.cluster).name) : "") + "</span></span></label>";
+    }).join("") || '<p class="text-body-md tone-muted">No member matches.</p>';
+  }
+  el.querySelector("#iq").addEventListener("input", list); list();
+}
+function withdraw(id) {
+  var m = GF.get(G.get(id).member);
+  Proto.confirm({ title: "Withdraw " + esc(first(m)) + "'s invitation?", message: "The leader or GroFunder can invite them again.", confirm: "Withdraw", onConfirm: function () { Proto.snack("Invitation withdrawn"); } });
+}
+function byCode(id) {
+  var m = GF.get(G.get(id).member);
+  var el = Proto.dialog({ title: "Answer for " + esc(m.full_name),
+    body: '<p class="text-body-md tone-muted">For a member without the app (Q6). Send a code to their phone, ' + f.phone(m.phone) + ", and ask them to read it out. Accepting means they know the circle's members and vouch for them: read them the names first.</p>" +
+      '<div class="card card-outlined col gap-1"><span class="text-title-sm">Who is in ' + esc(c.name) + '</span><span class="text-body-md">' + open.filter(function (x) { return x.id !== id; }).map(function (x) { return esc(GF.get(x.member).full_name); }).join(", ") + "</span></div>" +
+      '<div class="actions actions-start"><button class="btn btn-tonal btn-sm" type="button" id="send">' + icon("message-lock-outline") + "Send the code</button></div>" +
+      '<div class="field"><label class="field-label" for="code">Code</label><input class="field-input tabular" id="code" inputmode="numeric" maxlength="6" placeholder="6 digits" style="max-width:160px"><span class="field-help">Lasts 5 minutes; 5 tries.</span></div>' +
+      (fresh ? '<div class="chip-row" data-choice role="radiogroup" aria-label="Answer"><button class="chip" type="button" role="radio" aria-checked="true" data-a="accept">Accept</button><button class="chip" type="button" role="radio" aria-checked="false" data-a="decline">Decline</button></div>'
+        : '<div class="banner banner-info"><span class="mdi mdi-pause-circle-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">' + esc(coop.profile.short_name) + ' is on hold: accepting is refused, but the member can still decline.</span></div></div><span data-a="decline" aria-checked="true" hidden></span>'),
+    submit: "Record the answer", onSubmit: function (d) {
+      if (!/^\d{6}$/.test(d.querySelector("#code").value)) return Proto.snack("Enter the 6-digit code the member reads out");
+      var a = d.querySelector('[data-a][aria-checked="true"]').getAttribute("data-a");
+      Proto.snack(a === "accept" ? first(m) + " joins on " + f.date(G.addDays(GF.NOW, G.RULES.OBJECTION_WINDOW_DAYS), "short") + " unless a member objects" : first(m) + " declined");
+    } });
+  el.querySelector("#send").addEventListener("click", function () { Proto.snack("Code sent to " + f.phone(m.phone)); });
+}
+function removePlace(id) {
+  var x = G.get(id), m = GF.get(x.member), rel = GF.loans ? GF.loans.canRelease(x.member) : { ok: true };
+  /* can_release (26): not while they have a live loan. */
+  if (!rel.ok) return Proto.dialog({ title: "Can't remove " + esc(m.full_name), body: '<p class="text-body-md">' + esc(first(m)) + " has a live loan, " + rel.loan.reference + " (" + GF.loans.L.status[rel.loan.status][1].toLowerCase() + "). A member stays in the circle until their loan ends; it holds one of the circle's borrowing spaces.</p>" +
+    '<div class="actions"><a class="btn btn-tonal" href="../loans/loan.html?l=' + rel.loan.id + '">Open the loan</a></div>' });
+  Proto.dialog({ title: "Remove " + esc(m.full_name) + "?",
+    body: '<p class="text-body-md tone-muted">' + esc(first(m)) + " gets an SMS. A loan they hold carries on under its agreement. " + (x.role === "LEADER" ? "They lead the circle: the longest-standing member becomes leader. " : "") +
+      (x.status === "MEMBER" && G.count(c.id) - 1 < G.RULES.MIN_SIZE && c.status === "COMPLETE" ? "The circle falls below " + G.RULES.MIN_SIZE + " members and goes back to forming: no new loans start." : "") + "</p>" +
+      '<div class="field"><label class="field-label" for="rn">Note</label><textarea class="field-input" id="rn" placeholder="Why. Seen by GroFunder staff only"></textarea></div>',
+    submit: "Remove", onSubmit: function (d) { if (!d.querySelector("#rn").value.trim()) return Proto.snack("A note is needed to remove a member"); Proto.snack(first(m) + " removed"); } });
+}
+function handOver(id) {
+  var members = G.placesOf(c.id, ["MEMBER"]).filter(function (x) { return x.role !== "LEADER"; });
+  Proto.dialog({ title: "Hand over the circle",
+    body: '<p class="text-body-md tone-muted">The new leader invites, removes and can dissolve the circle. Only a member, not someone still joining. The circle is told.</p>' +
+      '<div class="field"><label class="field-label" for="nl">New leader</label><select class="field-input" id="nl">' + members.map(function (x) { var m = GF.get(x.member); return '<option value="' + x.id + '"' + (x.id === id ? " selected" : "") + ">" + esc(m.full_name) + "</option>"; }).join("") + "</select></div>",
+    submit: "Hand over", onSubmit: function (d) { Proto.snack(GF.get(G.get(d.querySelector("#nl").value).member).full_name + " leads " + c.name + " now"); } });
+}
+
+/* Owner amendment to signed-off phase 12 (UI-92, 2026-11-08): "Edit name and meeting" also edits the
+ * description and the meeting's map point (note 23: details.meeting.lat/lng, optional, together or not
+ * at all). The point is taken where the person stands, or typed; the kit has no map picker yet (F60). */
+function pointFields(g) {
+  return '<div class="field"><span class="field-label">Map point (optional)</span>' +
+    '<div class="row gap-2 wrap" style="align-items:center"><button class="btn btn-outlined btn-sm" type="button" id="here"><span class="mdi mdi-crosshairs-gps" aria-hidden="true"></span>Use where I am now</button>' +
+    '<button class="btn btn-text btn-sm" type="button" id="clear-pt">Remove the point</button></div>' +
+    '<div class="form-grid"><div class="field"><label class="field-label" for="plat">Latitude</label><input class="field-input tabular" id="plat" inputmode="decimal" placeholder="-1.11893" value="' + (g.lat == null ? "" : g.lat) + '"></div>' +
+    '<div class="field"><label class="field-label" for="plng">Longitude</label><input class="field-input tabular" id="plng" inputmode="decimal" placeholder="36.83521" value="' + (g.lng == null ? "" : g.lng) + '"></div></div>' +
+    '<span class="field-help">So the agent can find the meeting. Both or neither.</span></div>';
+}
+function wirePoint(el) {
+  el.querySelector("#here").addEventListener("click", function () { el.querySelector("#plat").value = "-1.11902"; el.querySelector("#plng").value = "36.83517"; Proto.snack("Point taken, ±9 m"); });
+  el.querySelector("#clear-pt").addEventListener("click", function () { el.querySelector("#plat").value = ""; el.querySelector("#plng").value = ""; });
+}
+function pointError(d) {
+  var a = d.querySelector("#plat").value.trim(), b = d.querySelector("#plng").value.trim();
+  if (!a && !b) return "";
+  if (!a || !b) return "Give both latitude and longitude, or neither";
+  if (!(Math.abs(+a) <= 90) || !(Math.abs(+b) <= 180) || isNaN(+a) || isNaN(+b)) return "That isn't a map point";
+  return "";
+}
+function edit() {
+  var g = c.details.meeting;
+  var el = Proto.dialog({ title: "Name and meeting",
+    body: '<div class="field"><label class="field-label" for="en">Name</label><input class="field-input" id="en" maxlength="60" value="' + esc(c.name) + '"><span class="field-help">Unique in ' + esc(coop.profile.short_name) + ", ignoring case</span></div>" +
+      '<div class="form-grid"><div class="field"><label class="field-label" for="ed">Day</label><select class="field-input" id="ed">' + Object.keys(G.L.day).map(function (k) { return '<option value="' + k + '"' + (k === g.day ? " selected" : "") + ">" + G.L.day[k] + "</option>"; }).join("") + "</select></div>" +
+      '<div class="field"><label class="field-label" for="et">Time</label><input class="field-input tabular" id="et" type="time" value="' + g.time + '"></div></div>' +
+      '<div class="field"><label class="field-label" for="ep">Place</label><input class="field-input" id="ep" value="' + esc(g.place) + '"></div>' + pointFields(g) +
+      '<div class="field"><label class="field-label" for="eds">About the circle (optional)</label><textarea class="field-input" id="eds">' + esc(c.details.description) + "</textarea></div>",
+    submit: "Save", onSubmit: function (d) {
+      var n = d.querySelector("#en").value.trim(), pe = pointError(d);
+      if (pe) return Proto.snack(pe);
+      var clash = G.circles.find(function (x) { return x.id !== c.id && x.cooperative === c.cooperative && x.status !== "DISSOLVED" && x.name.toLowerCase() === n.toLowerCase(); });
+      if (!n || !d.querySelector("#ep").value.trim()) return Proto.snack("A name and a place are needed");
+      if (clash) return Proto.snack(esc(coop.profile.short_name) + " already has a circle called " + clash.name);
+      Proto.snack("Saved");
+    } });
+  wirePoint(el);
+}
+function dissolve() {
+  var live = GF.loans ? GF.loans.liveIn(c.id) : [];
+  if (live.length) return Proto.dialog({ title: "Can't dissolve " + esc(c.name), body: '<p class="text-body-md">' + live.length + (live.length === 1 ? " loan" : " loans") + " through it " + (live.length === 1 ? "is" : "are") + " still live: " + live.map(function (l) { return l.reference + " (" + esc(GF.get(l.member).full_name) + ")"; }).join(", ") + ". A circle can be dissolved once every loan through it has ended.</p>" });
+  Proto.dialog({ title: "Dissolve " + esc(c.name) + "?",
+    body: '<p class="text-body-md tone-muted">Every open place ends: invitations are withdrawn and members are removed. Each of them gets an SMS. It can\'t be undone, and it\'s refused while a member has a live loan (loans, 26).</p>' +
+      '<div class="field"><label class="field-label" for="dn">Note</label><textarea class="field-input" id="dn" placeholder="Why. Kept in the audit trail"></textarea></div>',
+    submit: "Dissolve", onSubmit: function (d) { if (!d.querySelector("#dn").value.trim()) return Proto.snack("A note is needed to dissolve a circle"); Proto.snack(c.name + " dissolved"); } });
+}
+</script>
+</body>
+</html>
