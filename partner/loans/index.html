@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Loans · GroFunder partner portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/portal-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Loans" data-dest="loans" data-wide>
+
+  <p class="proto-note"><b>PP2 · Loans (note 29, "Screens").</b> Every loan on your products, by where it stands. GroFunder's ledger is the record for a portal lender, so the balance, the arrears and each instalment's state are worked out there from what you record here. You see your own loans only: never another lender's anything.</p>
+  <p class="proto-note"><b>Where a loan goes:</b> waiting for you (forwarded), approved and waiting for the money, being repaid, behind, defaulted (GroFunder's recovery), repaid, rejected, cancelled or written off. Arrears and default are set by GroFunder's nightly sweep, not by you.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div class="chip-row scroll" data-choice role="radiogroup" aria-label="Show" id="filter"></div>
+    <div class="table-wrap"><table class="table"><thead><tr><th>Loan</th><th>Member</th><th class="num">Amount</th><th class="num">Balance</th><th>Status</th><th>Since</th></tr></thead><tbody id="rows"></tbody></table></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:260px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-cash-multiple" aria-hidden="true"></span>
+    <span class="text-headline-sm">No loans yet</span><span class="text-body-md">Loans appear once GroFunder forwards an application on one of your products and you approve it.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the loans</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var U = PortalUI, esc = U.esc, f = GF.fmt, Lo = GF.loans, P = GF.partners;
+var GROUPS = [["all", "All", null], ["queue", "Waiting for you", ["FORWARDED", "AMENDMENT_REQUIRED"]], ["todisburse", "To disburse", ["PARTNER_APPROVED"]],
+  ["repaying", "Being repaid", ["ACTIVE"]], ["behind", "Behind", ["IN_ARREARS", "DEFAULTED"]], ["ended", "Ended", ["CLOSED", "WRITTEN_OFF", "PARTNER_REJECTED", "CANCELLED"]]];
+var pick = new URLSearchParams(location.search).get("show") || "all";
+function draw() {
+  document.getElementById("filter").innerHTML = GROUPS.map(function (g) {
+    return '<button class="chip" type="button" role="radio" data-g="' + g[0] + '" aria-checked="' + (g[0] === pick) + '">' + g[1] + " · " + U.loans(g[2] || undefined).length + "</button>";
+  }).join("");
+  var g = GROUPS.find(function (x) { return x[0] === pick; }), list = U.loans(g[2] || undefined);
+  document.getElementById("rows").innerHTML = list.length ? list.map(function (l) {
+    var m = GF.get(l.member), t = P.get(l.terms);
+    var since = l.disbursed_at || l.forwarded_at || l.created_at;
+    return '<tr><td class="primary-cell"><a class="tabular" href="loan.html?l=' + l.id + '">' + l.reference + '</a><span class="cell-sub">' + esc(P.get(l.product).name) + "</span></td>" +
+      "<td>" + esc(m.full_name) + '<span class="cell-sub">' + esc(GF.get(m.cooperative).profile.short_name) + "</span></td>" +
+      '<td class="num tabular">' + U.whole(l.amount_cents) + '<span class="cell-sub">' + Lo.durationLine(l.duration, t.duration_unit) + "</span></td>" +
+      '<td class="num tabular">' + (l.balance_cents == null ? "–" : U.money(l.balance_cents)) + "</td>" +
+      "<td>" + U.chip(U.statusOf(l)) + (l.days_past_due ? '<span class="cell-sub tone-error">' + l.days_past_due + " days late, " + U.whole(l.overdue_cents) + " overdue</span>" : "") + "</td>" +
+      '<td class="text-body-sm">' + f.date(since, "short") + "</td></tr>";
+  }).join("") : '<tr><td colspan="6" class="text-body-md tone-muted">Nothing here.</td></tr>';
+}
+document.getElementById("filter").addEventListener("click", function (e) { var b = e.target.closest("[data-g]"); if (b) { pick = b.getAttribute("data-g"); draw(); } });
+draw();
+</script>
+</body>
+</html>

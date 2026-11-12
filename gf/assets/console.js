@@ -161,7 +161,7 @@
       '<dl class="facts"><dt>ID</dt><dd class="tabular">' + ID[m.id_type] + " " + m.id_number + '</dd><dt>Phone</dt><dd class="tabular">' + f.phone(m.phone) + "</dd><dt>Gender</dt><dd>" + GENDER[m.gender] +
       '</dd><dt>Born</dt><dd class="tabular">' + (m.date_of_birth ? f.date(m.date_of_birth) + age : "–") + "</dd><dt>Lives in</dt><dd>" + [m.profile.address.village, m.profile.address.ward, GF.get(m.area).name].filter(Boolean).join(", ") +
       "</dd><dt>Positions</dt><dd>" + (pos.join("; ") || "–") + "</dd><dt>Nominees</dt><dd>" + (m.profile.nominees.map(function (n) { return esc(n.name) + " (" + n.relationship.toLowerCase() + ", " + n.share_pct + "%)"; }).join("; ") || "–") + "</dd></dl>" +
-      kycSection(m) + circleSection(m) + creditSection(m) + loanSection(m) + consentSection(m) +
+      kycSection(m) + circleSection(m) + creditSection(m) + loanSection(m) + recoverySection(m) + consentSection(m) +
       '<div class="divider"></div><span class="text-title-sm">Member app login</span>' + login +
       '<div class="divider"></div><span class="text-title-sm">Status history</span><div class="rowcards">' + q.statusHistory(m.id).map(function (h) {
         return '<div class="rowcard" style="padding-left:0;padding-right:0">' + chip(MEMBER, h.to_status) + '<span class="grow"><span class="text-body-md">' + (h.from_status ? (h.details.reason ? '"' + esc(h.details.reason) + '"' : "Back to " + LABEL[h.to_status].toLowerCase()) : "Joined") +
@@ -228,6 +228,25 @@
           esc(GF.partners.get(l.product).name) + " · " + f.date(l.created_at, "short") + "</span></span>" + chip(Lo.L.status, l.status) + "</a>";
       }).join("") : '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="text-body-md tone-muted">No loans.</span></div>') + "</div>" +
       (m.status === "ACTIVE" && !list.some(Lo.isLive) ? '<div class="actions actions-start" data-roles="owner full ops"><a class="btn btn-tonal" href="' + R + "loans/prepare.html?m=" + m.id + '">Prepare a loan</a></div>' : "");
+  }
+  /* Recovery (note 28; phase 18, UI-130): a defaulted loan being recovered through this cooperative.
+   * What has been taken and what is left; the arrangement is the cooperative's to agree, in its portal. */
+  function recoverySection(m) {
+    var Rc = GF.recovery;
+    if (!Rc) return "";
+    var list = Rc.cases.filter(function (c) { return c.member === m.id; }).sort(function (a, b) { return a.created_at < b.created_at ? 1 : -1; });
+    if (!list.length) return "";
+    return '<div class="divider"></div><span class="text-title-sm">Recovery</span>' +
+      '<span class="text-body-sm tone-muted">Only while a loan of theirs has defaulted. The cooperative sees the arrangement and what it withheld, never the lender\'s pricing.</span>' +
+      '<div class="rowcards" id="recovery-rows">' + list.map(function (c) {
+        var pr = Rc.progress(c), left = pr.loan_left_cents + pr.fee_left_cents;
+        var agreed = c.arrangement === "FULL" ? "As much as the terms allow" : c.per_payout_bps ? (c.per_payout_bps / 100) + "% of each payout" : f.money(c.per_payout_cents, { whole: true }) + " from each payout";
+        var sub = c.status === "RECOVERING" || c.status === "PAUSED" ? agreed + " · " + f.money(pr.loan_recovered_cents, { whole: true }) + " taken, " + f.money(left, { whole: true }) + " left"
+          : c.status === "CLOSED" ? (Rc.L.end[c.end_reason] || "Closed") + (pr.fee_left_cents ? " · collection fee " + f.money(pr.fee_left_cents, { whole: true }) + " still owed" : "")
+          : c.status === "PENDING" ? "Waiting for GroFunder to confirm" : c.status === "OPEN" ? "Waiting for the cooperative to agree an arrangement" : esc(c.details.decline_reason || "");
+        return '<a class="rowcard" style="padding-left:0;padding-right:0" href="' + R + 'recovery/case.html?c=' + c.id + '"><span class="grow"><span class="text-body-md tabular">' + c.reference +
+          '</span><span class="text-body-sm tone-muted">' + sub + "</span></span>" + chip(Rc.L.status, c.status) + "</a>";
+      }).join("") + "</div>";
   }
   /* Consents (note 22; phase 15, UI-100): this record's lending consents and the login's terms.
    * consents.view for every office role; taking one by SMS code (consents.record) and withdrawing

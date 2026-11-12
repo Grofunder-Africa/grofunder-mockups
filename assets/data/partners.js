@@ -11,8 +11,12 @@
  *   Mavuno Capital (API)     ONBOARDING: connection set but not verified (no adapter until L4, S1);
  *                            Dairy input loan v1 in force, v2 withdrawn, v3 scheduled for 1 Dec, v4 a draft
  *   Shamba Finance (PORTAL)  ONBOARDING: can't be activated until the partner portal exists (L6)
+ *   Chemi Chemi Sacco (PORTAL) ACTIVE, added for phase 19: it works its loans in the partner portal (29),
+ *                            with four staff on its own account; its coffee cherry advance covers Mawingu
  *   Tegemeo Microfinance     ACTIVE, drawn as after L4 (adapters exist), so its remittances,
- *                            pause and history can be shown; today no partner can be active
+ *                            pause and history can be shown; today no partner can be active.
+ *                            Two products: Avocado grower loan (Gatundu) and, added for phase 18,
+ *                            Dairy working capital (Kijani), paused for new lending since 18 Sep
  */
 (function (root) {
   "use strict";
@@ -32,7 +36,8 @@
     chargeFreq: { ONE_OFF: "Once", PER_INSTALMENT: "Each instalment", PER_WEEK: "A week", PER_MONTH: "A month", PER_YEAR: "A year", PER_MISSED_INSTALMENT: "Each missed instalment" },
     collected: { DEDUCTED_AT_DISBURSEMENT: "Taken off what the member receives", ADDED_TO_LOAN: "Added to what they owe", WITH_INSTALMENTS: "Paid with each instalment" },
     sms: { ACCOUNT_CREATED: "Account created", REQUEST_RECEIVED: "Request received", APPROVED: "Approved", DISBURSED: "Disbursed", PAYMENT_RECEIVED: "Payment received", OVERDUE: "Overdue" },
-    source: { STAFF: "Recorded by staff", PARTNER_EVENT: "From the partner's event" }
+    source: { STAFF: "Recorded by staff", PARTNER_EVENT: "From the partner's event", PORTAL: "Recorded by the lender in the portal" },
+    remittance: { PENDING: ["warning", "Waiting for GroFunder"], RECORDED: ["info", "Recorded"], VOIDED: ["neutral", "Voided"] }
   };
 
   var T = function (d, t) { return "2026-" + d + "T" + (t || "09:00") + ":00+03:00"; };
@@ -47,6 +52,17 @@
         contact: { name: "Joseph Kiprono", role: "Credit manager", phone: "+254722410977", email: "jkiprono@shamba.example" },
         member_display: { name: "Shamba Finance", phone: "+254733100200", paybill: "557712" },
         sends_sms: [], remittance: { cycle: "QUARTERLY", notes: "" } } },
+    /* Added 2026-11-10 for the partner portal (phase 19, note 29, signed off 2026-11-10): a lender with no
+     * system of its own, which works its loans in the portal. Its staff are members of its kit account. */
+    { id: "lp-chemi", name: "Chemi Chemi Sacco", code: "CHEMI", mode: "PORTAL", status: "ACTIVE", environment: "PRODUCTION", created_at: T("07-05", "10:00"), updated_at: T("07-28", "09:00"),
+      profile: { legal_name: "Chemi Chemi Savings & Credit Co-operative Society Ltd", registration_no: "CS/11284", licence: "SASRA deposit-taking licence 2026/061",
+        contact: { name: "Rose Wambui", role: "Credit manager", phone: "+254726330118", email: "rose@chemichemi.example" },
+        member_display: { name: "Chemi Chemi Sacco", phone: "+254709880880", paybill: "626262" },
+        sends_sms: [], remittance: { cycle: "MONTHLY", notes: "Recorded in the portal and confirmed by GroFunder." },
+        staff: [{ id: "u-rose", name: "Rose Wambui", role: "partner_admin", email: "rose@chemichemi.example", owner: true },
+          { id: "u-dennis", name: "Dennis Mwaura", role: "partner_credit", email: "dennis@chemichemi.example" },
+          { id: "u-faith-c", name: "Faith Wairimu", role: "partner_finance", email: "faith@chemichemi.example" },
+          { id: "u-joy", name: "Joy Atieno", role: "partner_viewer", email: "joy@chemichemi.example", invited: true }] } },
     { id: "lp-tegemeo", name: "Tegemeo Microfinance", code: "TEGEMEO", mode: "API", status: "ACTIVE", environment: "PRODUCTION", created_at: T("06-02", "10:00"), updated_at: T("09-10", "09:30"),
       profile: { legal_name: "Tegemeo Microfinance Bank Ltd", registration_no: "PVT-4LB8Z1RT", licence: "CBK microfinance bank licence MFB/2025/017",
         contact: { name: "Halima Noor", role: "Head of agri lending", phone: "+254720555310", email: "halima.noor@tegemeo.example" },
@@ -81,6 +97,15 @@
       details: { description: "School fees at the start of term.", description_sw: "Karo ya shule mwanzoni mwa muhula.", purposes: [{ value: "FEES", en: "School fees", sw: "Karo ya shule" }] } },
     { id: "pr-shb-harvest", partner: "lp-shamba", code: "SHB-HARVEST", name: "Coffee harvest advance", status: "ACTIVE", reviews_required: 1, created_at: T("10-26", "14:20"),
       details: { description: "Picking labour before the cherry is paid for.", description_sw: "Malipo ya wachumaji kabla ya kulipwa kwa cheri.", purposes: [{ value: "LABOUR", en: "Picking labour", sw: "Wachumaji" }] } },
+    /* Added 2026-11-10 for recovery (phase 18): Tegemeo's first dairy cohort at Kijani, paused for new
+     * lending in September after some of it fell behind. Paused keeps it out of products_for, so what
+     * members are offered (phases 16, 17) doesn't change; its loans and recovery carry on. */
+    { id: "pr-chemi-coffee", partner: "lp-chemi", code: "CHEMI-CHERRY", name: "Coffee cherry advance", status: "ACTIVE", reviews_required: 1, created_at: T("07-06", "09:00"),
+      details: { description: "An advance against the coming cherry, repaid monthly once the factory pays.", description_sw: "Malipo ya awali kwa cheri inayokuja, kulipwa kila mwezi kiwanda kinapolipa.",
+        purposes: [{ value: "LABOUR", en: "Picking labour", sw: "Wachumaji" }, { value: "INPUTS", en: "Fertiliser and sprays", sw: "Mbolea na dawa" }] } },
+    { id: "pr-teg-dairy", partner: "lp-tegemeo", code: "TEG-DAIRY-M", name: "Dairy working capital", status: "PAUSED", reviews_required: 1, created_at: T("05-28", "09:00"),
+      details: { description: "Feed and vet care for dairy farmers, repaid monthly from milk payouts.", description_sw: "Chakula cha mifugo na huduma ya daktari, kulipwa kila mwezi kutoka malipo ya maziwa.",
+        purposes: [{ value: "FEED", en: "Animal feed", sw: "Chakula cha mifugo" }, { value: "VET", en: "Vet care and drugs", sw: "Huduma ya mifugo na dawa" }] } },
     { id: "pr-teg-avo", partner: "lp-tegemeo", code: "TEG-AVO-W", name: "Avocado grower loan", status: "ACTIVE", reviews_required: 1, created_at: T("06-02", "10:30"),
       details: { description: "Seedlings, fertiliser and spraying for avocado orchards.", description_sw: "Miche, mbolea na dawa za kunyunyizia kwa mashamba ya parachichi.",
         purposes: [{ value: "INPUTS", en: "Fertiliser and sprays", sw: "Mbolea na dawa" }, { value: "SEEDLINGS", en: "Seedlings", sw: "Miche" }] } }
@@ -131,6 +156,19 @@
     V({ id: "pt-harvest-1", product: "pr-shb-harvest", version: 1, status: "DRAFT", effective_from: T("11-16", "00:00"), min_amount_cents: 200000, max_amount_cents: 2000000,
       duration_unit: "WEEKLY", min_duration: 4, max_duration: 12, repayment_frequency: "END_OF_TERM", grace_days: 3, default_after_days: 21, flag_after_days: 21, published_at: null, published_by: null, created_by: "u-peter", created_at: T("10-26", "14:30"),
       charges: ch([["Interest", "INTEREST", "PERCENT_OF_PRINCIPAL", null, 120, "PER_WEEK", "WITH_INSTALMENTS", null, null, 2500]]) }),
+    V({ id: "pt-chemi-1", product: "pr-chemi-coffee", version: 1, status: "PUBLISHED", effective_from: T("08-01", "00:00"), min_amount_cents: 300000, max_amount_cents: 2500000,
+      duration_unit: "MONTHLY", min_duration: 2, max_duration: 5, repayment_frequency: "MONTHLY", grace_days: 7, default_after_days: 30, flag_after_days: 40,
+      published_at: T("07-20", "11:00"), published_by: "u-amina", created_by: "u-peter", created_at: T("07-18", "10:00"),
+      terms: { early_repayment: "Repay early at any time; interest stops from the day you repay.", disclosure: { en: "Chemi Chemi Sacco lends to members of cooperatives it works with.", sw: "Chemi Chemi Sacco inakopesha wanachama wa vyama inavyofanya navyo kazi." } },
+      charges: ch([["Interest", "INTEREST", "PERCENT_OF_PRINCIPAL", null, 350, "PER_MONTH", "WITH_INSTALMENTS", null, null, 3000],
+        ["Processing fee", "PROCESSING_FEE", "PERCENT_OF_PRINCIPAL", null, 200, "ONE_OFF", "DEDUCTED_AT_DISBURSEMENT", 10000, null, 5000],
+        ["Late penalty", "LATE_PENALTY", "FLAT_AMOUNT", 15000, null, "PER_MISSED_INSTALMENT", "WITH_INSTALMENTS", null, null, 5000]]) }),
+    V({ id: "pt-tegkij-1", product: "pr-teg-dairy", version: 1, status: "PUBLISHED", effective_from: T("06-01", "00:00"), min_amount_cents: 500000, max_amount_cents: 3000000,
+      duration_unit: "MONTHLY", min_duration: 2, max_duration: 6, repayment_frequency: "MONTHLY", grace_days: 7, default_after_days: 30, flag_after_days: 45,
+      published_at: T("05-29", "10:00"), published_by: "u-amina", created_by: "u-amina", created_at: T("05-28", "09:30"),
+      charges: ch([["Interest", "INTEREST", "PERCENT_OF_PRINCIPAL", null, 400, "PER_MONTH", "WITH_INSTALMENTS", null, null, 3333],
+        ["Processing fee", "PROCESSING_FEE", "PERCENT_OF_PRINCIPAL", null, 250, "ONE_OFF", "DEDUCTED_AT_DISBURSEMENT", 10000, null, 5000],
+        ["Late penalty", "LATE_PENALTY", "FLAT_AMOUNT", 20000, null, "PER_MISSED_INSTALMENT", "WITH_INSTALMENTS", null, null, 5000]]) }),
     V({ id: "pt-avo-1", product: "pr-teg-avo", version: 1, status: "PUBLISHED", effective_from: T("06-15", "00:00"), min_amount_cents: 1000000, max_amount_cents: 10000000,
       duration_unit: "WEEKLY", min_duration: 8, max_duration: 16, repayment_frequency: "WEEKLY", grace_days: 7, default_after_days: 21, flag_after_days: 28, published_at: T("06-10", "11:00"), published_by: "u-amina", created_by: "u-amina", created_at: T("06-05", "09:00"),
       terms: { allowed_durations: [8, 12, 16] },
@@ -143,6 +181,8 @@
     { id: "cv-2", product: "pr-mav-dairy", cooperative: "co-ruiru", status: "ACTIVE", started_at: T("10-20", "08:00"), ended_at: null },
     { id: "cv-3", product: "pr-mav-school", cooperative: "co-kijani", status: "ENDED", started_at: T("10-20", "08:05"), ended_at: T("10-27", "11:00") },
     { id: "cv-4", product: "pr-shb-harvest", cooperative: "co-mawingu", status: "ACTIVE", started_at: T("10-26", "14:40"), ended_at: null },
+    { id: "cv-7", product: "pr-chemi-coffee", cooperative: "co-mawingu", status: "ACTIVE", started_at: T("07-25", "09:00"), ended_at: null },
+    { id: "cv-6", product: "pr-teg-dairy", cooperative: "co-kijani", status: "ACTIVE", started_at: T("06-01", "08:00"), ended_at: null },
     { id: "cv-5", product: "pr-teg-avo", cooperative: "co-gatundu", status: "ACTIVE", started_at: T("06-20", "10:00"), ended_at: null }
   ];
 
@@ -153,6 +193,11 @@
       details: { breakdown: [{ charge_name: "Interest", amount_cents: 1981000 }, { charge_name: "Processing fee", amount_cents: 410000 }, { charge_name: "Late penalty", amount_cents: 70000 }], note: "", void_reason: "" }, recorded_by: "u-peter", created_at: T("09-11", "10:15") },
     { id: "rm-3", partner: "lp-tegemeo", amount_cents: 2461000, received_on: "2026-09-11", period_start: "2026-08-01", period_end: "2026-08-31", reference: "TGM-REM-2608B", source: "STAFF", status: "VOIDED",
       details: { breakdown: [], note: "", void_reason: "Entered twice: the same bank credit as TGM-REM-2608." }, recorded_by: "u-peter", created_at: T("09-11", "10:22") },
+    /* 24's amendment for the portal (29 Q7): a portal lender records its own remittance, which waits
+     * PENDING until GroFunder confirms it on seeing the money. Only RECORDED counts in settlement. */
+    { id: "rm-5", partner: "lp-chemi", amount_cents: 41200, received_on: "2026-10-30", period_start: "2026-09-01", period_end: "2026-09-30", reference: "CHEMI-REM-2609", source: "PORTAL", status: "PENDING",
+      details: { breakdown: [{ charge_name: "Interest", amount_cents: 33600 }, { charge_name: "Processing fee", amount_cents: 7600 }], note: "Recorded by Faith Wairimu in the portal.", void_reason: "" },
+      recorded_by: "u-faith-c", created_at: T("10-30", "09:40") },
     { id: "rm-4", partner: "lp-tegemeo", amount_cents: 3128000, received_on: "2026-10-12", period_start: "2026-09-01", period_end: "2026-09-30", reference: "TGM-REM-2609", source: "STAFF", status: "RECORDED",
       details: { breakdown: [], note: "No breakdown sent this month.", void_reason: "" }, recorded_by: "u-amina", created_at: T("10-12", "15:40") }
   ];
@@ -175,9 +220,17 @@
     ["lp-mavuno", "terms_withdrawn", "u-amina", T("10-28", "09:20"), "Dairy input loan version 2: \"Interest typed as 0.4% a month instead of 4%.\""],
     ["lp-mavuno", "terms_published", "u-amina", T("10-28", "10:05"), "Dairy input loan version 3, from 1 Dec"],
     ["lp-mavuno", "terms_drafted", "u-peter", T("10-29", "16:20"), "Dairy input loan version 4, from version 1"],
+    ["lp-chemi", "partner_added", "u-peter", T("07-05", "10:00"), "Added, onboarding, production, partner portal"],
+    ["lp-chemi", "product_added", "u-peter", T("07-06", "09:00"), "Coffee cherry advance (CHEMI-CHERRY)"],
+    ["lp-chemi", "terms_published", "u-amina", T("07-20", "11:00"), "Coffee cherry advance version 1, from 1 Aug"],
+    ["lp-chemi", "coverage_linked", "u-peter", T("07-25", "09:00"), "Coffee cherry advance: Mawingu Coffee Growers"],
     ["lp-shamba", "partner_added", "u-peter", T("10-26", "14:00"), "Added, onboarding, production, partner portal"],
     ["lp-shamba", "product_added", "u-peter", T("10-26", "14:20"), "Coffee harvest advance (SHB-HARVEST)"],
     ["lp-shamba", "coverage_linked", "u-peter", T("10-26", "14:40"), "Coffee harvest advance: Mawingu Coffee Growers"],
+    ["lp-tegemeo", "product_added", "u-amina", T("05-28", "09:00"), "Dairy working capital (TEG-DAIRY-M)"],
+    ["lp-tegemeo", "terms_published", "u-amina", T("05-29", "10:00"), "Dairy working capital version 1, from 1 Jun"],
+    ["lp-tegemeo", "coverage_linked", "u-amina", T("06-01", "08:00"), "Dairy working capital: Kijani Valley Dairy"],
+    ["lp-tegemeo", "product_status_changed", "u-peter", T("09-18", "11:00"), "Dairy working capital: active to paused (\"Three of the first cohort are behind; no new lending at Kijani until recovery is settled.\")"],
     ["lp-tegemeo", "partner_added", "u-amina", T("06-02", "10:00"), "Added, onboarding, production"],
     ["lp-tegemeo", "connection_added", "u-amina", T("06-20", "12:00"), "Production: https://partners.tegemeo.example/api, key grofunder-01; all three secrets set"],
     ["lp-tegemeo", "connection_verified", "u-amina", T("06-30", "16:45"), "Production: test call passed"],
@@ -217,7 +270,8 @@
     var rows = [];
     if (p.mode === "API") rows.push({ ok: !!(conn && conn.verified_at), text: "A verified " + L.env[p.environment].toLowerCase() + " connection",
       why: !conn ? "No connection yet" : conn.verified_at ? "" : "Not verified: the test call needs " + p.name + "'s adapter, which comes with the gateway (L4)", at: conn && conn.verified_at });
-    else rows.push({ ok: false, text: "Partner staff can sign in to the partner portal", why: "The partner portal isn't built yet (L6)" });
+    else { var staff = (p.profile.staff || []).filter(function (s) { return !s.invited; });
+      rows.push({ ok: staff.length > 0, text: "Partner staff can sign in to the partner portal", why: staff.length ? "" : "The partner portal isn't built yet (L6)" }); }
     rows.push({ ok: ready, text: "A product with terms in force that covers a cooperative", why: ready ? "" : "No active product has terms in force and coverage" });
     rows.push({ ok: CONFIG.environments.indexOf(p.environment) > -1, text: L.env[p.environment] + " is allowed on this deployment", why: "" });
     /* 22's amendment to 24 (2026-11-09): loan.sharing bound for this partner, with a version of its sharing document in force. */

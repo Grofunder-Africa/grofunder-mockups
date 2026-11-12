@@ -61,7 +61,7 @@ sel.value = new URLSearchParams(location.search).get("p") || "";
 function draw() {
   var partner = sel.value, voided = document.getElementById("f-void").checked;
   var tot = P.totals().filter(function (t) { return !partner || t.partner === partner; });
-  var list = P.remittances.filter(function (r) { return (!partner || r.partner === partner) && (voided || r.status === "RECORDED"); }).sort(function (a, b) { return a.received_on < b.received_on ? 1 : a.received_on > b.received_on ? -1 : (a.created_at < b.created_at ? 1 : -1); });
+  var list = P.remittances.filter(function (r) { return (!partner || r.partner === partner) && (voided || r.status === "RECORDED" || r.status === "PENDING"); }).sort(function (a, b) { return a.received_on < b.received_on ? 1 : a.received_on > b.received_on ? -1 : (a.created_at < b.created_at ? 1 : -1); });
   var sum = tot.reduce(function (s, t) { return s + t.amount_cents; }, 0), year = tot.filter(function (t) { return t.period_start >= "2026-01-01"; }).reduce(function (s, t) { return s + t.amount_cents; }, 0);
   document.getElementById("band").innerHTML = '<div class="section-figure lg"><span class="k">Remitted in 2026</span><span class="v tabular">' + f.money(year, { whole: true }) + "</span></div>" +
     '<div class="section-figure"><span class="k">Periods</span><span class="v">' + tot.length + '</span></div><div class="section-figure"><span class="k">Last received</span><span class="v tabular">' + (list.length ? f.date(list.filter(function (r) { return r.status === "RECORDED"; })[0].received_on, "short") : "–") + "</span></div>";

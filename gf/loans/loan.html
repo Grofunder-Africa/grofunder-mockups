@@ -17,6 +17,7 @@
 <script src="../../assets/data/consents.js"></script>
 <script src="../../assets/data/credit.js"></script>
 <script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
 <script src="../assets/console.js"></script>
 <script src="loans-ui.js"></script>
 <script src="../assets/nav.js" defer></script>
@@ -30,6 +31,9 @@
   <p class="proto-note"><b>Reviewing (Q2, Q7).</b> Each product sets how many different people approve (copied onto the loan when the member accepts). Each approval runs the checks again; the last one needed makes it APPROVED and records what it relied on. Anyone may reject, with a reason, which ends it. Whoever prepared the draft, and the borrower, can't review; nor can someone who already approved. The amount can't be changed: to offer less, reject and prepare a new draft. If a check fails now, Approve is refused and the reason is prefilled.</p>
   <p class="proto-note"><b>A draft</b> waits 7 days for the member. Without the app, staff send a code whose SMS carries the key figures, read the quote out from the script on screen, and enter the code the member reads back; the quote is worked out again from the terms in force first. <b>Approved</b> loans go to the lender with the gateway (L4): shown as the next step only. <i>approved</i> shows Samuel's loan after its second approval.</p>
   <p class="proto-note proto-gap"><b>G110:</b> note 26 lets staff cancel a draft or a request (BY_GROFUNDER) but names a code only for cancelling after approval (<code>loans.manage</code>). Drawn: a draft by <code>loans.prepare</code>, a request by <code>loans.review</code>.</p>
+  <p class="proto-note"><b>After forwarding (phase 17, UI-120; note 26 part 2, 27).</b> The lender decides; from then on its events (and the poll) move the loan, never staff. The page adds what the lender holds (its ids, stage, approved figures), the disbursement, the schedule (each line's due date, parts, the lender's status and when our count says it was settled), payments with their split and the balance after, late fees, the flags staff must look at, and the gateway's events and calls for the loan. Staff act through <code>loans.follow_up</code> (Operations and up): answer an amendment request, resolve or dismiss a flag, poll the loan; cancelling after forwarding stays <code>loans.manage</code>, and only while the lender can still cancel.</p>
+  <p class="proto-note"><b>Arrears</b> are counted for Tegemeo, whose adapter doesn't send overdue signals: days past due from the oldest unsettled instalment, the amount overdue as instalments due less paid (never late fees), IN_ARREARS past the 7 grace days. In API mode the count never defaults a loan; past the terms' flag days it raises a flag.</p>
+  <p class="proto-note"><b>Try (servicing):</b> <code>?l=ln-136</code> 12 days behind · <code>?l=ln-134</code> repaid on time, a payment with its split unknown · <code>?l=ln-139</code> amendment requested · <code>?l=ln-140</code> approved for less · <code>?l=ln-138</code> with the lender · <code>?l=ln-131</code> repaid and closed.</p>
   <p class="proto-note"><b>Try:</b> <code>?l=ln-105</code> Samuel, 1 of 2 approvals (open it as the Owner to approve; as Full, Peter has approved already) · <code>?l=ln-104</code> Mary's draft · <code>?l=ln-103</code> rejected · <code>?l=ln-101</code> expired.</p>
 
   <div data-state="loaded approved" class="col gap-6">
@@ -40,6 +44,7 @@
       <div class="col gap-4">
         <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">The request</span><dl class="facts" id="facts"></dl></div></div>
         <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md" id="q-title">The quote</span><span class="text-body-sm tone-muted" id="q-sub"></span><div id="quote"></div></div></div>
+        <div class="col gap-4" id="servicing"></div>
         <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">Reviews</span><div class="rowcards" id="reviews"></div></div></div>
       </div>
       <div class="col gap-4">
@@ -85,6 +90,24 @@ function draw() {
     document.getElementById("banner").innerHTML = B("success", "send-clock-outline", '<span class="text-title-sm">Next: sent to ' + esc(partner.name) + "</span>" +
       '<span class="text-body-md">With ' + esc(first) + "'s KYC details, the product code " + esc(pr.code) + ", the amount, duration and purpose, under our reference " + l.reference + " (never the score). Sending comes with the gateway (L4); until then it waits here. After a day, " + esc(first) + " sees \"We're sending your request to " + esc(partner.name) + "\".</span>");
     acts = '<button class="btn btn-outlined tone-error" type="button" data-roles="' + U.ROLES.manage + '" onclick="cancel(true)">Cancel the loan</button>';
+  } else if (["FORWARDED", "AMENDMENT_REQUIRED", "PARTNER_APPROVED", "ACTIVE", "IN_ARREARS", "DEFAULTED", "CLOSED", "WRITTEN_OFF", "PARTNER_REJECTED"].indexOf(st) > -1) {
+    var cap = (GF.gateway && GF.gateway.ADAPTERS[partner.code]) || {}, pd = l.details.partner || {};
+    var BAN = {
+      FORWARDED: ["info", "send-check-outline", "With " + partner.name, "Since " + (l.forwarded_at ? U.when(l.forwarded_at) : "") + (pd.stage ? '. Stage: "' + esc(pd.stage) + '"' : "") + ". " + first + " sees: Your request is with " + partner.name + "."],
+      AMENDMENT_REQUIRED: ["warning", "file-alert-outline", partner.name + " asks for a change", '"' + esc((Lo.historyOf(l.id)[0].details || {}).reason || "") + '" Send corrected data or documents. A change to the amount, duration or product isn\'t an amendment: cancel and prepare a new draft.'],
+      PARTNER_APPROVED: ["success", "check-decagram-outline", partner.name + " approved " + (pd.approved ? U.whole(pd.approved.amount_cents) : ""), (pd.approved && pd.approved.amount_cents !== l.amount_cents ? "Less than the " + U.whole(l.amount_cents) + " quoted: flagged, and " + first + " was told at once. " : "") + "Waiting for disbursement."],
+      ACTIVE: ["success", "cash-check", "Being repaid", "Balance " + (l.balance_cents == null ? "" : U.money(l.balance_cents)) + ". Up to date as of " + (l.arrears_as_of ? f.date(l.arrears_as_of, "short") : "") + "."],
+      IN_ARREARS: ["error", "cash-clock", l.days_past_due + " days late, " + U.money(l.overdue_cents || 0) + " overdue", "As of " + (l.arrears_as_of ? f.date(l.arrears_as_of, "short") : "") + ", " + (l.arrears_source === "COUNTED" ? "by our count (" + partner.name + " doesn't send overdue signals)" : "as " + partner.name + " reports") + ". Balance " + (l.balance_cents == null ? "" : U.money(l.balance_cents)) + ". " + first + "'s circle sees the late line. " + (l.days_past_due > t.flag_after_days ? "" : "Flagged for staff after " + t.flag_after_days + " days if " + partner.name + " hasn't defaulted it.")],
+      DEFAULTED: ["error", "alert-octagon-outline", "Defaulted", "In GroFunder's recovery queue (28)."],
+      CLOSED: ["neutral", "check-all", "Repaid and closed", "Closed " + (l.closed_at ? U.when(l.closed_at) : "") + ". The circle's space is free again."],
+      WRITTEN_OFF: ["neutral", "close-octagon-outline", "Written off", ""],
+      PARTNER_REJECTED: ["neutral", "close-circle-outline", partner.name + " rejected it", ""]
+    }[st];
+    document.getElementById("banner").innerHTML = B(BAN[0], BAN[1], '<span class="text-title-sm">' + esc(BAN[2]) + '</span><span class="text-body-md">' + BAN[3] + "</span>");
+    var liveSvc = ["FORWARDED", "AMENDMENT_REQUIRED", "PARTNER_APPROVED", "ACTIVE", "IN_ARREARS", "DEFAULTED"].indexOf(st) > -1;
+    acts = (st === "AMENDMENT_REQUIRED" ? '<button class="btn btn-filled" type="button" id="amend-btn" data-roles="' + U.ROLES.follow_up + '" onclick="amend()">Send the amendment</button>' : "") +
+      (liveSvc ? '<button class="btn btn-outlined" type="button" id="poll-btn" data-roles="' + U.ROLES.follow_up + '" onclick="pollNow()">Poll ' + esc(partner.name) + " now</button>" : "") +
+      (["FORWARDED", "AMENDMENT_REQUIRED", "PARTNER_APPROVED"].indexOf(st) > -1 ? '<button class="btn btn-outlined tone-error" type="button" id="cancel-fwd-btn" data-roles="' + U.ROLES.manage + '" onclick="cancelForwarded()">Cancel the loan</button>' : "");
   } else {
     var last = Lo.historyOf(l.id)[0];
     document.getElementById("banner").innerHTML = B("neutral", "close-circle-outline", '<span class="text-title-sm">' + Lo.L.end[l.end_reason] + "</span>" + (last && last.details.reason ? '<span class="text-body-md">"' + esc(last.details.reason) + '"</span>' : "") +
@@ -113,11 +136,12 @@ function draw() {
   var CODES = ["CONSENT", "NOT_ACTIVE", "COOPERATIVE", "PAUSED", "KYC", "NO_CIRCLE", "CIRCLE_NOT_READY", "CIRCLE_BEHIND", "NO_SPACE", "LIVE_LOAN", "NO_LIMIT", "NO_PRODUCT", "TERMS", "SHARING_CONSENT"];
   var WORD = { CONSENT: "Lending consent", NOT_ACTIVE: "Active member", COOPERATIVE: "Cooperative takes new work", PAUSED: "No pause", KYC: "KYC verified", NO_CIRCLE: "In a circle", CIRCLE_NOT_READY: "Circle complete, all verified", CIRCLE_BEHIND: "Nobody in the circle behind",
     NO_SPACE: "A borrowing space", LIVE_LOAN: "No other live loan", NO_LIMIT: "A credit limit", NO_PRODUCT: "A product offered", TERMS: "Within the terms and the limit", SHARING_CONSENT: "Sharing with " + partner.name };
-  var live = ["GF_REJECTED", "CANCELLED"].indexOf(l.status) === -1;
+  var live = ["DRAFT", "REQUESTED", "APPROVED"].indexOf(l.status) > -1;
   document.getElementById("checks").innerHTML = live ? CODES.map(function (code) {
     var bad = e.failed.find(function (x) { return x.code === code; });
     return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start"><span class="mdi mdi-' + (bad ? "close-circle-outline tone-error" : "check-circle-outline tone-primary") + '" aria-hidden="true"></span><span class="grow"><span class="text-body-md">' + WORD[code] + "</span>" + (bad ? '<span class="text-body-sm tone-error">' + esc(bad.text) + "</span>" : "") + "</span></div>";
-  }).join("") : '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="text-body-md tone-muted">Not run on an ended loan.</span></div>';
+  }).join("") : '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="text-body-md tone-muted">' + (["GF_REJECTED", "CANCELLED"].indexOf(l.status) > -1 ? "Not run on an ended loan." : "Settled at approval; the lender decides from forwarding on.") + "</span></div>";
+  servicing(st);
   var s = C.latest(m.id), o = C.activeOverride(m.id), ks = K.standing(m.id), visit = l.kyc_verification ? K.get(l.kyc_verification) : K.visitsOf(m.id).find(function (v) { return v.status === "APPROVED"; });
   var decl = ["INCOME", "OBLIGATION", "BACKGROUND"].map(function (tp) { return K.current(m.id, tp); }).reduce(function (a, b) { return a.concat(b); }, []);
   var spaces = c ? Lo.liveIn(c.id).length : 0;
@@ -137,6 +161,74 @@ function draw() {
       '</span><span class="text-body-sm tone-muted">' + U.when(h.changed_at) + " · " + (h.changed_by ? esc(U.who(h.changed_by)) : "the system") + "</span></span></div>";
   }).join("");
   if (window.Proto) Proto.applyRoles(document.getElementById("acts"));
+}
+/* -------------------------------------------- after forwarding (note 26 part 2) */
+function servicing(st) {
+  var el = document.getElementById("servicing"), pd = l.details.partner;
+  if (!pd) { el.innerHTML = ""; return; }
+  var sec = function (title, sub, body, id) { return '<div class="section"' + (id ? ' id="' + id + '"' : "") + '><div class="section-body" style="gap:8px"><span class="text-title-md">' + title + "</span>" + (sub ? '<span class="text-body-sm tone-muted">' + sub + "</span>" : "") + body + "</div></div>"; };
+  var d = l.details.disbursement, out = [];
+  out.push(sec("With " + esc(partner.name), "Mirrored from its events and reads, never edited by hand", '<dl class="facts">' +
+    "<dt>Its loan id</dt><dd class=\"tabular\">" + esc(pd.loan_id) + "</dd><dt>Its customer id</dt><dd class=\"tabular\">" + esc(pd.customer_id) + "</dd>" +
+    (pd.stage ? "<dt>Stage</dt><dd>" + esc(pd.stage) + "</dd>" : "") +
+    (pd.approved ? "<dt>Approved</dt><dd>" + U.whole(pd.approved.amount_cents) + " for " + Lo.durationLine(pd.approved.duration, pd.approved.duration_unit) + ", " + U.when(pd.approved.at) + "</dd>" : "") +
+    (d ? "<dt>Disbursed</dt><dd>" + U.when(l.disbursed_at) + " · " + U.money(l.disbursed_cents) + ", " + esc(first) + " received " + U.money(l.received_cents) + " (fees " + U.money(d.fees_deducted_cents) + ") by " + d.channel + ", ref " + d.reference + (d.estimated ? ' <span class="status status-warning">Estimated</span>' : "") + "</dd><dt>First due</dt><dd>" + f.date(d.first_due_on) + "</dd>" : "") +
+    (l.balance_cents != null ? "<dt>Balance</dt><dd class=\"tabular\">" + U.money(l.balance_cents) + "</dd><dt>Arrears</dt><dd>" + (l.days_past_due ? l.days_past_due + " days past due, " + U.money(l.overdue_cents) + " overdue" : "None") + " · " + (l.arrears_source === "COUNTED" ? "our count" : "the lender's figures") + ", as of " + f.date(l.arrears_as_of, "short") + "</dd>" : "") +
+    "<dt>Last heard</dt><dd>" + U.when(l.last_partner_event_at) + "</dd></dl>"));
+  var lines = Lo.scheduleOf(l.id);
+  if (lines.length) out.push(sec("Schedule", "Version 1, from " + esc(partner.name) + ". Settled is our count: payments in date order against instalments in due order", '<div class="table-wrap"><table class="table" id="schedule"><thead><tr><th class="num">#</th><th>Due</th><th class="num">Principal</th><th class="num">Interest</th><th class="num">Fees</th><th class="num">Total</th><th>Lender says</th><th>Settled</th></tr></thead><tbody>' +
+    lines.map(function (i) {
+      var lateBy = i.settled_on && i.settled_on > i.due_on, over = !i.settled_on && i.due_on < GF.TODAY;
+      return "<tr><td class=\"num\">" + i.number + "</td><td>" + f.date(i.due_on, "short") + '</td><td class="num tabular">' + U.money(i.principal_cents) + '</td><td class="num tabular">' + U.money(i.interest_cents) + '</td><td class="num tabular">' + U.money(i.fees_cents) + '</td><td class="num tabular">' + U.money(i.total_cents) +
+        "</td><td>" + esc(i.partner_status) + "</td><td>" + (i.settled_on ? f.date(i.settled_on, "short") + (lateBy ? ' <span class="status status-warning">Late</span>' : "") : over ? '<span class="status status-error">Overdue</span>' : '<span class="tone-muted">Not yet due</span>') + "</td></tr>";
+    }).join("") + "</tbody></table></div>"));
+  var pays = Lo.paymentsOf(l.id);
+  if (lines.length) out.push(sec("Payments", "Posted by " + esc(partner.name) + "; never applied twice (one per its payment id)", pays.length ? '<div class="table-wrap"><table class="table" id="payments"><thead><tr><th>Paid</th><th class="num">Amount</th><th>Split</th><th class="num">Balance after</th><th>Receipt</th><th>How</th><th>Status</th></tr></thead><tbody>' +
+    pays.map(function (x) { return "<tr><td>" + f.date(x.paid_on, "short") + '</td><td class="num tabular">' + U.money(x.amount_cents) + "</td><td class=\"text-body-sm\">" + (x.split_known ? "Principal " + U.money(x.principal_cents) + ", interest " + U.money(x.interest_cents) + (x.fees_cents ? ", fees " + U.money(x.fees_cents) : "") : '<span class="status status-warning">Not known yet</span>') +
+      '</td><td class="num tabular">' + U.money(x.balance_after_cents) + '</td><td class="tabular">' + esc(x.receipt) + '</td><td class="text-body-sm">' + Lo.L.channel[x.channel] + " · " + x.source.toLowerCase() + "</td><td>" + U.chip(Lo.L.paymentStatus[x.status]) + "</td></tr>"; }).join("") + "</tbody></table></div>" : '<span class="text-body-md tone-muted">No payments yet.</span>'));
+  var ch = Lo.chargesOf(l.id);
+  if (ch.length) out.push(sec("Late fees and other charges", "Outside the schedule; never part of the amount overdue or the circle's line", '<div class="rowcards" id="charges">' + ch.map(function (c) {
+    return '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="grow"><span class="text-body-md">' + esc(c.name) + " · " + U.money(c.amount_cents) + '</span><span class="text-body-sm tone-muted">' + (c.origin === "PARTNER" ? "Levied by " + esc(partner.name) : "Posted by GroFunder") + ", " + U.when(c.charged_at) + " · collected " + U.money(c.collected_cents) + "</span></span>" + U.chip(Lo.L.chargeStatus[c.status]) + "</div>"; }).join("") + "</div>"));
+  var fl = Lo.flagsOf(l.id);
+  out.push(sec("Flags", "What " + esc(partner.name) + " hasn't told us, or what doesn't add up", '<div class="rowcards" id="flags">' + (fl.length ? fl.map(function (x) {
+    return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start"><span class="grow"><span class="text-body-md">' + Lo.L.flag[x.kind] + '</span><span class="text-body-sm">' + esc(x.details.text || "") + '</span><span class="text-body-sm tone-muted">Raised ' + U.when(x.opened_at) +
+      (x.resolved_at ? " · " + (x.status === "RESOLVED" ? "resolved" : "dismissed") + " " + U.when(x.resolved_at) + " by " + esc(U.who(x.resolved_by)) + (x.note ? ': "' + esc(x.note) + '"' : "") : "") + "</span>" +
+      (x.status === "OPEN" ? '<span class="row gap-2" data-roles="' + U.ROLES.follow_up + '"><button class="btn btn-text btn-sm" type="button" onclick="closeFlag(\'' + x.id + "','RESOLVED')\">Resolve</button><button class=\"btn btn-text btn-sm\" type=\"button\" onclick=\"closeFlag('" + x.id + "','DISMISSED')\">Dismiss</button></span>" : "") +
+      "</span>" + U.chip(Lo.L.flagStatus[x.status]) + "</div>"; }).join("") : '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="text-body-md tone-muted">Nothing to look at.</span></div>') + "</div>"));
+  if (GF.gateway) {
+    var ev = GF.gateway.eventsOf(l.reference), cl = GF.gateway.callsOf(l.reference);
+    out.push('<div data-roles="owner full ops">' + sec("Gateway", "Every message in and call out for this loan (lending_partners.operate)", '<div class="rowcards">' +
+      ev.slice(0, 4).map(function (x) { return '<a class="rowcard" style="padding-left:0;padding-right:0" href="../partners/events.html?e=' + x.id + '"><span class="grow"><span class="text-body-md">' + esc(x.partner_event) + " → " + esc(x.details.canonical.map(function (c) { return c.event; }).join(", ") || "not parsed") + '</span><span class="text-body-sm tone-muted">' + U.when(x.received_at) + " · " + GF.gateway.L.source[x.source] + " · " + esc(x.details.result) + "</span></span>" + U.chip(GF.gateway.L.eventStatus[x.status]) + "</a>"; }).join("") +
+      cl.slice(0, 3).map(function (x) { return '<a class="rowcard" style="padding-left:0;padding-right:0" href="../partners/calls.html?c=' + x.id + '"><span class="grow"><span class="text-body-md">' + x.operation + " · attempt " + x.attempt + '</span><span class="text-body-sm tone-muted">' + U.when(x.started_at) + " · " + GF.gateway.L.trigger[x.trigger] + (x.http_status ? " · HTTP " + x.http_status : "") + "</span></span>" + U.chip(GF.gateway.L.outcome[x.outcome]) + "</a>"; }).join("") +
+      (ev.length + cl.length ? "" : '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="text-body-md tone-muted">Nothing yet.</span></div>') + "</div>") + "</div>");
+  }
+  el.innerHTML = out.join("");
+  if (window.Proto) Proto.applyRoles(el);
+}
+function amend() {
+  Proto.dialog({ title: "Send the amendment to " + esc(partner.name), wide: true, body:
+    '<p class="text-body-md">"' + esc((Lo.historyOf(l.id)[0].details || {}).reason || "") + '"</p>' +
+    '<div class="field"><label class="field-label" for="amd">What changed</label><select class="field-input" id="amd"><option>A new ID photo, from ' + esc(first) + "'s KYC items</option><option>A corrected field from the KYC items</option></select><span class=\"field-help\">Fix the item in the member&rsquo;s verification first; the amendment sends it as it stands now</span></div>" +
+    '<div class="field"><label class="field-label" for="amn">Note to ' + esc(partner.name) + '</label><textarea class="field-input" id="amn" rows="2"></textarea></div>' +
+    '<p class="text-body-sm tone-muted">Sent as AMEND under ' + l.reference + "; the loan goes back to FORWARDED. Amount, duration and product can't change here.</p>",
+    submit: "Send", onSubmit: function () { Proto.snack("Amendment sent. " + l.reference + " is with " + partner.name + " again"); } });
+}
+function pollNow() { Proto.snack("Polling " + partner.name + " for " + l.reference + ": anything missing is applied, anything that can't be settled is flagged"); }
+function cancelForwarded() {
+  var cap = (GF.gateway && GF.gateway.ADAPTERS[partner.code]) || {};
+  if (l.status === "PARTNER_APPROVED" && !cap.cancel_after_approval) return Proto.dialog({ title: "Can't cancel from here", body: '<p class="text-body-md">' + esc(partner.name) + " can't cancel a loan it has approved. Ask it to; once its status says cancelled, the loan follows.</p>" });
+  /* G142 (the owner, 2026-11-11): GroFunder cancels under loans.manage (BY_GROFUNDER); for a portal lender no call goes out,
+   * and the lender gets an "application withdrawn" notice. In the portal the lender cancels under partner_portal.decide (BY_PARTNER). */
+  var portal = partner.mode === "PORTAL";
+  Proto.dialog({ title: "Cancel " + l.reference + "?", body: '<p class="text-body-md">' + (portal ? "No call goes out: " + esc(partner.name) + " sees it in its portal, with an \"application withdrawn\" notice." : "Sends CANCEL to " + esc(partner.name) + " with your reason.") + " " + esc(first) + " is told.</p>" +
+    '<div class="field"><label class="field-label" for="cfw">Reason</label><textarea class="field-input" id="cfw" rows="2"></textarea></div>',
+    submit: "Cancel the loan", onSubmit: function (d) { if (!d.querySelector("#cfw").value.trim()) return Proto.snack("Nothing changed: a reason is needed"); Proto.snack("CANCEL sent to " + partner.name); } });
+}
+function closeFlag(id, to) {
+  var x = Lo.get(id);
+  Proto.dialog({ title: (to === "RESOLVED" ? "Resolve" : "Dismiss") + ": " + Lo.L.flag[x.kind], body: '<div class="field"><label class="field-label" for="fln">Note' + (to === "RESOLVED" ? ' <span class="optional">(optional)</span>' : "") + '</label><textarea class="field-input" id="fln" rows="2"></textarea>' +
+    (to === "DISMISSED" ? '<span class="field-help">Required to dismiss</span>' : "") + "</div>",
+    submit: to === "RESOLVED" ? "Resolve" : "Dismiss", onSubmit: function (d) { if (to === "DISMISSED" && !d.querySelector("#fln").value.trim()) return Proto.snack("A note is needed to dismiss"); Proto.snack(to === "RESOLVED" ? "Flag resolved" : "Flag dismissed"); } });
 }
 function approve() {
   var ap = Lo.approvals(l), s = GF.credit.latest(m.id), lim = GF.credit.limit(m.id);

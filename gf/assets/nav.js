@@ -33,6 +33,8 @@
       { id: "partners", label: "Partners", icon: "handshake-outline", href: R + "partners/index.html", roles: "owner full ops view" },
       { id: "credit", label: "Credit", icon: "chart-line", href: R + "credit/index.html", roles: "owner full ops view" },
       { id: "loans", label: "Loans", icon: "cash-multiple", href: R + "loans/index.html", roles: "owner full ops view", badge: "loans" },
+      /* Recovering a defaulted loan through the member's cooperative (phase 18, note 28). */
+      { id: "recovery", label: "Recovery", icon: "cash-refund", href: R + "recovery/index.html", roles: "owner full ops view" },
       { id: "consents", label: "Consents", icon: "file-sign", href: R + "consents/index.html", roles: "owner full ops view" },
       { id: "reference", label: "Reference data", icon: "sprout-outline", href: R + "reference/catalog.html", roles: "owner full ops view" },
       { id: "team", label: "Team", icon: "shield-account-outline", href: R + "team/index.html", roles: "owner" },
@@ -42,8 +44,15 @@
       { id: "circles", label: "My circles", icon: "account-group-outline", href: R + "groups/agent.html", roles: "agent" }
     ],
     sections: {
+      recovery: [
+        { id: "cases", label: "Cases", href: R + "recovery/index.html" },
+        { id: "terms", label: "Collection terms", href: R + "recovery/terms.html" },
+        { id: "remittances", label: "Remittances", href: R + "recovery/remittances.html" },
+        { id: "passons", label: "Pass-ons", href: R + "recovery/passons.html" }
+      ],
       loans: [
         { id: "loans", label: "Loans", href: R + "loans/index.html" },
+        { id: "flags", label: "Flags", href: R + "loans/flags.html" },
         { id: "pauses", label: "Pauses", href: R + "loans/pauses.html" }
       ],
       credit: [
@@ -54,7 +63,9 @@
       partners: [
         { id: "partners", label: "Partners", href: R + "partners/index.html" },
         { id: "coverage", label: "Coverage", href: R + "partners/coverage.html" },
-        { id: "remittances", label: "Remittances", href: R + "partners/remittances.html" }
+        { id: "remittances", label: "Remittances", href: R + "partners/remittances.html" },
+        /* The gateway's logs (24 part 2): lending_partners.operate, Operations and up. */
+        { id: "gateway", label: "Gateway", href: R + "partners/events.html", roles: "owner full ops" }
       ],
       reference: [
         { id: "catalog", label: "Catalog", href: R + "reference/catalog.html" },

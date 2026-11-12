@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Remittances · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="recovery-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Recovery" data-dest="recovery" data-wide
+     data-action='{"label":"Record a remittance","icon":"cash-fast","roles":"admin manager accountant","on":"record()"}'>
+
+  <p class="proto-note"><b>C42 · Remittances (note 28, steps 7 and 8; <code>GET cooperatives/{id}/recovery/remittances/</code>).</b> What the cooperative withheld for the loans, and sends on to GroFunder on the terms' cycle. The collection fee is never remitted: the cooperative keeps it. GroFunder matches each transfer against its statement and confirms it, or disputes it with a note.</p>
+  <p class="proto-note"><b>What is still to send</b> comes from the withholdings on paid payouts that no live remittance covers (<code>remittable</code>). Recording one lists each withholding as a line, so every shilling can be traced from the payout to the lender.</p>
+  <p class="proto-note"><b>Who (28).</b> Administrator, Manager and Accountant record and void (<code>recovery.remit</code>); a Viewer reads. A remittance can be voided while it is waiting or disputed, which frees its withholdings to be sent again; a confirmed one is final.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="recovery" data-current="remittances" data-label="Recovery"></div>
+    <div id="due"></div>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Still to send</span>
+      <span class="text-body-md tone-muted">Withheld from paid payouts, not yet in a remittance</span></div></div>
+      <div class="rowcards" id="todo"></div></section>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Sent</span></div></div>
+      <div class="table-wrap only-wide"><table class="table">
+        <thead><tr><th>Reference</th><th>Period</th><th class="num">Amount</th><th>Sent</th><th>Status</th><th></th></tr></thead>
+        <tbody id="rows"></tbody></table></div>
+      <div class="rowcards only-compact" id="cards"></div></section>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:120px"></div><div class="skeleton-card" style="height:200px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-cash-check" aria-hidden="true"></span>
+    <span class="text-headline-sm">Nothing to remit</span><span class="text-body-md">Once a payout with a loan recovery on it is paid, what was withheld shows here to send to GroFunder.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the remittances</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var U = RecoveryUI, R = GF.recovery, esc = U.esc, f = GF.fmt;
+var COOP = Portal.COOP, t = U.terms();
+var mine = R.remittances.filter(function (r) { return r.cooperative === COOP; }).sort(function (a, b) { return a.sent_on < b.sent_on ? 1 : -1; });
+var todo = R.unremitted(COOP);
+var todoTotal = todo.reduce(function (s, w) { return s + w.amount_cents; }, 0);
+
+function draw() {
+  document.getElementById("todo").innerHTML = todo.length ? todo.map(function (w) {
+    var c = R.get(w["case"]), m = GF.get(c.member), po = GF.get(w.payout);
+    return '<div class="rowcard"><span class="grow"><span class="text-body-lg tabular">' + U.money(w.amount_cents) + "</span>" +
+      '<span class="text-body-md tone-muted">' + esc(m.full_name) + " · " + esc(po.details.label) + " · paid " + f.date(w.paid_at, "short") + "</span>" +
+      '<span class="text-body-sm tone-muted">' + c.reference + " · loan " + U.refOf(c) + " · " + esc(U.lenderOf(c)) + "</span></span></div>";
+  }).join("") + '<div class="rowcard"><span class="grow"><span class="text-body-lg">Total to send</span></span><span class="text-title-md tabular" id="todo-total">' + U.money(todoTotal) + "</span></div>"
+    : '<div class="rowcard"><span class="text-body-md tone-muted">Nothing waiting. Everything withheld so far has been sent.</span></div>';
+
+  document.getElementById("rows").innerHTML = mine.length ? mine.map(function (r) {
+    return '<tr><td class="primary-cell tabular">' + esc(r.reference) + '<span class="cell-sub">' + R.linesOf(r.id).length + " withholding" + (R.linesOf(r.id).length === 1 ? "" : "s") + "</span></td>" +
+      "<td>" + f.date(r.period_start, "short") + " – " + f.date(r.period_end, "short") + '</td><td class="num tabular">' + U.money(r.amount_cents) + "</td>" +
+      "<td>" + f.date(r.sent_on, "short") + '<span class="cell-sub">' + (r.method === "BANK" ? "Bank" : "M-Pesa") + "</span></td>" +
+      "<td>" + U.chip(R.L.remittance[r.status]) + (r.details.dispute_note ? '<span class="cell-sub tone-error">' + esc(r.details.dispute_note) + "</span>" : r.confirmed_at ? '<span class="cell-sub">Confirmed ' + f.date(r.confirmed_at, "short") + "</span>" : "") + "</td>" +
+      '<td>' + (r.status === "RECORDED" || r.status === "DISPUTED" ? '<button class="btn btn-text btn-sm tone-error" type="button" data-roles="' + U.ROLES.remit + '" data-void="' + r.id + '">Void</button>' : "") + "</td></tr>";
+  }).join("") : '<tr><td colspan="6" class="text-body-md tone-muted">None sent yet.</td></tr>';
+
+  document.getElementById("cards").innerHTML = mine.map(function (r) {
+    return '<div class="rowcard" style="align-items:flex-start"><span class="grow"><span class="text-body-lg tabular">' + U.money(r.amount_cents) + " · " + esc(r.reference) + "</span>" +
+      '<span class="text-body-md tone-muted">' + f.date(r.period_start, "short") + " – " + f.date(r.period_end, "short") + " · sent " + f.date(r.sent_on, "short") + "</span>" +
+      (r.details.dispute_note ? '<span class="text-body-sm tone-error">' + esc(r.details.dispute_note) + "</span>" : "") +
+      (r.status === "RECORDED" || r.status === "DISPUTED" ? '<span data-roles="' + U.ROLES.remit + '"><button class="btn btn-text btn-sm tone-error" type="button" data-void="' + r.id + '">Void</button></span>' : "") +
+      "</span>" + U.chip(R.L.remittance[r.status]) + "</div>";
+  }).join("");
+
+  if (t && todo.length) document.getElementById("due").innerHTML = '<div class="banner banner-info"><span class="mdi mdi-calendar-clock" aria-hidden="true"></span><div class="grow">' +
+    '<span class="text-body-md">' + U.money(todoTotal) + " is waiting to be sent to GroFunder. Your terms say " + R.L.cycle[t.remittance_cycle].toLowerCase() + ", within " + t.remit_within_days + " days of the end of the cycle. GroFunder reminds you 3 days before it is due.</span>" +
+    '<div class="banner-actions"><button class="btn btn-text" type="button" data-roles="' + U.ROLES.remit + '" onclick="record()">Record a remittance</button></div></div></div>';
+  if (window.Proto) Proto.applyRoles(document.querySelector("[data-screen]"));
+}
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("[data-void]"); if (!b) return;
+  var r = R.get(b.getAttribute("data-void"));
+  Proto.dialog({ title: "Void " + esc(r.reference) + "?", body: '<p class="text-body-md">The withholdings it covers go back to "still to send", so they can go in a later remittance. GroFunder sees that it was voided.</p>' +
+    '<div class="field"><label class="field-label" for="v-why">Reason</label><textarea class="field-input" id="v-why" rows="2"></textarea><span class="field-help">Required</span></div>',
+    submit: "Void", onSubmit: function (d) { if (!d.querySelector("#v-why").value.trim()) return Proto.snack("Nothing changed: a reason is needed"); Proto.snack(r.reference + " voided"); } });
+});
+
+/* Recording one (28, step 7): the lines are the withholdings being sent, so GroFunder can trace each. */
+function record() {
+  if (!todo.length) return Proto.dialog({ title: "Nothing to remit", body: '<p class="text-body-md">Every withholding on a paid payout is already in a remittance. One appears here after the next payout with a loan recovery on it is marked paid.</p>' });
+  var end = GF.TODAY, start = end.slice(0, 8) + "01";
+  var listed = todo.map(function (w) {
+    var c = R.get(w["case"]), m = GF.get(c.member);
+    return '<div class="rowcard"><span class="grow"><span class="text-body-md">' + esc(m.full_name) + " · " + esc(GF.get(w.payout).details.label) + '</span><span class="text-body-sm tone-muted">' + c.reference + " · loan " + U.refOf(c) + "</span></span>" +
+      '<span class="text-title-sm tabular">' + U.money(w.amount_cents) + "</span></div>";
+  }).join("");
+  Proto.dialog({ title: "Record a remittance", wide: true, body:
+    '<p class="text-body-md">Everything waiting is included. The collection fee stays with the cooperative and is never remitted.</p>' +
+    '<div class="rowcards">' + listed + '<div class="rowcard"><span class="grow"><span class="text-body-lg">Total</span></span><span class="text-title-md tabular" id="r-total">' + U.money(todoTotal) + "</span></div></div>" +
+    '<div class="form-grid"><div class="field"><label class="field-label" for="r-from">Period from</label><input class="field-input tabular" id="r-from" type="date" value="' + start + '"></div>' +
+    '<div class="field"><label class="field-label" for="r-to">to</label><input class="field-input tabular" id="r-to" type="date" value="' + end + '"></div>' +
+    '<div class="field"><label class="field-label" for="r-sent">Sent on</label><input class="field-input tabular" id="r-sent" type="date" max="' + GF.TODAY + '" value="' + GF.TODAY + '"></div>' +
+    '<div class="field"><label class="field-label" for="r-method">How</label><select class="field-input" id="r-method"><option value="BANK">Bank transfer</option><option value="MPESA">M-Pesa</option></select></div></div>' +
+    '<div class="field"><label class="field-label" for="r-ref">Transfer reference</label><input class="field-input tabular" id="r-ref" placeholder="FT26103000123"><span class="field-help">As on the bank or M-Pesa confirmation. GroFunder matches it against its statement</span>' +
+    '<span class="field-error hidden" id="r-e"></span></div>' +
+    '<div class="field"><label class="field-label" for="r-note">Note <span class="optional">(optional)</span></label><textarea class="field-input" id="r-note" rows="2"></textarea></div>' +
+    (t ? '<p class="text-body-sm tone-muted">Send it to ' + esc(t.details.remit_to.method === "BANK" ? t.details.remit_to.bank_name + ", account " + t.details.remit_to.account_no : "paybill " + t.details.remit_to.paybill + ", account " + t.details.remit_to.account) + ".</p>" : "") +
+    '<div class="actions"><button class="btn btn-text" type="button" data-cancel>Cancel</button><button class="btn btn-filled" type="button" id="r-go">Record it</button></div>' });
+  var d = document.querySelector(".dialog");
+  d.querySelector("#r-go").addEventListener("click", function () {
+    var ref = d.querySelector("#r-ref").value.trim(), err = d.querySelector("#r-e");
+    if (!ref) { err.textContent = "The transfer reference is needed, so GroFunder can match it."; err.classList.remove("hidden"); return; }
+    if (mine.some(function (r) { return r.reference.toLowerCase() === ref.toLowerCase() && r.status !== "VOIDED"; })) { err.textContent = "That reference was used before. Check the transfer."; err.classList.remove("hidden"); return; }
+    Proto.close();
+    Proto.snack("Recorded. GroFunder confirms it once the money shows on its statement");
+  });
+}
+draw();
+</script>
+</body>
+</html>

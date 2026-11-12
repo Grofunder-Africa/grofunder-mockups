@@ -17,6 +17,8 @@
 <script src="../../assets/data/consents.js"></script>
 <script src="../../assets/data/credit.js"></script>
 <script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
 <script src="../assets/app.js"></script>
 <script src="loans-app.js"></script>
 <script src="../assets/nav.js" defer></script>
@@ -27,13 +29,14 @@
 <div data-screen data-title="Borrow" data-dest="home" data-back="../credit/index.html" data-compact>
 
   <p class="proto-note"><b>ML1 · Borrow (note 26, step 1).</b> For the membership shown: each product that covers the cooperative (<code>products_for</code>, 24), with the lender named and the most the member can borrow from it, the smaller of their limit and the product's maximum. When they can't borrow, every reason in plain words, each with what to do next (note 26, Eligibility).</p>
+  <p class="proto-note"><b>In recovery (note 28 Q6; 26's <code>IN_RECOVERY</code>).</b> A member whose earlier loan is being recovered from their pay can't borrow again until it is settled: <i>recovery</i>. The screen says so in plain words and links to what is being taken.</p>
   <p class="proto-note"><b>The terms (G100).</b> Until the member agrees to a terms version in force, no loan starts: <i>termsblock</i>. A loan they already have carries on and stays visible.</p>
   <p class="proto-note"><b>State switcher.</b> <i>loaded</i> is Wanjiku today: at Kijani her visit waits for review and Umoja Gathiru has 2 members; at Mawingu no loan is offered either. <i>offers</i> shows the screen once she can borrow; <i>paused</i>, <i>live</i> and <i>suspended</i> show other answers.</p>
 
   <div data-roles="out" class="empty"><span class="mdi mdi-account-lock-outline" aria-hidden="true"></span><span class="text-headline-sm">You're signed out</span>
     <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a></div>
 
-  <div data-state="loaded offers paused live suspended termsblock" class="col gap-6" data-roles="in" id="main"></div>
+  <div data-state="loaded offers paused live suspended termsblock recovery" class="col gap-6" data-roles="in" id="main"></div>
 
   <div data-state="loading" class="col gap-4" data-roles="in"><div class="skeleton-card" style="height:200px"></div></div>
   <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
@@ -42,9 +45,9 @@
 </div>
 <script>
 var A = MemberApp, Lo = GF.loans, f = GF.fmt, esc = A.esc, me = A.current, coop = A.coopName(me), LA = LoansApp;
-var NEXT = { TERMS_FIRST: ["../consents/agree.html?d=cd-terms&for=prompt", "Read and agree"], CONSENT: ["../consents/agree.html?d=cd-lending&for=account", "Read and agree"], KYC: ["../kyc/index.html", "Get verified"], NO_CIRCLE: ["../circle/index.html", "Growth Circles"], CIRCLE_NOT_READY: ["../circle/index.html", "Your circle"],
+var NEXT = { IN_RECOVERY: ["../recovery/index.html", "What is being taken"], TERMS_FIRST: ["../consents/agree.html?d=cd-terms&for=prompt", "Read and agree"], CONSENT: ["../consents/agree.html?d=cd-lending&for=account", "Read and agree"], KYC: ["../kyc/index.html", "Get verified"], NO_CIRCLE: ["../circle/index.html", "Growth Circles"], CIRCLE_NOT_READY: ["../circle/index.html", "Your circle"],
   NO_SPACE: ["../circle/index.html", "Your circle"], CIRCLE_BEHIND: ["../circle/index.html", "Your circle"], NO_LIMIT: ["../credit/index.html", "How to grow your limit"], LIVE_LOAN: ["loan.html", "Your loan"] };
-var ICON = { CONSENT: "file-sign", NOT_ACTIVE: "account-cancel-outline", COOPERATIVE: "office-building-outline", PAUSED: "pause-circle-outline", KYC: "shield-check-outline", NO_CIRCLE: "account-group-outline", CIRCLE_NOT_READY: "account-group-outline",
+var ICON = { IN_RECOVERY: "cash-refund", CONSENT: "file-sign", NOT_ACTIVE: "account-cancel-outline", COOPERATIVE: "office-building-outline", PAUSED: "pause-circle-outline", KYC: "shield-check-outline", NO_CIRCLE: "account-group-outline", CIRCLE_NOT_READY: "account-group-outline",
   CIRCLE_BEHIND: "account-clock-outline", NO_SPACE: "account-cash-outline", LIVE_LOAN: "cash-clock", NO_LIMIT: "sprout-outline", NO_PRODUCT: "cash-remove", LENDING_OFF: "clock-outline" };
 function refusal(failed) {
   return '<div class="col gap-1"><h1 class="text-headline-sm">You can\'t ask for a loan yet</h1><span class="text-body-md tone-muted">With ' + esc(coop) + ". Here's what's needed:</span></div>" +
@@ -69,12 +72,13 @@ function draw(state) {
   if (state === "offers") el.innerHTML = offers();
   else if (state === "paused") el.innerHTML = refusal([{ code: "PAUSED", text: Lo.pauses[0].details.message.en }]);
   else if (state === "live") el.innerHTML = refusal([{ code: "LIVE_LOAN", text: "You already have a loan that's with GroFunder for review." }]);
+  else if (state === "recovery" || (GF.recovery && GF.recovery.inRecovery(me.id))) el.innerHTML = refusal([{ code: "IN_RECOVERY", text: "You can borrow again once your earlier loan is settled." }]);
   else if (state === "termsblock" || GF.consents.termsState(A.login.id).state === "BLOCKED") el.innerHTML = refusal([{ code: "TERMS_FIRST", text: "Agree to our new terms first. Until you do, nothing new starts." }]);
   else if (state === "suspended") el.innerHTML = refusal([{ code: "NOT_ACTIVE", text: "Your membership is not active. Talk to your cooperative." }]);
   else el.innerHTML = e.ok ? offers() : refusal(e.failed);
 }
 draw("loaded");
-document.addEventListener("proto:state", function (ev) { if (["loaded", "offers", "paused", "live", "suspended", "termsblock"].indexOf(ev.detail) > -1) draw(ev.detail); });
+document.addEventListener("proto:state", function (ev) { if (["loaded", "offers", "paused", "live", "suspended", "termsblock", "recovery"].indexOf(ev.detail) > -1) draw(ev.detail); });
 </script>
 </body>
 </html>

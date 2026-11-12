@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Collection terms version · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/console.js"></script>
+<script src="recovery-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen id="screen" data-title="Collection terms" data-dest="recovery" data-back="terms.html" data-wide>
+
+  <p class="proto-note"><b>RC4 · Collection terms version (note 28, <code>CollectionTerms</code>).</b> One dated version: whether the cooperative recovers, the most all recovery deductions together may take from one payout, the collection fee, the remittance cycle, and the account GroFunder is paid into. A case keeps the version it opened under, so changing the terms never moves an arrangement already agreed.</p>
+  <p class="proto-note"><b>Fixed once published.</b> A published version never changes: only the acknowledgement is added, and only once. A scheduled version can be withdrawn with a reason before it takes effect. Publishing and withdrawing need <code>recovery.terms</code> (Full and Owner); acknowledging is the cooperative administrator's, in its portal.</p>
+  <p class="proto-note"><b>Try:</b> <code>?t=ct-kij-1</code> in force and acknowledged · <code>?t=ct-kij-2</code> a draft · <code>?t=ct-maw-1</code> in force, not acknowledged · <code>?t=ct-rui-1</code> doesn't recover.</p>
+
+  <div data-state="loaded" class="col gap-6">
+    <div class="col gap-1"><div class="row gap-2 wrap" id="chips"></div><span class="text-body-md tone-muted" id="sub"></span></div>
+    <div id="banner"></div>
+    <div class="actions actions-start" id="acts"></div>
+    <div class="two-col">
+      <div class="col gap-4">
+        <div class="section"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">What the cooperative may take</span></div>
+          <button class="btn btn-outlined btn-sm hidden" type="button" id="edit-limits" data-roles="owner full" onclick="editLimits()">Edit</button></div><dl class="facts" id="limits"></dl></div></div>
+        <div class="section"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">Remitting</span></div>
+          <button class="btn btn-outlined btn-sm hidden" type="button" id="edit-remit" data-roles="owner full" onclick="editRemit()">Edit</button></div><dl class="facts" id="remit"></dl></div></div>
+      </div>
+      <div class="col gap-4">
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">This version</span><dl class="facts" id="meta"></dl></div></div>
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">Every version</span><div class="rowcards" id="versions"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:140px"></div><div class="skeleton-card" style="height:240px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the terms</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var R = GF.recovery, U = RecoveryUI, esc = U.esc, f = GF.fmt;
+var t = R.get(new URLSearchParams(location.search).get("t") || "ct-kij-1") || R.get("ct-kij-1");
+var co = GF.get(t.cooperative);
+function draw() {
+  var st = R.termsState(t), draft = st === "DRAFT", cases = R.cases.filter(function (c) { return c.terms === t.id; });
+  document.getElementById("screen").setAttribute("data-title", co.profile.short_name + ", version " + t.version);
+  document.getElementById("chips").innerHTML = U.chip(R.L.termsState[st]) + (t.recovers ? "" : '<span class="status status-neutral">Doesn\'t recover</span>') +
+    (t.acknowledged_at ? '<span class="status status-success">Acknowledged</span>' : t.status === "PUBLISHED" ? '<span class="status status-warning">Not acknowledged</span>' : "");
+  document.getElementById("sub").textContent = co.profile.short_name + " · version " + t.version + (t.effective_from ? " · from " + f.date(t.effective_from) : " · no date set");
+
+  var B = function (cls, ic, title, body) { return '<div class="banner banner-' + cls + '"><span class="mdi mdi-' + ic + '" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">' + title + '</span><span class="text-body-md">' + body + "</span></div></div>"; };
+  document.getElementById("banner").innerHTML =
+    draft ? B("info", "pencil-outline", "A draft", "Never shown to the cooperative and never used by a case. Publishing puts it in force from the date set here, or a date given then. One draft at a time.")
+    : !t.recovers ? B("warning", "bank-off-outline", esc(co.profile.short_name) + " doesn't recover", "No case is ever queued for its members. Its defaulted loans are listed for GroFunder to settle with the lender.")
+    : !t.acknowledged_at ? B("warning", "file-alert-outline", "Waiting for the cooperative", "Its administrator acknowledges these terms in the portal. Until then no case can be confirmed for its members (Q8).")
+    : st === "SCHEDULED" ? B("info", "calendar-clock", "Takes effect " + f.date(t.effective_from), "Until then the version before it applies. It can still be withdrawn, with a reason.")
+    : st === "PAST" ? B("neutral", "history", "Replaced by a later version", "Cases opened under it keep it: their limits and fee don't move.")
+    : B("success", "check-circle-outline", "In force", "Cases confirmed for " + esc(co.profile.short_name) + " open under this version." + (cases.length ? " " + cases.length + (cases.length === 1 ? " case uses it." : " cases use it.") : ""));
+
+  document.getElementById("acts").innerHTML =
+    draft ? '<button class="btn btn-filled" type="button" id="publish-btn" data-roles="owner full" onclick="publish()">Publish</button>' +
+      '<button class="btn btn-text tone-error" type="button" id="delete-draft-btn" data-roles="owner full" onclick="discard()">Delete this draft</button>'
+    : st === "SCHEDULED" ? '<button class="btn btn-outlined tone-error" type="button" id="withdraw-btn" data-roles="owner full" onclick="withdraw()">Withdraw before it starts</button>'
+    : '<button class="btn btn-outlined" type="button" id="draft-from-btn" data-roles="owner full" onclick="draftFrom()">Draft a new version from this one</button>';
+  document.getElementById("edit-limits").classList.toggle("hidden", !draft);
+  document.getElementById("edit-remit").classList.toggle("hidden", !draft);
+
+  document.getElementById("limits").innerHTML =
+    "<dt>Recovers from pay</dt><dd>" + (t.recovers ? "Yes" : "No: no case is queued for its members") + "</dd>" +
+    "<dt>Most per payout</dt><dd>" + U.capLine(t) + '<span class="text-body-sm tone-muted"> — every recovery deduction together, as a share of the payout before them</span></dd>' +
+    "<dt>Collection fee</dt><dd>" + esc(U.feeLine(t)) + '<span class="text-body-sm tone-muted"> — worked out once, when the arrangement is agreed, and kept by the cooperative</span></dd>' +
+    (t.details.notes ? "<dt>Notes</dt><dd>" + esc(t.details.notes) + "</dd>" : "");
+  var rt = t.details.remit_to || {};
+  document.getElementById("remit").innerHTML =
+    "<dt>How often</dt><dd>" + R.L.cycle[t.remittance_cycle] + "</dd>" +
+    "<dt>Due</dt><dd>Within " + t.remit_within_days + " days of the end of each cycle</dd>" +
+    "<dt>Paid into</dt><dd>" + (rt.method === "BANK" ? esc(rt.bank_name) + ', <span class="tabular">' + esc(rt.account_no) + "</span>"
+      : rt.method === "MPESA" ? 'Paybill <span class="tabular">' + esc(rt.paybill) + "</span>, account " + esc(rt.account) : '<span class="tone-muted">Not set</span>') + "</dd>" +
+    '<dt>What is remitted</dt><dd>The loan withholdings from paid payouts only. The collection fee stays with the cooperative and is never remitted.</dd>';
+
+  document.getElementById("meta").innerHTML =
+    "<dt>Status</dt><dd>" + R.L.termsState[st][1] + "</dd>" +
+    "<dt>Takes effect</dt><dd>" + (t.effective_from ? f.date(t.effective_from) : '<span class="tone-muted">Not set: set it here or when publishing</span>') + "</dd>" +
+    (t.published_at ? "<dt>Published</dt><dd>" + U.when(t.published_at) + " by " + esc(U.who(t.published_by)) + "</dd>" : "") +
+    "<dt>Acknowledged</dt><dd>" + (t.acknowledged_at ? U.when(t.acknowledged_at) + (t.acknowledged_by ? " by " + esc(U.who(t.acknowledged_by)) : " by the cooperative") : '<span class="tone-muted">Not yet</span>') + "</dd>" +
+    "<dt>Drafted</dt><dd>" + U.when(t.created_at) + " by " + esc(U.who(t.created_by)) + "</dd>" +
+    "<dt>Cases under it</dt><dd>" + (cases.length ? cases.map(function (c) { return '<a href="case.html?c=' + c.id + '">' + c.reference + "</a>"; }).join(", ") : '<span class="tone-muted">None</span>') + "</dd>";
+
+  document.getElementById("versions").innerHTML = R.termsOf(co.id).map(function (v) {
+    var s = R.termsState(v);
+    return '<a class="rowcard' + (v.id === t.id ? " card-outlined" : "") + '" style="padding-left:0;padding-right:0" href="terms-version.html?t=' + v.id + '"><span class="grow"><span class="text-body-md">Version ' + v.version +
+      '</span><span class="text-body-sm tone-muted">' + (v.effective_from ? "from " + f.date(v.effective_from, "short") : "no date yet") + " · " + U.capLine(v) + " · " + esc(U.feeLine(v)) + "</span></span>" + U.chip(R.L.termsState[s]) + "</a>";
+  }).join("");
+  if (window.Proto) Proto.applyRoles(document.getElementById("acts"));
+}
+function editLimits() {
+  Proto.dialog({ title: "Edit the limits", body:
+    '<label class="check" for="rec"><input type="checkbox" role="switch" id="rec"' + (t.recovers ? " checked" : "") + '><span class="grow"><span class="text-body-lg">This cooperative recovers from members\' pay</span><span class="text-body-md tone-muted">Unticked, no case is ever queued for its members</span></span></label>' +
+    '<div class="field"><label class="field-label" for="cap">Most per payout</label><div class="field-box"><input class="field-input tabular" id="cap" inputmode="numeric" value="' + (t.max_per_payout_bps / 100) + '"><span class="trail affix">%</span></div><span class="field-help">Between 1 and 100. Every recovery deduction together, before them</span></div>' +
+    '<div class="field"><label class="field-label" for="fb">Collection fee</label><select class="field-input" id="fb">' +
+      Object.keys(R.L.fee).map(function (k) { return '<option value="' + k + '"' + (k === t.fee_basis ? " selected" : "") + ">" + R.L.fee[k] + "</option>"; }).join("") + "</select></div>" +
+    '<div class="field"><label class="field-label" for="fr">Rate or amount</label><input class="field-input tabular" id="fr" value="' + (t.fee_rate_bps ? t.fee_rate_bps / 100 : t.fee_amount_cents ? t.fee_amount_cents / 100 : "") + '"><span class="field-help">A percentage of the debt, or a flat amount in shillings</span></div>' +
+    '<div class="field"><label class="field-label" for="fc">At most <span class="optional">(a percentage fee only)</span></label><input class="field-input tabular" id="fc" value="' + (t.fee_cap_cents ? t.fee_cap_cents / 100 : "") + '"></div>',
+    submit: "Save", onSubmit: function (d) {
+      var cap = +d.querySelector("#cap").value;
+      if (!(cap > 0 && cap <= 100)) return Proto.snack("Not saved: the cap must be between 1% and 100%");
+      var basis = d.querySelector("#fb").value, amt = +d.querySelector("#fr").value;
+      if (basis !== "NONE" && !(amt > 0)) return Proto.snack("Not saved: a fee needs a rate or an amount");
+      Proto.snack("Draft saved");
+    } });
+}
+function editRemit() {
+  var rt = t.details.remit_to || {};
+  Proto.dialog({ title: "Edit remitting", body:
+    '<div class="field"><label class="field-label" for="cy">How often</label><select class="field-input" id="cy">' +
+      Object.keys(R.L.cycle).map(function (k) { return '<option value="' + k + '"' + (k === t.remittance_cycle ? " selected" : "") + ">" + R.L.cycle[k] + "</option>"; }).join("") + "</select></div>" +
+    '<div class="field"><label class="field-label" for="dw">Due within</label><div class="field-box"><input class="field-input tabular" id="dw" inputmode="numeric" value="' + t.remit_within_days + '"><span class="trail affix">days</span></div></div>' +
+    '<div class="field"><label class="field-label" for="mt">Paid into</label><select class="field-input" id="mt"><option value="BANK"' + (rt.method === "BANK" ? " selected" : "") + '>A bank account</option><option value="MPESA"' + (rt.method === "MPESA" ? " selected" : "") + '>An M-Pesa paybill</option></select></div>' +
+    '<div class="field"><label class="field-label" for="ac">Account or paybill</label><input class="field-input tabular" id="ac" value="' + esc(rt.account_no || rt.paybill || "") + '"></div>',
+    submit: "Save", onSubmit: function (d) { if (!d.querySelector("#ac").value.trim()) return Proto.snack("Not saved: GroFunder's account is needed"); Proto.snack("Draft saved"); } });
+}
+function publish() {
+  if (!t.recovers) return Proto.dialog({ title: "Publish version " + t.version + "?", body: '<p class="text-body-md">These terms say ' + esc(co.profile.short_name) + " doesn't recover. Publishing them stops any new case being queued for its members; cases already open carry on under the version they opened under.</p>" +
+    '<div class="actions"><button class="btn btn-filled" type="button" onclick="Proto.close();Proto.snack(\'Version ' + t.version + ' is in force\')">Publish</button></div>' });
+  Proto.dialog({ title: "Publish version " + t.version + "?", body:
+    '<p class="text-body-md">It applies from the date below. ' + esc(co.profile.short_name) + "'s administrators are asked to acknowledge it; until they do, no new case can be confirmed under it.</p>" +
+    '<div class="col gap-2" role="radiogroup" aria-label="When"><label class="radio-card" style="flex-direction:row;gap:12px"><input type="radio" name="pw" value="now" checked><span class="text-title-sm">Now</span></label>' +
+    '<label class="radio-card" style="flex-direction:row;gap:12px;align-items:center"><input type="radio" name="pw" value="later"><span class="text-title-sm">From</span><input class="field-input" type="date" id="pd" value="' + (t.effective_from ? t.effective_from.slice(0, 10) : GF.TODAY) + '" style="max-width:180px"></label></div>',
+    submit: "Publish", onSubmit: function (d) {
+      var later = (d.querySelector('input[name="pw"]:checked') || {}).value === "later";
+      Proto.snack(later ? "Version " + t.version + " takes effect " + f.date(d.querySelector("#pd").value, "short") : "Version " + t.version + " is in force");
+    } });
+}
+function discard() {
+  Proto.confirm({ title: "Delete this draft?", message: "It was never in force and no case used it, so it goes for good.", confirm: "Delete", destructive: true,
+    onConfirm: function () { Proto.snack("Draft deleted"); } });
+}
+function withdraw() {
+  Proto.dialog({ title: "Withdraw version " + t.version + "?", body: '<p class="text-body-md">It never takes effect, and the version before it stays in force. Only possible before ' + f.date(t.effective_from) + ".</p>" +
+    '<div class="field"><label class="field-label" for="wr">Reason</label><textarea class="field-input" id="wr" rows="2"></textarea><span class="field-help">Required. Kept on the version</span></div>',
+    submit: "Withdraw", onSubmit: function (d) { if (!d.querySelector("#wr").value.trim()) return Proto.snack("Nothing changed: a reason is needed"); Proto.snack("Version " + t.version + " withdrawn"); } });
+}
+function draftFrom() {
+  var draft = R.termsOf(co.id).find(function (x) { return x.status === "DRAFT"; });
+  if (draft) return Proto.dialog({ title: "A draft is already open", body: '<p class="text-body-md">Version ' + draft.version + ' is a draft. Finish or delete it first: one draft at a time.</p>' +
+    '<div class="actions"><a class="btn btn-filled" href="terms-version.html?t=' + draft.id + '">Open version ' + draft.version + "</a></div>" });
+  Proto.confirm({ title: "Draft a new version?", message: "A copy of version " + t.version + " for " + co.profile.short_name + ", which you then change and publish from a date.", confirm: "Draft",
+    onConfirm: function () { Proto.snack("Draft started from version " + t.version); } });
+}
+draw();
+</script>
+</body>
+</html>

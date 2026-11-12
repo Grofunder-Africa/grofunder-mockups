@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Applications · GroFunder partner portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/portal-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Applications" data-dest="applications" data-wide>
+
+  <p class="proto-note"><b>Cancelling (G142, the owner, 2026-11-11).</b> Both may cancel before disbursement, each under its own rule: the lender here, under <code>partner_portal.decide</code> (BY_PARTNER); GroFunder in the console, under <code>loans.manage</code> (BY_GROFUNDER), which for a portal lender makes no outside call and sends it an "application withdrawn" notice.</p>
+  <p class="proto-note"><b>Member details (G140, the owner).</b> A loan is never forwarded without sharing consent. After a withdrawal, a live loan keeps access; once the lender's loans are final, opening the details is refused and logged, and the panel says "Not shared", with the name and the lender's own loans. <code>?notshared=1</code> on a loan shows it.</p>
+  <p class="proto-note"><b>PP1 · Applications (note 29, "The loan through the portal", steps 1 and 2).</b> Loans GroFunder has approved on your products. For a portal lender, forwarding makes no outside call: GroFunder raises <code>application.received</code> itself and the loan appears here. You see the request, the quote and the terms version it was quoted on, and the date GroFunder approved it — never who approved it, the member's credit score or GroFunder's review notes.</p>
+  <p class="proto-note"><b>Deciding</b> (<code>partner_portal.decide</code>: Administrator and Credit officer). <b>Approve</b> takes the application as asked for: a portal lender can't approve a different amount (Q2). To lend less, reject with a note or ask for an amendment, and GroFunder prepares a new draft for the member to accept. <b>Ask for an amendment</b> sends it back to GroFunder, which answers with corrected details and returns it here. <b>Cancel</b> is allowed before disbursement, with a reason. Each of these raises its canonical event with your name on it.</p>
+  <p class="proto-note"><b>The list shows names only.</b> A member's details open on demand, and each opening is logged as a data read with your name, under that member's sharing consent (29, Q8). GroFunder is told when an application waits here more than 3 working days.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div class="chip-row" data-choice role="radiogroup" aria-label="Show" id="filter"></div>
+    <div class="rowcards" id="rows"></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:220px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-inbox-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Nothing waiting</span><span class="text-body-md">When GroFunder approves a loan on one of your products, it appears here for you to decide.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the queue</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var U = PortalUI, esc = U.esc, f = GF.fmt, Lo = GF.loans, P = GF.partners;
+var GROUPS = [["queue", "Waiting for you", ["FORWARDED", "AMENDMENT_REQUIRED"]], ["decided", "Decided", ["PARTNER_APPROVED", "PARTNER_REJECTED", "CANCELLED"]], ["all", "All", null]];
+var pick = "queue";
+function rowsFor(g) { return U.loans(g[2] || undefined).filter(function (l) { return !g[2] ? ["FORWARDED", "AMENDMENT_REQUIRED", "PARTNER_APPROVED", "PARTNER_REJECTED", "CANCELLED"].indexOf(l.status) > -1 : true; }); }
+function draw() {
+  document.getElementById("filter").innerHTML = GROUPS.map(function (g) {
+    return '<button class="chip" type="button" role="radio" data-g="' + g[0] + '" aria-checked="' + (g[0] === pick) + '">' + g[1] + " · " + rowsFor(g).length + "</button>";
+  }).join("");
+  var g = GROUPS.find(function (x) { return x[0] === pick; }), list = rowsFor(g);
+  document.getElementById("rows").innerHTML = list.length ? list.map(function (l) {
+    var m = GF.get(l.member), t = P.get(l.terms), pr = P.get(l.product), waiting = l.forwarded_at ? Math.floor((Date.parse(GF.NOW) - Date.parse(l.forwarded_at)) / 864e5) : 0;
+    var purpose = pr.details.purposes.find(function (x) { return x.value === l.purpose; });
+    var open = l.status === "FORWARDED" || l.status === "AMENDMENT_REQUIRED";
+    return '<div class="rowcard card-outlined" style="align-items:flex-start"><span class="grow"><span class="row gap-2 wrap" style="align-items:center">' +
+      '<span class="text-body-lg">' + esc(m.full_name) + '</span>' + U.chip(U.statusOf(l)) + (open && waiting > 2 ? '<span class="status status-warning">Waiting ' + waiting + ' days</span>' : "") + "</span>" +
+      '<span class="text-body-md tabular">' + U.whole(l.amount_cents) + " · " + Lo.durationLine(l.duration, t.duration_unit) + " · " + esc(purpose ? purpose.en : l.purpose) + "</span>" +
+      '<span class="text-body-sm tone-muted tabular">' + l.reference + " · " + esc(pr.name) + ", terms version " + t.version + " · GroFunder approved " + f.date(l.reviewed_at, "short") + "</span>" +
+      '<span class="row gap-2 wrap"><a class="btn btn-text btn-sm" href="../loans/loan.html?l=' + l.id + '">Open the application</a>' +
+      '<button class="btn btn-text btn-sm" type="button" data-member="' + l.member + '" data-loan="' + l.id + '">See the member\'s details</button></span>' +
+      (open ? '<span class="row gap-2 wrap" data-roles="' + U.ROLES.decide + '"><button class="btn btn-filled btn-sm" type="button" data-approve="' + l.id + '">Approve</button>' +
+        '<button class="btn btn-outlined btn-sm" type="button" data-amend="' + l.id + '">Ask for an amendment</button>' +
+        '<button class="btn btn-text btn-sm tone-error" type="button" data-reject="' + l.id + '">Reject</button>' +
+        '<button class="btn btn-text btn-sm" type="button" data-cancel="' + l.id + '">Cancel</button></span>' : "") + "</span></div>";
+  }).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">Nothing here.</span></div>';
+  if (window.Proto) Proto.applyRoles(document.getElementById("rows"));
+}
+document.getElementById("filter").addEventListener("click", function (e) { var b = e.target.closest("[data-g]"); if (b) { pick = b.getAttribute("data-g"); draw(); } });
+document.getElementById("rows").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-approve],[data-reject],[data-amend],[data-cancel],[data-member]");
+  if (!b) return;
+  if (b.hasAttribute("data-member")) return U.memberSheet(b.getAttribute("data-member"), b.getAttribute("data-loan"));
+  var id = b.getAttribute("data-approve") || b.getAttribute("data-reject") || b.getAttribute("data-amend") || b.getAttribute("data-cancel");
+  var l = Lo.get(id), m = GF.get(l.member), first = m.full_name.split(" ")[0];
+  if (b.hasAttribute("data-approve")) return approve(l, first);
+  if (b.hasAttribute("data-reject")) return reject(l, first);
+  if (b.hasAttribute("data-amend")) return amend(l, first);
+  cancel(l, first);
+});
+function approve(l, first) {
+  var q = l.details.quote;
+  Proto.dialog({ title: "Approve " + l.reference + "?", wide: true, body:
+    '<p class="text-body-md">As asked for: ' + U.whole(l.amount_cents) + " for " + Lo.durationLine(l.duration, P.get(l.terms).duration_unit) + ". " + esc(first) + " receives " + U.money(q.amount_received_cents) +
+    " and repays " + U.money(q.total_repayable_cents) + " in all.</p>" +
+    '<div class="banner banner-info"><span class="mdi mdi-information-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">A portal lender approves the amount asked for, nothing else (Q2). To lend less, reject with a note or ask for an amendment, and GroFunder prepares a new draft.</span></div></div>' +
+    '<p class="text-body-sm tone-muted">Recorded as <code>application.approved</code> by ' + esc(U.me().name) + '. Next: send the money, then record the disbursement.</p>',
+    submit: "Approve", onSubmit: function () { U.raised("application.approved", l.reference + " is approved: disburse it next"); } });
+}
+function reject(l, first) {
+  Proto.dialog({ title: "Reject " + l.reference + "?", body:
+    '<p class="text-body-md">It ends here. GroFunder tells ' + esc(first) + " in plain words.</p>" +
+    '<div class="field"><label class="field-label" for="rr">Reason</label><select class="field-input" id="rr">' +
+      ["Already has an advance with us", "Outside what we lend on", "We can't verify the farm", "Other"].map(function (x) { return "<option>" + x + "</option>"; }).join("") + "</select></div>" +
+    '<div class="field"><label class="field-label" for="rn">Note</label><textarea class="field-input" id="rn" rows="2"></textarea><span class="field-help">Required. GroFunder sees it, and tells the member in its own words</span></div>',
+    submit: "Reject", onSubmit: function (d) {
+      if (!d.querySelector("#rn").value.trim()) return Proto.snack("Nothing changed: a note is needed");
+      U.raised("application.rejected", l.reference + " is rejected");
+    } });
+}
+function amend(l, first) {
+  Proto.dialog({ title: "Ask GroFunder for an amendment", body:
+    '<p class="text-body-md">Say what is wrong or missing. GroFunder answers with corrected details or documents, and the application comes back here.</p>' +
+    '<div class="field"><label class="field-label" for="an">What you need</label><textarea class="field-input" id="an" rows="3" placeholder="The back of the ID photo is unreadable. Please send a clearer one."></textarea></div>' +
+    '<p class="text-body-sm tone-muted">The amount, duration and product can\'t change through an amendment: that is a new draft for the member (26, Q7).</p>',
+    submit: "Send", onSubmit: function (d) {
+      if (!d.querySelector("#an").value.trim()) return Proto.snack("Nothing sent: say what you need");
+      U.raised("application.amendment_required", "GroFunder will answer");
+    } });
+}
+function cancel(l, first) {
+  Proto.dialog({ title: "Cancel " + l.reference + "?", body:
+    '<p class="text-body-md">Only before the money goes out. ' + esc(first) + ' is told, and the borrowing space in their Growth Circle opens again.</p>' +
+    '<div class="field"><label class="field-label" for="cr">Reason</label><textarea class="field-input" id="cr" rows="2"></textarea><span class="field-help">Required</span></div>',
+    submit: "Cancel the application", onSubmit: function (d) {
+      if (!d.querySelector("#cr").value.trim()) return Proto.snack("Nothing changed: a reason is needed");
+      U.raised("application.cancelled", l.reference + " is cancelled");
+    } });
+}
+draw();
+</script>
+</body>
+</html>

@@ -654,6 +654,8 @@
     list.forEach(function (x) { byId[x.id] = x; });
   });
   var get = function (id) { return byId[id]; };
+  /* Later data files (recovery's managed payout item types) register their rows so GF.get finds them. */
+  var index = function (rows) { (Array.isArray(rows) ? rows : [rows]).forEach(function (x) { if (x && x.id) byId[x.id] = x; }); };
   var recorded = function (d) { return d.status === "RECORDED"; };
 
   /** A delivery's value at its price (fixed once paid), what's been paid, and the balance. */
@@ -738,6 +740,7 @@
   };
 
   root.GF = {
+    index: index,
     NOW: NOW, TODAY: TODAY, FROM: FROM, UNITS: UNITS,
     areas: areas, valueChains: valueChains, products: products, grades: grades,
     cooperatives: cooperatives, coopStatusChanges: coopStatusChanges, coopProducts: coopProducts, clusters: clusters, rounds: rounds, prices: prices,

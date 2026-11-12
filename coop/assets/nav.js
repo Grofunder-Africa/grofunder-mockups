@@ -3,10 +3,12 @@
  *
  * Who sees what follows the permission codes in note 09 (the same rule the
  * screen inventory, assets/data/screens.js, uses):
- *   Administrator, Manager  Home, Produce, Members, Payouts, Settings
- *   Accountant              Home, Produce, Members, Payouts, Settings (additions and deductions only)
+ *   Administrator, Manager  Home, Produce, Members, Payouts, Recovery, Settings
+ *   Accountant              Home, Produce, Members, Payouts, Recovery, Settings (additions and deductions only)
  *   Clerk                   Home, Produce, Members
- *   Viewer                  Home, Produce, Members, Payouts
+ *   Viewer                  Home, Produce, Members, Payouts, Recovery
+ * Recovery (28) is read by every role but the clerk; only an Administrator or Manager records an
+ * arrangement, and only an Administrator acknowledges the collection terms.
  * Team and Roles in Settings are for the account's one owner, the first
  * administrator ("admin" in the review bar). An administrator who isn't the
  * owner sees what a Manager sees: the same codes, no Team or Roles.
@@ -31,6 +33,7 @@
       { id: "produce", label: "Produce", icon: "basket-outline", href: R + "produce/index.html" },
       { id: "members", label: "Members", icon: "account-group-outline", href: R + "members/index.html" },
       { id: "payouts", label: "Payouts", icon: "cash-multiple", href: R + "payouts/index.html", roles: "admin manager accountant viewer" },
+      { id: "recovery", label: "Recovery", icon: "cash-refund", href: R + "recovery/index.html", roles: "admin manager accountant viewer" },
       { id: "settings", label: "Settings", icon: "cog-outline", href: R + "settings/profile.html", roles: "admin manager accountant",
         hrefByRole: { accountant: R + "settings/pay-items.html" } }
     ],
@@ -39,6 +42,12 @@
       produce: [
         { id: "deliveries", label: "Deliveries", href: R + "produce/index.html" },
         { id: "prices", label: "Prices", href: R + "produce/prices.html" }
+      ],
+      recovery: [
+        { id: "cases", label: "Cases", href: R + "recovery/index.html" },
+        { id: "remittances", label: "Remittances", href: R + "recovery/remittances.html" },
+        { id: "fees", label: "Fees", href: R + "recovery/fees.html" },
+        { id: "terms", label: "Terms", href: R + "recovery/terms.html" }
       ],
       settings: [
         { id: "profile", label: "Profile", href: R + "settings/profile.html", roles: "admin manager" },

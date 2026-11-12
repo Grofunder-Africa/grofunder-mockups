@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pass-ons · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/console.js"></script>
+<script src="recovery-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Recovery" data-dest="recovery" data-wide>
+
+  <p class="proto-note"><b>RC6 · Pass-ons (note 28, step 9).</b> Money a cooperative recovered, on its way to the lender. One pass-on per loan in a confirmed remittance, under our own reference (<code>&lt;loan&gt;-R&lt;n&gt;</code>): <b>to send</b> when the remittance is confirmed, <b>sent</b> once GroFunder transfers it, <b>reported</b> once the lender is told (<code>REPORT_REPAYMENT</code>, 27), and <b>posted</b> when the lender posts it against the loan, as a payment with channel RECOVERY (26).</p>
+  <p class="proto-note"><b>Recording the transfer</b> takes the bank or M-Pesa reference and the date; one transfer may cover several pass-ons to the same lender, so they are sent together. It needs <code>recovery.receive</code> (Full and Owner).</p>
+  <p class="proto-note"><b>A lender that can't take <code>REPORT_REPAYMENT</code></b> (some lenders today) is paid into its paybill with the loan's reference, and the pass-on stays <i>sent</i>; the poll matches its payment by loan, amount and date, or flags it for staff to link. A pass-on not posted after 7 days is listed for staff.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="recovery" data-current="passons" data-label="Recovery"></div>
+    <div class="chip-row scroll" data-choice role="radiogroup" aria-label="Show" id="filter"></div>
+    <div class="actions actions-start" id="bulk"></div>
+    <div class="section"><div class="table-wrap"><table class="table"><thead><tr><th>Reference</th><th>Lender</th><th>Loan</th><th class="num">Amount</th><th>From</th><th>Status</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:240px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-bank-transfer-out" aria-hidden="true"></span>
+    <span class="text-headline-sm">Nothing to pass on</span><span class="text-body-md">A pass-on is made when GroFunder confirms a cooperative's remittance.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the pass-ons</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var R = GF.recovery, U = RecoveryUI, esc = U.esc, f = GF.fmt;
+var GROUPS = [["PENDING", "To send", ["PENDING"]], ["SENT", "Sent", ["SENT"]], ["REPORTED", "Reported", ["REPORTED"]], ["POSTED", "Posted", ["POSTED"]], ["ALL", "All", null]];
+var pick = "ALL";
+function stale(x) { return (x.status === "SENT" || x.status === "REPORTED") && U.days(x.sent_on) > R.RULES.PASS_ON_FLAG_DAYS; }
+function draw() {
+  document.getElementById("filter").innerHTML = GROUPS.map(function (g) {
+    var n = R.passOns.filter(function (x) { return !g[2] || g[2].indexOf(x.status) > -1; }).length;
+    return '<button class="chip" type="button" role="radio" data-g="' + g[0] + '" aria-checked="' + (g[0] === pick) + '">' + g[1] + " · " + n + "</button>";
+  }).join("");
+  var g = GROUPS.find(function (x) { return x[0] === pick; });
+  var list = R.passOns.filter(function (x) { return !g[2] || g[2].indexOf(x.status) > -1; }).sort(function (a, b) { return a.created_at < b.created_at ? 1 : -1; });
+  var waiting = R.passOns.filter(function (x) { return x.status === "PENDING"; });
+  document.getElementById("bulk").innerHTML = waiting.length
+    ? '<button class="btn btn-filled" type="button" id="send-all" data-roles="' + U.ROLES.receive + '" onclick="sendPending()">Record the transfer for ' + waiting.length + (waiting.length === 1 ? " pass-on" : " pass-ons") + "</button>"
+    : '<span class="text-body-sm tone-muted">Nothing waiting to be sent.</span>';
+  document.getElementById("rows").innerHTML = list.length ? list.map(function (x) {
+    var l = GF.loans.get(x.loan), rem = R.get(x.remittance), p = GF.partners.get(x.partner);
+    return '<tr><td class="primary-cell tabular">' + esc(x.reference) + (stale(x) ? '<span class="cell-sub tone-error">not posted after ' + R.RULES.PASS_ON_FLAG_DAYS + " days</span>" : "") + "</td>" +
+      "<td>" + esc(p.name) + "</td>" +
+      '<td class="text-body-sm"><a class="tabular" href="../loans/loan.html?l=' + l.id + '">' + l.reference + '</a><span class="cell-sub">' + esc(U.memberName(l.member)) + "</span></td>" +
+      '<td class="num tabular">' + U.money(x.amount_cents) + "</td>" +
+      '<td class="text-body-sm">' + (rem ? '<a href="remittances.html?r=' + rem.id + '">' + esc(rem.reference) + "</a>" : "–") + '<span class="cell-sub">' + esc(U.coopName(rem ? rem.cooperative : l.cooperative)) + "</span></td>" +
+      "<td>" + U.chip(R.L.passOn[x.status]) +
+        (x.sent_on ? '<span class="cell-sub">sent ' + f.date(x.sent_on, "short") + (x.transfer_ref ? " · " + esc(x.transfer_ref) : "") + "</span>" : "") +
+        (x.reported_at ? '<span class="cell-sub">reported ' + f.date(x.reported_at, "short") + "</span>" : "") + "</td>" +
+      '<td><div class="row gap-1" data-roles="' + U.ROLES.receive + '">' +
+        (x.status === "PENDING" ? '<button class="btn btn-text btn-sm" type="button" data-send="' + x.id + '">Record the transfer</button>' : "") +
+        (x.status === "SENT" ? '<button class="btn btn-text btn-sm" type="button" data-report="' + x.id + '">Report to the lender</button><button class="btn btn-text btn-sm" type="button" data-link="' + x.id + '">Link the payment</button>' : "") +
+        (x.status === "REPORTED" ? '<button class="btn btn-text btn-sm" type="button" data-link="' + x.id + '">Link the payment</button>' : "") +
+        (x.status === "POSTED" && x.payment ? '<a class="btn btn-text btn-sm" href="../loans/loan.html?l=' + l.id + '">See the payment</a>' : "") + "</div></td></tr>";
+  }).join("") : '<tr><td colspan="7" class="text-body-md tone-muted">Nothing here.</td></tr>';
+  if (window.Proto) { Proto.applyRoles(document.getElementById("rows")); Proto.applyRoles(document.getElementById("bulk")); }
+}
+document.getElementById("filter").addEventListener("click", function (e) { var b = e.target.closest("[data-g]"); if (b) { pick = b.getAttribute("data-g"); draw(); } });
+document.getElementById("rows").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-send],[data-report],[data-link]"); if (!b) return;
+  var id = b.getAttribute("data-send") || b.getAttribute("data-report") || b.getAttribute("data-link"), x = R.get(id);
+  if (b.hasAttribute("data-send")) return markSent([x]);
+  if (b.hasAttribute("data-report")) return report(x);
+  linkPayment(x);
+});
+function sendPending() { markSent(R.passOns.filter(function (x) { return x.status === "PENDING"; })); }
+function markSent(list) {
+  if (!list.length) return Proto.snack("Nothing waiting to be sent");
+  var byPartner = {};
+  list.forEach(function (x) { (byPartner[x.partner] = byPartner[x.partner] || []).push(x); });
+  var names = Object.keys(byPartner).map(function (p) { return GF.partners.get(p).name + " " + U.money(byPartner[p].reduce(function (t, x) { return t + x.amount_cents; }, 0)); });
+  if (Object.keys(byPartner).length > 1) return Proto.dialog({ title: "One lender at a time", body: '<p class="text-body-md">These pass-ons go to different lenders: ' + esc(names.join("; ")) + '. One transfer covers one lender, so record them separately.</p>' });
+  Proto.dialog({ title: "Record the transfer", body:
+    '<p class="text-body-md">To ' + esc(names[0]) + " for " + list.length + (list.length === 1 ? " loan" : " loans") + ": " + esc(list.map(function (x) { return GF.loans.get(x.loan).reference; }).join(", ")) + ".</p>" +
+    '<div class="form-grid"><div class="field"><label class="field-label" for="tr">Transfer reference</label><input class="field-input tabular" id="tr" placeholder="The bank or M-Pesa reference"></div>' +
+    '<div class="field"><label class="field-label" for="td">Sent on</label><input class="field-input tabular" id="td" type="date" value="' + GF.TODAY + '"></div></div>' +
+    '<p class="text-body-sm tone-muted">Each pass-on is then reported to the lender under its own reference, which is how the lender posts it against the right loan.</p>',
+    submit: "Record", onSubmit: function (d) {
+      if (!d.querySelector("#tr").value.trim()) return Proto.snack("Nothing recorded: the transfer's reference is needed");
+      Proto.snack(list.length + (list.length === 1 ? " pass-on is" : " pass-ons are") + " sent, and reported to the lender");
+    } });
+}
+function report(x) {
+  Proto.confirm({ title: "Report " + esc(x.reference) + " to " + esc(GF.partners.get(x.partner).name) + "?",
+    message: "It is sent as REPORT_REPAYMENT under our pass-on reference, so the lender posts it against " + GF.loans.get(x.loan).reference + ". Sending it twice is safe: the reference is the key.",
+    confirm: "Report", onConfirm: function () { Proto.snack(x.reference + " reported"); } });
+}
+/* G131 (owner, 2026-11-11): only POSTED payments on this loan, not linked to another pass-on, received on or after
+ * the pass-on was sent; closest amount and date first. A different amount needs a note. The link is recorded on the
+ * pass-on; the payment row is never edited. */
+function linkPayment(x) {
+  var l = GF.loans.get(x.loan), taken = R.passOns.filter(function (o) { return o.payment && o.id !== x.id; }).map(function (o) { return o.payment; });
+  var days = function (a, b) { return Math.abs(Date.parse(a) - Date.parse(b)) / 864e5; };
+  var pays = GF.loans.paymentsOf(l.id).filter(function (p) { return p.status === "POSTED" && taken.indexOf(p.id) === -1 && (!x.sent_on || p.paid_on >= x.sent_on.slice(0, 10)); })
+    .sort(function (a, b) { return Math.abs(a.amount_cents - x.amount_cents) - Math.abs(b.amount_cents - x.amount_cents) || days(a.paid_on, x.sent_on || GF.TODAY) - days(b.paid_on, x.sent_on || GF.TODAY); });
+  Proto.dialog({ title: "Link the lender's payment", body:
+    '<p class="text-body-md">For a lender that can\'t take our reference, the poll offers payments that match by loan, amount and a date within ' + R.RULES.PASS_ON_FLAG_DAYS + ' days. Pick the one this pass-on paid, and it becomes posted.</p>' +
+    '<p class="text-body-sm tone-muted">Listed: posted payments on ' + esc(l.reference) + ' received on or after ' + (x.sent_on ? f.date(x.sent_on, "short") : "the day it was sent") + ', not linked to another pass-on; the closest amount and date first. The link is kept on the pass-on; the lender\'s payment is never changed.</p>' +
+    '<div class="field"><label class="field-label" for="pm">Payment on ' + esc(l.reference) + '</label><select class="field-input" id="pm">' +
+      (pays.length ? pays.map(function (p) { return '<option value="' + p.id + '">' + f.date(p.paid_on, "short") + " · " + U.money(p.amount_cents) + (p.amount_cents !== x.amount_cents ? " (differs)" : "") + (p.receipt ? " · " + esc(p.receipt) : "") + "</option>"; }).join("")
+        : '<option value="">No payment that fits yet</option>') + "</select></div>" +
+      '<div class="field"><label class="field-label" for="pmn">Note <span class="optional">(needed when the amount differs from ' + U.money(x.amount_cents) + ')</span></label><textarea class="field-input" id="pmn" rows="2"></textarea></div>',
+    submit: "Link", onSubmit: function (d) {
+      var id = d.querySelector("#pm").value, p = id && GF.loans.paymentsOf(l.id).find(function (y) { return y.id === id; });
+      if (!p) return Proto.snack("Nothing linked: the lender hasn't posted a payment that fits yet");
+      if (p.amount_cents !== x.amount_cents && !d.querySelector("#pmn").value.trim()) return Proto.snack("Nothing linked: say why the amount differs");
+      Proto.snack(x.reference + " is posted against " + l.reference);
+    } });
+}
+draw();
+var want = new URLSearchParams(location.search).get("p");
+if (want && R.get(want)) { pick = R.get(want).status; draw(); }
+</script>
+</body>
+</html>

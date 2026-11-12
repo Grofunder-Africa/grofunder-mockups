@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Money · GroFunder partner portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/portal-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Money" data-dest="money" data-wide
+     data-action='{"label":"Record a remittance","icon":"bank-transfer-out","roles":"admin finance","on":"remit()"}'>
+
+  <p class="proto-note"><b>PP5 · Money (note 29, "Money between the partner and GroFunder").</b> What you have out with members and what has come back, worked out from GroFunder's ledger: disbursed, collected, outstanding, and what is in arrears. Then <b>GroFunder's share</b>, worked out from the charges your terms set and the payments you have posted (26, "Settlement").</p>
+  <p class="proto-note"><b>Remittances.</b> You record each transfer you send GroFunder: the amount, the period, the reference and a breakdown. It stays <i>waiting for GroFunder</i> until GroFunder staff see the money and confirm it (Q7; the PENDING status added to 24). A payment whose split GroFunder couldn't work out is left out of the share and listed, so neither side guesses.</p>
+  <p class="proto-note"><b>Your own records.</b> A portal lender is still the lender: its licence, disclosures and collection practice are its own, so its records export as a CSV for its audits (29, concern 5). <b>G143 (the owner, 2026-11-11):</b> a code of its own, <code>partner_portal.export</code>, held by Administrator and Finance only. The file holds loans (reference, member name, amounts, dates, status, days past due), schedules, payments, charges, remittances, pass-ons and the portal's action log, and no member details beyond the name. Each run is audited.</p>
+
+  <div data-state="loaded" class="col gap-6">
+    <div class="stats-grid" id="stats"></div>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">GroFunder's share</span><span class="text-body-md tone-muted">By month, from the payments you posted</span></div>
+      <button class="btn btn-outlined btn-sm" type="button" id="csv-btn" data-roles="admin finance" onclick="exportCsv()"><span class="mdi mdi-download" aria-hidden="true"></span>Export as CSV</button></div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>Month</th><th class="num">Payments</th><th class="num">GroFunder's share</th><th>State</th></tr></thead><tbody id="share"></tbody></table></div></section>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Remittances you have sent</span></div>
+      <button class="btn btn-tonal btn-sm" type="button" data-roles="admin finance" id="remit-btn" onclick="remit()">Record a remittance</button></div>
+      <div class="rowcards" id="remittances"></div></section>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:120px"></div><div class="skeleton-card" style="height:240px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-bank-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No money has moved yet</span><span class="text-body-md">Once you disburse a loan and post the repayments, what you owe GroFunder shows here.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the account</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var U = PortalUI, esc = U.esc, f = GF.fmt, Lo = GF.loans, P = GF.partners;
+var acct = U.account(), periods = U.shareByPeriod();
+var owed = periods.reduce(function (t, p) { return t + p.share_cents; }, 0);
+document.getElementById("stats").innerHTML = [
+  ["Disbursed", U.whole(acct.disbursed), acct.live + " live, " + acct.closed + " repaid"],
+  ["Collected", U.whole(acct.collected), "Payments you posted"],
+  ["Outstanding", U.whole(acct.outstanding), "Still with members"],
+  ["In arrears", U.whole(acct.arrears), "Overdue instalments"],
+  ["GroFunder's share", U.whole(owed), "Worked out from the ledger"]
+].map(function (s) { return '<div class="stat-card"><span class="stat-text"><span class="stat-label">' + s[0] + '</span><span class="stat-value">' + s[1] + '</span><span class="stat-caption">' + esc(s[2]) + "</span></span></div>"; }).join("");
+
+var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+var label = function (p) { return MONTHS[+p.slice(5, 7) - 1] + " " + p.slice(0, 4); };
+var sent = P.remittances.filter(function (r) { return r.partner === U.PARTNER; });
+document.getElementById("share").innerHTML = periods.length ? periods.map(function (p) {
+  var covered = sent.some(function (r) { return r.period_start.slice(0, 7) === p.period && r.status !== "VOIDED"; });
+  return "<tr><td class=\"primary-cell\">" + label(p.period) + '</td><td class="num">' + p.payments + '</td><td class="num tabular">' + U.money(p.share_cents) +
+    (p.unknown ? '<span class="cell-sub tone-warning">' + p.unknown + " payment" + (p.unknown === 1 ? "" : "s") + " with no split yet, left out</span>" : "") + "</td>" +
+    "<td>" + (covered ? U.chip(["success", "Remitted"]) : U.chip(["warning", "To remit"])) + "</td></tr>";
+}).join("") : '<tr><td colspan="4" class="text-body-md tone-muted">No payments posted yet.</td></tr>';
+
+document.getElementById("remittances").innerHTML = sent.length ? sent.map(function (r) {
+  var st = { PENDING: ["warning", "Waiting for GroFunder"], RECORDED: ["success", "Confirmed by GroFunder"], VOIDED: ["neutral", "Voided"] }[r.status] || ["info", r.status];
+  return '<div class="rowcard" style="align-items:flex-start"><span class="grow"><span class="text-body-md tabular">' + U.money(r.amount_cents) + " · " + esc(r.reference) + '</span>' +
+    '<span class="text-body-sm tone-muted">' + f.date(r.period_start, "short") + " to " + f.date(r.period_end, "short") + " · sent " + f.date(r.received_on, "short") + "</span>" +
+    (r.details && r.details.note ? '<span class="text-body-sm tone-muted">' + esc(r.details.note) + "</span>" : "") + "</span>" + U.chip(st) + "</div>";
+}).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">You haven\'t recorded a remittance yet. Record each transfer you send GroFunder, and GroFunder confirms it on seeing the money.</span></div>';
+
+function remit() {
+  var p = periods[0];
+  Proto.dialog({ title: "Record a remittance", wide: true, body:
+    '<p class="text-body-md">The transfer you have sent GroFunder. It stays waiting until GroFunder staff see the money and confirm it.</p>' +
+    '<div class="form-grid"><div class="field"><label class="field-label" for="rp">Period</label><select class="field-input" id="rp">' +
+      (periods.length ? periods.map(function (x) { return '<option value="' + x.period + '">' + label(x.period) + "</option>"; }).join("") : "<option>This month</option>") + "</select></div>" +
+    '<div class="field"><label class="field-label" for="ra">Amount</label><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input tabular" id="ra" inputmode="numeric" value="' + (p ? Math.round(p.share_cents / 100) : 0) + '"></div>' +
+      '<span class="field-help">Prefilled with GroFunder\'s share for that month</span></div>' +
+    '<div class="field"><label class="field-label" for="rm">How</label><select class="field-input" id="rm"><option>Bank transfer</option><option>M-Pesa</option></select></div>' +
+    '<div class="field"><label class="field-label" for="rr">Reference</label><input class="field-input tabular" id="rr" placeholder="FT26110400912"></div></div>' +
+    '<div class="field"><label class="field-label" for="rb">Breakdown <span class="optional">(optional)</span></label><textarea class="field-input" id="rb" rows="2" placeholder="Interest Ksh 1,200; processing fees Ksh 300"></textarea></div>',
+    submit: "Record it", onSubmit: function (d) {
+      if (!d.querySelector("#rr").value.trim()) return Proto.snack("Nothing recorded: the reference is needed");
+      U.raised("share.remitted", "Waiting for GroFunder to confirm it");
+    } });
+}
+function exportCsv() {
+  Proto.confirm({ title: "Export your records?", message: "A CSV of your loans (reference, member name, amounts, dates, status, days past due), schedules, payments, charges, remittances, pass-ons and the portal's action log. No member details beyond the name. The export is recorded.",
+    confirm: "Export", onConfirm: function () { Proto.snack("Downloading. The export is recorded in the portal's log"); } });
+}
+</script>
+</body>
+</html>

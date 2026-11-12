@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Collection terms · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="recovery-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Recovery" data-dest="recovery" data-wide>
+
+  <p class="proto-note"><b>C44 · Collection terms (note 28, step 1; <code>GET cooperatives/{id}/recovery/terms/</code>).</b> GroFunder agrees these with the cooperative outside the system and enters them as a dated version. The cooperative's administrator acknowledges them. No case opens under terms that aren't in force, don't recover, or aren't acknowledged (Q8). Published terms never change: a change is a new version.</p>
+  <p class="proto-note"><b>Acknowledging</b> (<code>recovery.acknowledge</code>) is the Administrator's alone, and happens once per version. Kijani's version 1 is acknowledged; <i>toack</i> shows the screen as it is before that, which is also what Mawingu sees today.</p>
+  <p class="proto-note"><b>The most one payout may give up</b> caps every arrangement, including the collection fee: the loan and the fee together never take more than that share of a payout.</p>
+
+  <div data-state="loaded toack" class="col gap-4">
+    <div data-subnav="recovery" data-current="terms" data-label="Recovery"></div>
+    <div id="ack"></div>
+    <div class="card card-outlined"><div class="card-header"><div class="card-header-text"><span class="card-title" id="inforce-title">The terms in force</span>
+      <span class="card-description" id="inforce-sub"></span></div></div><dl class="facts" id="facts"></dl></div>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Versions</span>
+      <span class="text-body-md tone-muted">Each version is kept; a case keeps the one it opened under</span></div></div>
+      <div class="rowcards" id="versions"></div></section>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:200px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-file-document-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No collection terms yet</span>
+    <span class="text-body-md">GroFunder agrees them with the cooperative and enters them here. Until then no loan is recovered from members' pay.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the terms</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var U = RecoveryUI, R = GF.recovery, esc = U.esc, f = GF.fmt;
+var COOP = Portal.COOP;
+var all = R.termsOf(COOP), live = R.inForce(COOP);
+function feeLine(t) {
+  if (t.fee_basis === "NONE") return "No collection fee";
+  if (t.fee_basis === "FLAT_PER_CASE") return U.money(t.fee_amount_cents) + " for each case";
+  return U.pct(t.fee_rate_bps) + " of what the member owes when the arrangement is agreed" + (t.fee_cap_cents ? ", at most " + U.money(t.fee_cap_cents) : "");
+}
+function remitLine(t) {
+  var to = t.details.remit_to || {};
+  return to.method === "BANK" ? to.bank_name + ", account " + to.account_no : to.method === "MPESA" ? "Paybill " + to.paybill + ", account " + to.account : "–";
+}
+function draw(state) {
+  var acked = state === "toack" ? false : !!(live && live.acknowledged_at);
+  if (!live) { document.getElementById("facts").innerHTML = ""; return; }
+  document.getElementById("inforce-sub").textContent = "Version " + live.version + ", from " + f.date(live.effective_from);
+  document.getElementById("facts").innerHTML =
+    "<dt>Recovers from pay</dt><dd>" + (live.recovers ? "Yes" : "No: this cooperative doesn't recover loans from members' pay, so it never receives a case") + "</dd>" +
+    (live.recovers ? "<dt>Most from one payout</dt><dd>" + U.pct(live.max_per_payout_bps) + " of a payout, the loan and the fee together</dd>" +
+      "<dt>Collection fee</dt><dd>" + esc(feeLine(live)) + "</dd>" +
+      "<dt>Remit</dt><dd>" + R.L.cycle[live.remittance_cycle] + ", within " + live.remit_within_days + " days of the end of the cycle</dd>" +
+      "<dt>Send the money to</dt><dd>" + esc(remitLine(live)) + "</dd>" : "") +
+    (live.details.notes ? "<dt>Notes</dt><dd>" + esc(live.details.notes) + "</dd>" : "") +
+    "<dt>Acknowledged</dt><dd>" + (acked ? f.date(live.acknowledged_at) + (live.acknowledged_by ? " by " + esc((GF.get(live.acknowledged_by) || {}).name || live.acknowledged_by) : "") : "Not yet") + "</dd>";
+
+  document.getElementById("ack").innerHTML = acked ? "" :
+    '<div class="banner banner-warning"><span class="mdi mdi-file-sign" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">Acknowledge these terms</span>' +
+    '<span class="text-body-md">Until an administrator acknowledges version ' + live.version + ", GroFunder can't open a recovery case for this cooperative, and nothing is taken from any member's pay.</span>" +
+    '<div class="banner-actions"><button class="btn btn-text" type="button" id="ack-btn" data-roles="' + U.ROLES.acknowledge + '" onclick="acknowledge()">Acknowledge these terms</button></div></div></div>';
+
+  document.getElementById("versions").innerHTML = all.map(function (t) {
+    var st = R.termsState(t);
+    return '<div class="rowcard" style="align-items:flex-start"><span class="grow"><span class="text-body-lg">Version ' + t.version + "</span>" +
+      '<span class="text-body-md tone-muted">' + (t.recovers ? U.pct(t.max_per_payout_bps) + " of a payout · " + esc(feeLine(t)) : "Doesn't recover") + "</span>" +
+      '<span class="text-body-sm tone-muted">' + (t.published_at ? "From " + f.date(t.effective_from) : "Not published; GroFunder is still writing it") +
+        (t.acknowledged_at ? " · acknowledged " + f.date(t.acknowledged_at, "short") : t.published_at ? " · not acknowledged" : "") + "</span></span>" +
+      U.chip(R.L.termsState[st]) + "</div>";
+  }).join("");
+  if (window.Proto) Proto.applyRoles(document.querySelector("[data-screen]"));
+}
+function acknowledge() {
+  Proto.confirm({ title: "Acknowledge version " + live.version + "?",
+    message: "You confirm the cooperative has read and accepted these collection terms: at most " + U.pct(live.max_per_payout_bps) + " of a payout, " + feeLine(live).toLowerCase() + ", remitted " + R.L.cycle[live.remittance_cycle].toLowerCase() + ". GroFunder can then open recovery cases for your members. It is recorded once, with your name and the time.",
+    confirm: "Acknowledge", onConfirm: function () { Proto.snack("Acknowledged. GroFunder can now open cases for this cooperative"); } });
+}
+draw("loaded");
+document.addEventListener("proto:state", function (e) { if (e.detail === "loaded" || e.detail === "toack") draw(e.detail); });
+</script>
+</body>
+</html>

@@ -64,7 +64,9 @@
     { id: "cd-loan", slug: "loan-agreement", kind: "AGREEMENT", owner: null, name: "Loan agreement", description: "GroFunder's loan agreement, for every lender without its own.", created_at: T("10-12", "10:00") },
     { id: "cd-share-mavuno", slug: "partner-sharing", kind: "CONSENT", owner: "lp-mavuno", name: "Sharing with Mavuno Capital", description: "What Mavuno Capital receives and may read.", created_at: T("10-26", "11:00") },
     { id: "cd-share-tegemeo", slug: "partner-sharing", kind: "CONSENT", owner: "lp-tegemeo", name: "Sharing with Tegemeo Microfinance", description: "What Tegemeo Microfinance receives and may read.", created_at: T("06-20", "12:30") },
+    { id: "cd-share-chemi", slug: "partner-sharing", kind: "CONSENT", owner: "lp-chemi", name: "Sharing with Chemi Chemi Sacco", description: "What Chemi Chemi Sacco receives and may read.", created_at: T("07-10", "09:00") },
     { id: "cd-share-shamba", slug: "partner-sharing", kind: "CONSENT", owner: "lp-shamba", name: "Sharing with Shamba Finance", description: "What Shamba Finance receives and may read.", created_at: T("10-26", "14:50") },
+    { id: "cd-loan-chemi", slug: "loan-agreement", kind: "AGREEMENT", owner: "lp-chemi", name: "Chemi Chemi Sacco loan agreement", description: "Chemi Chemi's own wording, which replaces GroFunder's for its loans (Q9).", created_at: T("07-10", "09:20") },
     { id: "cd-loan-tegemeo", slug: "loan-agreement", kind: "AGREEMENT", owner: "lp-tegemeo", name: "Tegemeo Microfinance loan agreement", description: "Tegemeo's own wording, which replaces GroFunder's for its loans (Q9).", created_at: T("06-20", "12:40") }
   ];
 
@@ -131,15 +133,25 @@
       : ["## " + name + " receives\nYour loan request, your ID, your photo, your phone and your farms, under our reference.", "## " + name + " may read\nYour production records, farm checks, your circle, your loan history and photos.", "## Never\nYour GroFunder credit score."];
   };
   v("cd-share-mavuno", "en", 1, "PUBLISHED", { title: "Sharing your details with Mavuno Capital", summary: "GroFunder sends Mavuno Capital your loan request and details, and Mavuno Capital may read the records listed here.", body: share("Mavuno Capital"),
-    published: [T("10-28", "16:00"), "u-amina"], periods: [[T("10-28", "16:00")]], created: [T("10-26", "11:00"), "u-peter"] });
+    published: [T("10-25", "16:00"), "u-amina"], periods: [[T("10-25", "16:00")]], created: [T("10-26", "11:00"), "u-peter"] });
   v("cd-share-mavuno", "sw", 1, "PUBLISHED", { title: "Kushiriki taarifa zako na Mavuno Capital", summary: "GroFunder inatuma Mavuno Capital ombi lako la mkopo na taarifa zako, na Mavuno Capital inaweza kusoma rekodi zilizoorodheshwa hapa.", body: share("Mavuno Capital", true),
-    published: [T("10-28", "16:00"), "u-amina"], periods: [[T("10-28", "16:00")]], created: [T("10-26", "11:20"), "u-peter"] });
+    published: [T("10-25", "16:00"), "u-amina"], periods: [[T("10-25", "16:00")]], created: [T("10-26", "11:20"), "u-peter"] });
   v("cd-share-tegemeo", "en", 1, "PUBLISHED", { title: "Sharing your details with Tegemeo Microfinance", summary: "GroFunder sends Tegemeo Microfinance your loan request and details, and Tegemeo may read the records listed here.", body: share("Tegemeo Microfinance"),
     published: [T("06-25", "10:00"), "u-amina"], periods: [[T("06-25", "10:00")]], created: [T("06-20", "12:30"), "u-amina"] });
   v("cd-share-tegemeo", "sw", 1, "PUBLISHED", { title: "Kushiriki taarifa zako na Tegemeo Microfinance", summary: "GroFunder inatuma Tegemeo Microfinance ombi lako la mkopo na taarifa zako, na Tegemeo inaweza kusoma rekodi zilizoorodheshwa hapa.", body: share("Tegemeo Microfinance", true),
     published: [T("06-25", "10:00"), "u-amina"], periods: [[T("06-25", "10:00")]], created: [T("06-20", "12:35"), "u-amina"] });
+  v("cd-share-chemi", "en", 1, "PUBLISHED", { title: "Sharing your details with Chemi Chemi Sacco", summary: "GroFunder sends Chemi Chemi Sacco your loan request and details, and its staff may read the records listed here.", body: share("Chemi Chemi Sacco"),
+    published: [T("07-22", "10:00"), "u-amina"], periods: [[T("07-22", "10:00")]], created: [T("07-10", "09:00"), "u-peter"] });
+  v("cd-share-chemi", "sw", 1, "PUBLISHED", { title: "Kushiriki taarifa zako na Chemi Chemi Sacco", summary: "GroFunder inatuma Chemi Chemi Sacco ombi lako la mkopo na taarifa zako, na wafanyakazi wake wanaweza kusoma rekodi zilizoorodheshwa hapa.", body: share("Chemi Chemi Sacco", true),
+    published: [T("07-22", "10:00"), "u-amina"], periods: [[T("07-22", "10:00")]], created: [T("07-10", "09:10"), "u-peter"] });
   v("cd-share-shamba", "en", 1, "DRAFT", { title: "Sharing your details with Shamba Finance", summary: "GroFunder sends Shamba Finance your loan request and details, and Shamba Finance may read the records listed here.", body: share("Shamba Finance"),
     created: [T("10-26", "14:50"), "u-peter"] });
+  v("cd-loan-chemi", "en", 1, "PUBLISHED", { title: "Chemi Chemi Sacco loan agreement", summary: "Your advance's terms, repaying Chemi Chemi, what happens if it defaults, and what your circle sees if you fall behind.",
+    body: LOAN_EN.concat(["## Chemi Chemi's own terms\nAs a sacco, Chemi Chemi may set off what you owe against your savings with it, after telling you in writing."]),
+    published: [T("07-22", "10:10"), "u-amina"], periods: [[T("07-22", "10:10")]], created: [T("07-10", "09:20"), "u-peter"] });
+  v("cd-loan-chemi", "sw", 1, "PUBLISHED", { title: "Mkataba wa mkopo wa Chemi Chemi Sacco", summary: "Masharti ya mkopo wako, kulipa Chemi Chemi, kinachotokea usipolipa, na kikundi chako kinaona nini ukichelewa.",
+    body: LOAN_SW.concat(["## Masharti ya Chemi Chemi\nKama sacco, Chemi Chemi inaweza kulinganisha deni lako na akiba yako iliyoko kwao, baada ya kukueleza kwa maandishi."]),
+    published: [T("07-22", "10:10"), "u-amina"], periods: [[T("07-22", "10:10")]], created: [T("07-10", "09:30"), "u-peter"] });
   v("cd-loan-tegemeo", "en", 1, "PUBLISHED", { title: "Tegemeo Microfinance loan agreement", summary: "Tegemeo's terms for your loan, repaying through its paybill, what happens if it defaults, and what your circle sees if you fall behind.",
     body: LOAN_EN.concat(["## Tegemeo's own terms\nTegemeo may report a loan more than 90 days late to a credit reference bureau, as the law allows."]), published: [T("06-25", "10:05"), "u-amina"], periods: [[T("06-25", "10:05")]], created: [T("06-20", "12:40"), "u-amina"] });
   v("cd-loan-tegemeo", "sw", 1, "PUBLISHED", { title: "Mkataba wa mkopo wa Tegemeo Microfinance", summary: "Masharti ya Tegemeo kwa mkopo wako, kulipa kupitia paybill yake, kinachotokea usipolipa, na kikundi chako kinaona nini ukichelewa.",
@@ -151,9 +163,11 @@
     { slot: "account.terms", owner: null, document: "cd-terms", bound_at: T("03-01", "08:00"), bound_by: "u-amina" },
     { slot: "lending.consent", owner: null, document: "cd-lending", bound_at: T("07-30", "15:05"), bound_by: "u-peter" },
     { slot: "loan.agreement", owner: null, document: "cd-loan", bound_at: T("10-15", "12:05"), bound_by: "u-peter" },
+    { slot: "loan.agreement", owner: "lp-chemi", document: "cd-loan-chemi", bound_at: T("07-22", "10:15"), bound_by: "u-peter" },
     { slot: "loan.agreement", owner: "lp-tegemeo", document: "cd-loan-tegemeo", bound_at: T("06-25", "10:10"), bound_by: "u-amina" },
     { slot: "loan.sharing", owner: "lp-tegemeo", document: "cd-share-tegemeo", bound_at: T("06-25", "10:10"), bound_by: "u-amina" },
-    { slot: "loan.sharing", owner: "lp-mavuno", document: "cd-share-mavuno", bound_at: T("10-28", "16:05"), bound_by: "u-peter" }
+    { slot: "loan.sharing", owner: "lp-chemi", document: "cd-share-chemi", bound_at: T("07-22", "10:05"), bound_by: "u-peter" },
+    { slot: "loan.sharing", owner: "lp-mavuno", document: "cd-share-mavuno", bound_at: T("10-25", "16:05"), bound_by: "u-peter" }
   ];
 
   /* ------------------------------------------------- records: the append-only ledger */

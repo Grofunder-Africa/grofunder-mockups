@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Overview · GroFunder partner portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../assets/tokens.css">
+<link rel="stylesheet" href="../assets/kit.css">
+<script src="../assets/data/canon.js"></script>
+<script src="../assets/data/kyc.js"></script>
+<script src="../assets/data/groups.js"></script>
+<script src="../assets/data/partners.js"></script>
+<script src="../assets/data/consents.js"></script>
+<script src="../assets/data/credit.js"></script>
+<script src="../assets/data/loans.js"></script>
+<script src="../assets/data/gateway.js"></script>
+<script src="../assets/data/recovery.js"></script>
+<script src="assets/portal-ui.js"></script>
+<script src="assets/nav.js" defer></script>
+<script src="../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Chemi Chemi Sacco" data-sub="Partner portal" data-dest="home" data-wide>
+
+  <p class="proto-note"><b>PP7 · Overview (note 29, signed off 2026-11-10).</b> The partner portal is the fourth shell in the one web app, at <code>/partner/[partner]/</code>. A login whose account is in the PARTNER category lands here. The lender drawn is Chemi Chemi Sacco, which has no loan system of its own and works its loans here. Everything a staff member does raises one of the partner contract's canonical events (27), with source PORTAL and their name as the actor: one contract, two channels, so a loan's history reads the same whether the lender has an API or uses this portal.</p>
+  <p class="proto-note"><b>What GroFunder keeps</b> (21, "Whose records count"): for a portal lender, GroFunder's ledger is the record. Schedules come from the product's terms, and arrears and default from GroFunder's nightly sweep (26). Scoring, GroFunder's own review, the terms, coverage and any recovery arrangement are never in the portal.</p>
+  <p class="proto-note"><b>Roles (29, Q4).</b> Switch the review bar's role: Administrator (everything, and the team), Credit officer (the queue and decisions), Finance (disbursements, payments and money), Viewer (reads only). Two-step sign-in is required for every partner staff login (Q5).</p>
+
+  <div data-state="loaded" class="col gap-6">
+    <div class="stats-grid" id="stats"></div>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">What needs you</span><span class="text-body-md tone-muted">Each one opens where it is done</span></div></div>
+      <div class="list rowcards" id="todo"></div></section>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">The last things that happened</span><span class="text-body-md tone-muted">Every portal action, and what GroFunder's ledger did with it</span></div></div>
+      <div class="rowcards" id="recent"></div></section>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:120px"></div><div class="skeleton-card" style="height:260px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-inbox-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Nothing yet</span><span class="text-body-md">When GroFunder approves a loan on one of your products, it appears in Applications for you to decide.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the portal</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var U = PortalUI, esc = U.esc, f = GF.fmt, Lo = GF.loans, G = GF.gateway;
+var acct = U.account(), q = U.queue(), late = U.behind();
+document.getElementById("stats").innerHTML = [
+  ["Out with members", U.whole(acct.outstanding), acct.live + " live loan" + (acct.live === 1 ? "" : "s")],
+  ["Behind", U.whole(acct.arrears), late.length + " loan" + (late.length === 1 ? "" : "s")],
+  ["Collected", U.whole(acct.collected), "Since you started"],
+  ["Applications", String(q.length), "Waiting for you"]
+].map(function (s) {
+  return '<div class="stat-card"><span class="stat-text"><span class="stat-label">' + s[0] + '</span><span class="stat-value">' + s[1] + '</span><span class="stat-caption">' + esc(s[2]) + "</span></span></div>";
+}).join("");
+
+var todo = [];
+q.forEach(function (l) {
+  var m = GF.get(l.member);
+  todo.push(['applications/index.html?l=' + l.id, "inbox-arrow-down-outline", (l.status === "AMENDMENT_REQUIRED" ? "Amendment answered: " : "Decide ") + esc(m.full_name) + "'s application",
+    U.whole(l.amount_cents) + " · " + Lo.durationLine(l.duration, GF.partners.get(l.terms).duration_unit) + " · with you since " + f.date(l.forwarded_at, "short")]);
+});
+Lo.loans.filter(function (l) { return l.partner === U.PARTNER && l.status === "PARTNER_APPROVED"; }).forEach(function (l) {
+  todo.push(["loans/loan.html?l=" + l.id, "cash-fast", "Disburse " + esc(GF.get(l.member).full_name) + "'s loan", "Approved " + U.when(l.updated_at) + ": send the money, then record it here"]);
+});
+late.forEach(function (l) {
+  todo.push(["collections/index.html", "cash-clock", esc(GF.get(l.member).full_name) + " is " + l.days_past_due + " days behind", U.whole(l.overdue_cents) + " overdue · " + l.reference]);
+});
+var share = U.shareByPeriod()[0];
+var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+if (share) todo.push(["money/index.html", "bank-outline", "GroFunder's share for " + MONTHS[+share.period.slice(5, 7) - 1] + " " + share.period.slice(0, 4),
+  U.whole(share.share_cents) + " worked out from the payments you posted"]);
+document.getElementById("todo").innerHTML = todo.length ? todo.map(function (t) {
+  return '<a class="rowcard" href="' + t[0] + '">' + U.icon(t[1]) + '<span class="grow"><span class="text-body-lg">' + t[2] + '</span><span class="text-body-md tone-muted">' + esc(t[3]) + "</span></span>" + U.icon("chevron-right", "tone-muted") + "</a>";
+}).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">Nothing is waiting for you.</span></div>';
+
+document.getElementById("recent").innerHTML = G.events.filter(function (e) { return e.partner === U.PARTNER; })
+  .sort(function (a, b) { return a.received_at < b.received_at ? 1 : -1; }).slice(0, 6).map(function (e) {
+    var l = Lo.loans.find(function (x) { return x.reference === e.loan_ref; });
+    return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start">' + U.icon("circle-small") + '<span class="grow"><span class="text-body-md">' + esc(e.partner_event) + " · " + esc(e.loan_ref) +
+      (l ? " (" + esc(GF.get(l.member).full_name) + ")" : "") + '</span><span class="text-body-sm tone-muted">' + U.when(e.received_at) + " · " + (e.actor ? "by " + esc(U.staffName(e.actor)) : "by GroFunder") + " · " + esc(e.details.result) + "</span></span></div>";
+  }).join("");
+</script>
+</body>
+</html>

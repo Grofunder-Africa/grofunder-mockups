@@ -45,7 +45,7 @@
 
   var NAV = window.PROTO_NAV || {};
   var APP = NAV.app || "coop";
-  var APP_NAME = { member: "member app", coop: "cooperative portal", gf: "console" }[APP];
+  var APP_NAME = { member: "member app", coop: "cooperative portal", gf: "console", partner: "partner portal" }[APP];
   var SOON = NAV.soon || ROOT + APP + "/soon.html";
 
   /* Roles per surface: staff_roles (09) for the portal and the console, and
@@ -53,12 +53,15 @@
   var ROLES = {
     coop: [["admin", "Administrator"], ["manager", "Manager"], ["accountant", "Accountant"], ["clerk", "Clerk"], ["viewer", "Viewer"]],
     gf: [["owner", "GroFunder owner"], ["full", "Full"], ["ops", "Operations"], ["view", "View only"], ["agent", "Farmer Support Agent"]],
-    member: [["in", "Signed in"], ["out", "Signed out"]]
+    member: [["in", "Signed in"], ["out", "Signed out"]],
+    /* The partner portal's roles (29): a fourth surface in the one web app, for a lender without its
+     * own system. Its staff are members of the partner's kit account, in the PARTNER category. */
+    partner: [["admin", "Administrator"], ["credit", "Credit officer"], ["finance", "Finance"], ["viewer", "Viewer"]]
   }[APP];
   var ROLE_KEYS = ROLES.map(function (r) { return r[0]; });
   var ROLE_LABEL = {};
   ROLES.forEach(function (r) { ROLE_LABEL[r[0]] = r[1]; });
-  var DEFAULT_ROLE = { coop: "admin", gf: "full", member: "in" }[APP];
+  var DEFAULT_ROLE = { coop: "admin", gf: "full", member: "in", partner: "admin" }[APP];
 
   var store = {
     get: function (k, d) { try { return localStorage.getItem(k) || d; } catch (e) { return d; } },
@@ -73,7 +76,7 @@
     rail: store.get("gf.rail", "")
   };
   if (ROLE_KEYS.indexOf(state.role) === -1) state.role = DEFAULT_ROLE;
-  var HAS_COOP_STATUS = APP !== "gf";
+  var HAS_COOP_STATUS = APP === "coop" || APP === "member";
 
   /* Destinations for the role. `dests` lists them; each may carry `roles`. */
   function destsFor(role) {

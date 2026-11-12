@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Partner data reads · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../assets/console.js"></script>
+<script src="partners-ui.js"></script>
+<script src="gateway-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Lending partners" data-dest="partners" data-wide>
+
+  <p class="proto-note"><b>LP10 · Data reads (note 24 part 2, <code>PartnerDataRead</code>; note 27, "Data partners read from us").</b> Every read of a member's data by a partner, with its service-account key: production records, farm checks, the Growth Circle, loan history, photos. It answers: what did this partner see about this member, when, and on what consent?</p>
+  <p class="proto-note"><b>Every read is checked and logged, served or refused.</b> It is served only when the partner's sharing consent for that member counts (<code>allows(member, PARTNER_SHARING, partner)</code>, with <code>for_existing</code> while servicing a live loan, 22) <b>and</b> the member has a loan forwarded to this partner that is live or ended within the last 90 days. A served read names the consent record it relied on. Otherwise it is refused: no consent, no loan, not found, or a bad request.</p>
+  <p class="proto-note"><b>Kept</b> as long as the member's consents (22, concern 3), and included in the member's data export. Append-only. Never the agent's name, other members' names, or another partner's name or terms (27 Q7).</p>
+
+  <div data-roles="view agent" class="empty"><span class="mdi mdi-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">For Operations and up</span><span class="text-body-md">The gateway's logs need <code>lending_partners.operate</code>.</span>
+    <a class="btn btn-tonal" href="index.html">Lending partners</a></div>
+
+  <div data-state="loaded" class="col gap-4" data-roles="owner full ops">
+    <div data-subnav="partners" data-current="gateway" data-label="Lending partners"></div>
+    <div id="tabs"></div>
+    <div class="section">
+      <div class="section-toolbar"><div class="row gap-3 wrap">
+        <select class="field-input" id="f-partner" aria-label="Lender" style="width:auto"></select>
+        <select class="field-input" id="f-outcome" aria-label="Outcome" style="width:auto"></select>
+        <select class="field-input" id="f-resource" aria-label="What was read" style="width:auto"></select>
+      </div></div>
+      <div class="table-wrap only-wide"><table class="table">
+        <thead><tr><th>Read</th><th>Member</th><th>What</th><th>Outcome</th><th>Consent relied on</th><th>Allowed by</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+      <div class="rowcards only-compact" id="cards"></div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4" data-roles="owner full ops"><div class="skeleton-card" style="height:320px"></div></div>
+  <div data-state="empty" class="empty" data-roles="owner full ops"><span class="mdi mdi-eye-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No reads yet</span><span class="text-body-md">Each time a partner reads a member's records, it shows here, served or refused.</span></div>
+  <div data-state="error" class="error-state" data-roles="owner full ops"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the reads</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var Gw = GF.gateway, G = GatewayUI, U = PartnersUI, esc = U.esc, L = Gw.L, CS = GF.consents;
+document.getElementById("tabs").innerHTML = G.tabs("reads");
+document.getElementById("f-outcome").innerHTML = '<option value="">Served and refused</option>' + Object.keys(L.readOutcome).map(function (k) { return '<option value="' + k + '">' + L.readOutcome[k][1] + "</option>"; }).join("");
+document.getElementById("f-resource").innerHTML = '<option value="">Everything read</option>' + Object.keys(L.resource).map(function (k) { return '<option value="' + k + '">' + L.resource[k] + "</option>"; }).join("");
+function who(r) {
+  var m = r.member && GF.get(r.member);
+  return m ? '<a href="../cooperatives/detail.html?c=' + m.cooperative + "&amp;m=" + m.id + '">' + esc(m.full_name) + '</a><span class="cell-sub">' + esc(GF.get(m.cooperative).profile.short_name) + "</span>"
+    : '<span class="tone-muted">Matched nobody</span>' + (r.details.params.customerRef ? '<span class="cell-sub tabular">' + esc(r.details.params.customerRef) + "</span>" : "");
+}
+function consent(r) {
+  if (!r.consent) return '<span class="tone-muted">None</span>';
+  var rec = CS.get(r.consent), v = rec && CS.version(rec.version);
+  return rec ? esc(CS.doc(rec.document).name) + ", version " + v.number + '<span class="cell-sub">' + U.when(rec.occurred_at) + " · " + esc(CS.how(rec)) + "</span>" : esc(r.consent);
+}
+var counts = function (r) { var c = r.details.counts; return Object.keys(c).map(function (k) { return c[k] + " " + k; }).join(", "); };
+/* Every log can be read for one lender (design, 2026-11-10). */
+document.getElementById("f-partner").innerHTML = '<option value="">Every lender</option>' + GF.partners.partners.map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + "</option>"; }).join("");
+function list() {
+  var oc = document.getElementById("f-outcome").value, rs = document.getElementById("f-resource").value, who = document.getElementById("f-partner").value;
+  return Gw.reads.filter(function (r) { return (!who || r.partner === who) && (!oc || r.outcome === oc) && (!rs || r.resource === rs); }).sort(function (a, b) { return a.read_at < b.read_at ? 1 : -1; });
+}
+function draw() {
+  var rows = list();
+  document.getElementById("rows").innerHTML = rows.length ? rows.map(function (r) {
+    return '<tr><td class="tabular">' + U.when(r.read_at) + '<span class="cell-sub">' + esc(G.partnerName(r.partner)) + " · " + (r.key_prefix ? "key " + esc(r.key_prefix) + "…" : "in the portal") + "</span></td><td>" + who(r) + "</td>" +
+      "<td>" + L.resource[r.resource] + (counts(r) ? '<span class="cell-sub">' + esc(counts(r)) + "</span>" : "") + "</td><td>" + U.chip(L.readOutcome[r.outcome]) + "</td><td>" + consent(r) + "</td>" +
+      "<td>" + (r.details.loan_refs.length ? r.details.loan_refs.map(G.refLink).join("<br>") : '<span class="tone-muted">None</span>') + "</td></tr>";
+  }).join("") : '<tr><td colspan="6" class="text-body-md tone-muted">Nothing here.</td></tr>';
+  document.getElementById("cards").innerHTML = rows.length ? rows.map(function (r) {
+    var m = r.member && GF.get(r.member);
+    return '<div class="rowcard" style="align-items:flex-start"><span class="grow"><span class="text-body-lg">' + L.resource[r.resource] + " · " + (m ? esc(m.full_name) : "matched nobody") + "</span>" +
+      '<span class="text-body-md tone-muted tabular">' + U.when(r.read_at) + " · " + esc(G.partnerName(r.partner)) + (r.details.loan_refs.length ? " · " + r.details.loan_refs.join(", ") : "") + "</span></span>" + U.chip(L.readOutcome[r.outcome]) + "</div>";
+  }).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">Nothing here.</span></div>';
+}
+["f-partner", "f-outcome", "f-resource"].forEach(function (id) { document.getElementById(id).addEventListener("change", draw); });
+draw();
+</script>
+</body>
+</html>

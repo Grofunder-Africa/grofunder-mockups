@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Loan flags · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../assets/console.js"></script>
+<script src="loans-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Loans" data-dest="loans" data-wide>
+
+  <p class="proto-note"><b>LN7 · Flags (note 26 part 2, <code>LoanFlag</code>).</b> Everything a lender hasn't told us, or that doesn't add up, raised by forwarding, the gateway's handler, the poll and the count: forwarding failed, the approved figures differ from the quote, disbursement failed or estimated, a schedule changed without a restructure, the poll found a difference, an event against the status rules, a payment's split unknown, past the flag threshold, an event failed. One open flag of a kind per loan; a repeat adds to it.</p>
+  <p class="proto-note"><b>Who.</b> Every office role reads. Operations and up (<code>loans.follow_up</code>, Q9) resolve a flag, with an optional note, or dismiss it, with a note. The system also closes a flag when its cause clears (a split arrives, the lender defaults the loan). Nothing is edited or deleted.</p>
+  <p class="proto-note"><b>Amendment requests</b> aren't flags: they are loans waiting in <i>With the lender</i> (LN1), answered on the loan.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="loans" data-current="flags" data-label="Loans"></div>
+    <div class="chip-row" data-choice role="radiogroup" aria-label="Show" id="filter"></div>
+    <div class="rowcards" id="rows"></div>
+  </div>
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:240px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-flag-checkered" aria-hidden="true"></span><span class="text-headline-sm">Nothing to look at</span><span class="text-body-md">Every loan adds up, and every lender has told us what it should.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the flags</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var Lo = GF.loans, U = LoansUI, esc = U.esc, f = GF.fmt;
+var pick = "OPEN";
+function draw() {
+  var groups = [["OPEN", "Open"], ["RESOLVED", "Resolved"], ["DISMISSED", "Dismissed"], ["ALL", "All"]];
+  document.getElementById("filter").innerHTML = groups.map(function (g) { var n = Lo.flags.filter(function (x) { return g[0] === "ALL" || x.status === g[0]; }).length;
+    return '<button class="chip" type="button" role="radio" data-g="' + g[0] + '" aria-checked="' + (g[0] === pick) + '">' + g[1] + " · " + n + "</button>"; }).join("");
+  var list = Lo.flags.filter(function (x) { return pick === "ALL" || x.status === pick; }).sort(function (a, b) { return a.opened_at < b.opened_at ? -1 : 1; });
+  document.getElementById("rows").innerHTML = list.length ? list.map(function (x) {
+    var l = Lo.get(x.loan), m = GF.get(l.member), age = Math.floor((Date.parse(GF.NOW) - Date.parse(x.opened_at)) / 864e5);
+    return '<div class="rowcard card-outlined" style="align-items:flex-start"><span class="mdi mdi-flag-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">' + Lo.L.flag[x.kind] + "</span>" +
+      '<span class="text-body-md"><a class="tabular" href="loan.html?l=' + l.id + '">' + l.reference + "</a> · " + esc(m.full_name) + " · " + esc(GF.partners.get(l.partner).name) + "</span>" +
+      '<span class="text-body-sm">' + esc(x.details.text || "") + "</span>" +
+      '<span class="text-body-sm tone-muted">Raised ' + U.when(x.opened_at) + (x.status === "OPEN" ? " · " + age + (age === 1 ? " day" : " days") + " open" : " · " + (x.status === "RESOLVED" ? "resolved" : "dismissed") + " " + U.when(x.resolved_at) + (x.resolved_by ? " by " + esc(U.who(x.resolved_by)) : " by the system") + (x.note ? ': "' + esc(x.note) + '"' : "")) + "</span>" +
+      (x.status === "OPEN" ? '<span class="row gap-2" data-roles="' + U.ROLES.follow_up + '"><button class="btn btn-text btn-sm" type="button" data-resolve="' + x.id + '">Resolve</button><button class="btn btn-text btn-sm" type="button" data-dismiss="' + x.id + '">Dismiss</button></span>' : "") +
+      "</span>" + U.chip(Lo.L.flagStatus[x.status]) + "</div>";
+  }).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">Nothing here.</span></div>';
+  if (window.Proto) Proto.applyRoles(document.getElementById("rows"));
+}
+document.getElementById("filter").addEventListener("click", function (e) { var b = e.target.closest("[data-g]"); if (b) { pick = b.getAttribute("data-g"); draw(); } });
+document.getElementById("rows").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-resolve],[data-dismiss]"); if (!b) return;
+  var dismiss = b.hasAttribute("data-dismiss"), x = Lo.get(b.getAttribute(dismiss ? "data-dismiss" : "data-resolve"));
+  Proto.dialog({ title: (dismiss ? "Dismiss" : "Resolve") + ": " + Lo.L.flag[x.kind], body: '<div class="field"><label class="field-label" for="fn">Note' + (dismiss ? "" : ' <span class="optional">(optional)</span>') + '</label><textarea class="field-input" id="fn" rows="2"></textarea>' + (dismiss ? '<span class="field-help">Required: why it needs nothing</span>' : "") + "</div>",
+    submit: dismiss ? "Dismiss" : "Resolve", onSubmit: function (d) { if (dismiss && !d.querySelector("#fn").value.trim()) return Proto.snack("A note is needed to dismiss"); Proto.snack(dismiss ? "Flag dismissed" : "Flag resolved"); } });
+});
+draw();
+</script>
+</body>
+</html>

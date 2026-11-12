@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Team · GroFunder partner portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/portal-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Team" data-dest="team" data-wide
+     data-action='{"label":"Invite someone","icon":"account-plus-outline","roles":"admin","on":"invite()"}'>
+
+  <p class="proto-note"><b>PP6 · Team (note 29, "The surface" and "Roles and permissions").</b> Your staff are members of Chemi Chemi Sacco's account, invited and managed with the kit's team screens, as a cooperative's staff are. The account's owner manages the team; everyone else reads it.</p>
+  <p class="proto-note"><b>The four roles (Q4).</b> <b>Administrator</b>: everything, and the only one who may write a loan off. <b>Credit officer</b>: the queue and decisions. <b>Finance</b>: disbursements, payments and money. <b>Viewer</b>: reads only. There is no two-person rule inside the partner in v1; your own controls apply. A partner with many staff should give most of them Viewer or Credit officer only (concern 2).</p>
+  <p class="proto-note"><b>Two-step sign-in is required</b> for every partner staff login (Q5), because staff see members' details and record money. Every opening of a member's details is logged with the staff member's name.</p>
+
+  <div data-state="loaded" class="col gap-6">
+    <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">Who can sign in</span><div class="rowcards" id="staff"></div></div></div>
+    <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">What each role may do</span>
+      <div class="table-wrap"><table class="table"><thead><tr><th>What</th><th>Administrator</th><th>Credit officer</th><th>Finance</th><th>Viewer</th></tr></thead><tbody id="codes"></tbody></table></div></div></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:200px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-account-group-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Nobody yet</span><span class="text-body-md">Invite your first staff member. A partner can't be activated until at least one of its people can sign in.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the team</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var U = PortalUI, esc = U.esc;
+var ROLE = { partner_admin: "Administrator", partner_credit: "Credit officer", partner_finance: "Finance", partner_viewer: "Viewer" };
+var staff = U.partner().profile.staff || [];
+document.getElementById("staff").innerHTML = staff.map(function (s) {
+  return '<div class="rowcard" style="align-items:flex-start"><span class="avatar" aria-hidden="true">' + esc(s.name.split(" ").map(function (x) { return x[0]; }).join("").slice(0, 2)) + "</span>" +
+    '<span class="grow"><span class="text-body-lg">' + esc(s.name) + (s.owner ? ' <span class="status status-neutral">Owner</span>' : "") + '</span>' +
+    '<span class="text-body-md tone-muted">' + ROLE[s.role] + " · " + esc(s.email) + "</span>" +
+    (s.invited ? '<span class="text-body-sm tone-muted">Invited: the link works until it is used</span>' : '<span class="text-body-sm tone-muted">Two-step sign-in on</span>') + "</span>" +
+    (s.invited ? U.chip(["warning", "Invited"]) : U.chip(["success", "Active"])) +
+    '<span class="row gap-2" data-roles="admin">' +
+      (s.invited ? '<button class="btn btn-text btn-sm" type="button" data-resend="' + s.id + '">Resend</button><button class="btn btn-text btn-sm tone-error" type="button" data-revoke="' + s.id + '">Revoke</button>'
+        : '<button class="btn btn-text btn-sm" type="button" data-role="' + s.id + '">Change role</button>' + (s.owner ? "" : '<button class="btn btn-text btn-sm tone-error" type="button" data-remove="' + s.id + '">Remove</button>')) +
+    "</span></div>";
+}).join("");
+
+var CODES = [
+  ["See the queue, loans, collections and money", 1, 1, 1, 1],
+  ["Open a member's details (logged)", 1, 1, 1, 1],
+  ["Approve, reject, ask for an amendment, cancel", 1, 1, 0, 0],
+  ["Record a disbursement", 1, 0, 1, 0],
+  ["Record and reverse payments, waive a late penalty", 1, 0, 1, 0],
+  ["Record remittances, confirm recovered money", 1, 0, 1, 0],
+  ["Write off a defaulted loan", 1, 0, 0, 0]
+];
+var tick = function (v) { return v ? '<span class="mdi mdi-check tone-primary" aria-hidden="true"></span><span class="sr-only">Yes</span>' : '<span class="tone-muted">–</span>'; };
+document.getElementById("codes").innerHTML = CODES.map(function (r) {
+  return '<tr><td class="primary-cell">' + r[0] + "</td><td>" + tick(r[1]) + "</td><td>" + tick(r[2]) + "</td><td>" + tick(r[3]) + "</td><td>" + tick(r[4]) + "</td></tr>";
+}).join("");
+
+document.getElementById("staff").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-role],[data-remove],[data-resend],[data-revoke]"); if (!b) return;
+  var id = b.getAttribute("data-role") || b.getAttribute("data-remove") || b.getAttribute("data-resend") || b.getAttribute("data-revoke");
+  var s = staff.find(function (x) { return x.id === id; });
+  if (b.hasAttribute("data-role")) {
+    return Proto.dialog({ title: "Change " + esc(s.name) + "'s role", body:
+      '<div class="col gap-2" role="radiogroup" aria-label="Role">' + Object.keys(ROLE).map(function (k) {
+        return '<label class="radio-card" style="flex-direction:row;gap:12px;align-items:center"><input type="radio" name="rl" value="' + k + '"' + (k === s.role ? " checked" : "") + '><span class="col gap-1"><span class="text-title-sm">' + ROLE[k] + "</span></span></label>";
+      }).join("") + "</div>", submit: "Save", onSubmit: function () { Proto.snack(s.name + "'s role changed"); } });
+  }
+  if (b.hasAttribute("data-remove")) {
+    return Proto.confirm({ title: "Remove " + esc(s.name) + "?", message: "They can't sign in to the portal again. What they did stays on the record, with their name.", confirm: "Remove", destructive: true,
+      onConfirm: function () { Proto.snack(s.name + " removed"); } });
+  }
+  if (b.hasAttribute("data-resend")) return Proto.snack("Invitation sent again to " + s.email);
+  Proto.confirm({ title: "Revoke this invitation?", message: "The link sent to " + esc(s.email) + " stops working.", confirm: "Revoke", destructive: true, onConfirm: function () { Proto.snack("Invitation revoked"); } });
+});
+
+function invite() {
+  Proto.dialog({ title: "Invite someone", body:
+    '<div class="field"><label class="field-label" for="ie">Email</label><input class="field-input" id="ie" type="email" placeholder="name@chemichemi.example"></div>' +
+    '<div class="field"><label class="field-label" for="ir">Role</label><select class="field-input" id="ir">' + Object.keys(ROLE).map(function (k) { return '<option value="' + k + '">' + ROLE[k] + "</option>"; }).join("") + "</select></div>" +
+    '<p class="text-body-sm tone-muted">They set a password and turn on two-step sign-in before they can open anything.</p>',
+    submit: "Send invitation", onSubmit: function (d) {
+      if (!d.querySelector("#ie").value.trim()) return Proto.snack("Nothing sent: an email is needed");
+      Proto.snack("Invitation sent");
+    } });
+}
+</script>
+</body>
+</html>

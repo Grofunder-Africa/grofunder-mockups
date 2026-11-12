@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recovery case · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/console.js"></script>
+<script src="recovery-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen id="screen" data-title="Recovery case" data-dest="recovery" data-back="index.html" data-wide>
+
+  <p class="proto-note"><b>Polling (G130, the owner, 2026-11-11).</b> <i>Poll first</i> shows to <code>recovery.confirm</code> holders and calls <code>POST loans/{id}/poll/</code> (<code>loans.follow_up</code>, which every confirm holder has). Confirming still answers "poll first" while the loan hasn't been polled in the last hour.</p>
+  <p class="proto-note"><b>RC2 · Recovery case (note 28, <code>GET cases/{id}/</code>).</b> One defaulted loan being recovered through the member's cooperative: what GroFunder confirmed, what the member agreed, what the payouts have given up, what the cooperative has remitted and what has reached the lender.</p>
+  <p class="proto-note"><b>Two charges, the loan first (Q1).</b> The arrangement makes two charges on the member's payouts: the loan's recovery for the balance, and the cooperative's collection fee worked out by its terms. Both share the arrangement's limit and the terms' cap. The fee is only taken once the loan's charge is recovered, and it stays owed after the case closes.</p>
+  <p class="proto-note"><b>Who acts.</b> Every office role reads. Confirm, decline, pause, resume, close and cancel the fee need <code>recovery.confirm</code> (Full and Owner). The arrangement itself is the cooperative's (<code>recovery.agree</code>), recorded in its portal, never here.</p>
+  <p class="proto-note"><b>State switcher.</b> <i>loaded</i> REC-000003, recovering · <i>pending</i> REC-000004, waiting for GroFunder · <i>closed</i> REC-000002, repaid with the fee still owed · <i>declined</i> REC-000001 · <i>paused</i> REC-000003 while a dispute is settled.</p>
+
+  <div data-state="loaded pending closed declined paused" class="col gap-6">
+    <div class="col gap-1"><div class="row gap-2 wrap" id="chips"></div><span class="text-body-md tone-muted" id="sub"></span></div>
+    <div id="banner"></div>
+    <div class="actions actions-start" id="acts"></div>
+    <div class="two-col">
+      <div class="col gap-4">
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">The case</span><dl class="facts" id="facts"></dl></div></div>
+        <div class="section" id="charges-sec"><div class="section-body" style="gap:8px"><span class="text-title-md">What is being taken</span>
+          <span class="text-body-sm tone-muted">The loan's charge first; the fee follows once it is recovered</span><div id="charges"></div></div></div>
+        <div class="section" id="withheld-sec"><div class="section-body" style="gap:8px"><span class="text-title-md">Withheld from payouts</span><div id="withheld"></div></div></div>
+      </div>
+      <div class="col gap-4">
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">Money to the lender</span>
+          <span class="text-body-sm tone-muted">What the cooperative remitted, and what GroFunder passed on</span><div id="money"></div></div></div>
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">History</span><div class="rowcards" id="history"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:140px"></div><div class="skeleton-card" style="height:300px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the case</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var R = GF.recovery, U = RecoveryUI, esc = U.esc, f = GF.fmt;
+var STATE = { loaded: "rc-3", pending: "rc-4", closed: "rc-2", declined: "rc-1", paused: "rc-3" };
+var c = R.get(new URLSearchParams(location.search).get("c") || "rc-3") || R.get("rc-3");
+var view = "loaded";
+function draw() {
+  var l = GF.loans.get(c.loan), m = GF.get(c.member), first = m.full_name.split(" ")[0], p = GF.partners.get(l.partner);
+  var t = c.terms ? R.get(c.terms) : R.inForce(c.cooperative), pr = R.progress(c);
+  var st = view === "paused" && c.status === "RECOVERING" ? "PAUSED" : c.status;
+  document.getElementById("screen").setAttribute("data-title", c.reference);
+  document.getElementById("chips").innerHTML = U.chip(R.L.status[st]) + (c.end_reason ? '<span class="status status-neutral">' + R.L.end[c.end_reason] + "</span>" : "");
+  document.getElementById("sub").innerHTML = '<a href="' + Console.memberUrl(m.id) + '">' + esc(m.full_name) + "</a> · " + esc(U.coopName(c.cooperative)) + " · " + U.loanLine(c);
+
+  var B = function (cls, ic, title, body) { return '<div class="banner banner-' + cls + '"><span class="mdi mdi-' + ic + '" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">' + title + '</span><span class="text-body-md">' + body + "</span></div></div>"; };
+  var blocked = st === "PENDING" ? U.blockedReason(c) : "", acts = "";
+  if (st === "PENDING") {
+    document.getElementById("banner").innerHTML = blocked
+      ? B("warning", "alert-outline", "Can't be confirmed yet", esc(blocked) + ". Note 28 asks for the lender's latest figures and acknowledged collection terms before anything is withheld from " + esc(first) + "'s pay.")
+      : B("info", "help-circle-outline", "Waiting for GroFunder", "Check the loan, then confirm so " + esc(U.coopName(c.cooperative)) + " can agree an arrangement with " + esc(first) + ", or decline it.");
+    acts = (blocked && blocked.indexOf("polled") > -1 ? '<button class="btn btn-outlined" type="button" id="poll-btn" data-roles="' + U.ROLES.confirm + '" onclick="poll()">Poll ' + esc(p.name) + " now</button>" : "") +
+      '<button class="btn btn-filled" type="button" id="confirm-btn" data-roles="' + U.ROLES.confirm + '" onclick="confirmCase()"' + (blocked ? " disabled" : "") + ">Confirm the case</button>" +
+      '<button class="btn btn-outlined tone-error" type="button" id="decline-btn" data-roles="' + U.ROLES.confirm + '" onclick="decline()">Decline</button>';
+  } else if (st === "OPEN") {
+    document.getElementById("banner").innerHTML = B("info", "handshake-outline", "With " + esc(U.coopName(c.cooperative)), "Its staff agree an arrangement with " + esc(first) + ", in person or by phone, and record it in their portal. They are reminded after " + R.RULES.AGREE_REMINDER_DAYS + " days.");
+    acts = '<button class="btn btn-outlined" type="button" id="pause-btn" data-roles="' + U.ROLES.confirm + '" onclick="pause()">Pause the case</button>' +
+      '<button class="btn btn-text tone-error" type="button" id="close-btn" data-roles="' + U.ROLES.confirm + '" onclick="closeCase()">Close</button>';
+  } else if (st === "RECOVERING") {
+    document.getElementById("banner").innerHTML = B("success", "cash-check", "Recovering from each payout", U.arrangementLine(c) + ", within " + U.capLine(t) + ". " + U.money(pr.loan_recovered_cents) + " of " + U.money(pr.loan.amount_cents) + " recovered so far" +
+      (pr.pending_cents ? ", and " + U.money(pr.pending_cents) + " sits on a payout still being prepared" : "") + ".");
+    acts = '<button class="btn btn-outlined" type="button" id="pause-btn" data-roles="' + U.ROLES.confirm + '" onclick="pause()">Pause the case</button>' +
+      '<button class="btn btn-text tone-error" type="button" id="close-btn" data-roles="' + U.ROLES.confirm + '" onclick="closeCase()">Close</button>';
+  } else if (st === "PAUSED") {
+    document.getElementById("banner").innerHTML = B("warning", "pause-circle-outline", "Paused", "Both charges are paused, so nothing is withheld. " + esc(first) + " and the cooperative were told. Resuming puts it back where it was.");
+    acts = '<button class="btn btn-filled" type="button" id="resume-btn" data-roles="' + U.ROLES.confirm + '" onclick="resume()">Resume</button>' +
+      '<button class="btn btn-text tone-error" type="button" id="close-btn" data-roles="' + U.ROLES.confirm + '" onclick="closeCase()">Close</button>';
+  } else if (st === "CLOSED") {
+    document.getElementById("banner").innerHTML = B("neutral", "check-all", R.L.end[c.end_reason] || "Closed",
+      "The loan's charge ended at what it recovered." + (pr.fee_left_cents ? " " + esc(U.coopName(c.cooperative)) + "'s collection fee of " + U.money(pr.fee.amount_cents) + " is still owed: " + U.money(pr.fee_left_cents) + " keeps being taken from later payouts until it is paid." : " Nothing is owed."));
+    acts = pr.fee_left_cents ? '<button class="btn btn-outlined tone-error" type="button" id="cancel-fee-btn" data-roles="' + U.ROLES.confirm + '" onclick="cancelFee()">Cancel the collection fee</button>' : "";
+  } else {
+    document.getElementById("banner").innerHTML = B("neutral", "close-circle-outline", st === "DECLINED" ? "Declined" : "Withdrawn",
+      st === "DECLINED" ? '"' + esc(c.details.decline_reason) + '" Nothing was withheld. If the loan comes up to date and defaults again, a new case is queued.'
+        : "The loan came back up to date before GroFunder confirmed, so the case was withdrawn by itself.");
+  }
+  document.getElementById("acts").innerHTML = acts;
+
+  document.getElementById("facts").innerHTML =
+    "<dt>Loan</dt><dd>" + U.loanLine(c) + "</dd>" +
+    "<dt>Member</dt><dd>" + esc(m.full_name) + ' · <span class="tabular">' + m.member_no + "</span></dd>" +
+    "<dt>Cooperative</dt><dd>" + esc(U.coopName(c.cooperative)) + "</dd>" +
+    "<dt>Still owed on the loan</dt><dd class=\"tabular\">" + U.money(l.balance_cents) + " · " + l.days_past_due + " days past due</dd>" +
+    "<dt>Queued</dt><dd>" + U.when(c.created_at) + ", when " + esc(p.name) + " defaulted it</dd>" +
+    (c.confirmed_at ? "<dt>Confirmed</dt><dd>" + U.when(c.confirmed_at) + " by " + esc(U.who(c.confirmed_by)) + "</dd>" : "") +
+    (t ? "<dt>Collection terms</dt><dd><a href=\"terms-version.html?t=" + t.id + '">Version ' + t.version + "</a> · at most " + U.capLine(t) + " · " + esc(U.feeLine(t)) + "</dd>" : "") +
+    (c.arrangement ? "<dt>The member agreed</dt><dd>" + esc(U.arrangementLine(c)) + "<br>" + f.date(c.agreed_on) + ", " + R.L.via[c.details.agreed_via].toLowerCase() + ", recorded by " + esc(U.who(c.agreed_by)) +
+      (c.details.agreement_note ? '<br><span class="tone-muted">"' + esc(c.details.agreement_note) + '"</span>' : "") + "</dd>" +
+      "<dt>Owed when agreed</dt><dd class=\"tabular\">" + U.money(c.debt_at_agreement_cents) + "</dd>" : "");
+
+  var chargeRow = function (ch, label, left, rec, waiting) {
+    if (!ch) return "";
+    var mark = waiting && ch.status === "OPEN" ? ["neutral", "Waiting its turn"] : R.L.chargeStatus[ch.status];
+    return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start"><span class="grow"><span class="text-body-md">' + label + '</span>' +
+      '<span class="text-body-sm tone-muted">' + U.money(rec) + " of " + U.money(ch.amount_cents) + " taken · " + U.money(left) + " left · " + esc(U.arrangementLine(c)) + "</span></span>" + U.chip(mark) + "</div>";
+  };
+  var charges = chargeRow(pr.loan, "Loan recovery (" + esc(p.name) + ")", pr.loan_left_cents, pr.loan_recovered_cents) +
+    chargeRow(pr.fee, "Collection fee, kept by " + esc(U.coopName(c.cooperative)), pr.fee_left_cents, pr.fee_recovered_cents, pr.loan && pr.loan_left_cents > 0);
+  document.getElementById("charges").innerHTML = charges ? '<div class="rowcards">' + charges + "</div>" +
+    (pr.loan && pr.loan_left_cents && pr.fee && pr.fee_left_cents ? '<span class="text-body-sm tone-muted">The fee waits: nothing goes to it until the loan\'s charge is recovered (Q1).</span>' : "") : '<span class="text-body-md tone-muted">No charges yet: they are made when the cooperative records the arrangement.</span>';
+  document.getElementById("charges-sec").classList.toggle("hidden", !charges);
+
+  var wh = R.withheldOf(c.id);
+  document.getElementById("withheld").innerHTML = wh.length ? '<div class="table-wrap"><table class="table" id="withheld-table"><thead><tr><th>Payout</th><th>What for</th><th class="num">Amount</th><th>State</th></tr></thead><tbody>' +
+    wh.map(function (w) {
+      var po = GF.get(w.payout), ch = R.chargeOf(w.charge);
+      return '<tr><td class="primary-cell">' + esc(po.details.label) + '<span class="cell-sub">' + (po.paid_at ? "paid " + f.date(po.paid_at, "short") : "being prepared") + "</span></td>" +
+        '<td class="text-body-sm">' + (ch.type === "pit-kij-recfee" ? "Collection fee" : "Loan recovery") + '</td><td class="num tabular">' + U.money(w.amount_cents) + "</td>" +
+        "<td>" + U.chip(w.status === "PAID" ? ["success", "Withheld"] : ["warning", "On a draft"]) + "</td></tr>";
+    }).join("") + "</tbody></table></div>" +
+    '<span class="text-body-sm tone-muted">A deduction on a draft can still be lowered or skipped by the cooperative, with a reason, which GroFunder sees (Q7). Once the payout is marked paid it is withheld for good.</span>'
+    : '<span class="text-body-md tone-muted">Nothing withheld yet.</span>';
+  document.getElementById("withheld-sec").classList.toggle("hidden", !wh.length);
+
+  var remIds = {}; R.lines.filter(function (x) { return x["case"] === c.id; }).forEach(function (x) { remIds[x.remittance] = true; });
+  var rems = Object.keys(remIds).map(function (id) { return R.get(id); });
+  var pos = R.passOns.filter(function (x) { return x.loan === c.loan; });
+  document.getElementById("money").innerHTML = (rems.length || pos.length) ? '<div class="rowcards">' +
+    rems.map(function (r) { return '<a class="rowcard" style="padding-left:0;padding-right:0" href="remittances.html?r=' + r.id + '"><span class="grow"><span class="text-body-md tabular">' + esc(r.reference) + " · " + U.money(r.amount_cents) +
+      '</span><span class="text-body-sm tone-muted">Sent by the cooperative ' + f.date(r.sent_on, "short") + "</span></span>" + U.chip(R.L.remittance[r.status]) + "</a>"; }).join("") +
+    pos.map(function (x) { return '<a class="rowcard" style="padding-left:0;padding-right:0" href="passons.html?p=' + x.id + '"><span class="grow"><span class="text-body-md tabular">' + esc(x.reference) + " · " + U.money(x.amount_cents) +
+      '</span><span class="text-body-sm tone-muted">To ' + esc(p.name) + (x.sent_on ? ", sent " + f.date(x.sent_on, "short") : "") + "</span></span>" + U.chip(R.L.passOn[x.status]) + "</a>"; }).join("") + "</div>"
+    : '<span class="text-body-md tone-muted">Nothing remitted yet. The cooperative remits ' + (t ? R.L.cycle[t.remittance_cycle].toLowerCase() : "on its cycle") + ", and GroFunder passes it to " + esc(p.name) + ".</span>";
+
+  document.getElementById("history").innerHTML = R.historyOf(c.id).map(function (h) {
+    return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start">' + U.chip(R.L.status[h.to_status]) + '<span class="grow"><span class="text-body-md">' +
+      (h.from_status ? "From " + R.L.status[h.from_status][1].toLowerCase() : "Queued") + (h.details.reason ? ': "' + esc(h.details.reason) + '"' : "") + '</span><span class="text-body-sm tone-muted">' +
+      U.when(h.changed_at) + " · " + (h.changed_by ? esc(U.who(h.changed_by)) : "the system") + " · " + { CONSOLE: "GroFunder", PORTAL: "the cooperative", SYSTEM: "automatic" }[h.source] + "</span></span></div>";
+  }).join("");
+  if (window.Proto) Proto.applyRoles(document.getElementById("acts"));
+}
+function poll() { U.pollNow(GF.loans.get(c.loan), draw); }
+function confirmCase() {
+  var l = GF.loans.get(c.loan), t = R.inForce(c.cooperative);
+  Proto.dialog({ title: "Confirm " + c.reference + "?", body:
+    '<p class="text-body-md">' + esc(U.memberName(c.member)) + " owes " + U.money(l.balance_cents) + ". " + esc(U.coopName(c.cooperative)) + " then agrees an arrangement with them, within " + U.capLine(t) + " of a payout, and " + esc(U.feeLine(t)) + ".</p>" +
+    '<p class="text-body-md">They are told in the app and by SMS, and the cooperative gets the case to agree.</p>',
+    submit: "Confirm", onSubmit: function () { Proto.snack(c.reference + " confirmed"); } });
+}
+function decline() {
+  Proto.dialog({ title: "Decline " + c.reference + "?", body: '<p class="text-body-md">Nothing is withheld from the member\'s pay, and the case ends. It is final for this default.</p>' +
+    '<div class="field"><label class="field-label" for="dr">Reason</label><textarea class="field-input" id="dr" rows="2"></textarea><span class="field-help">Required</span></div>',
+    submit: "Decline", onSubmit: function (d) { if (!d.querySelector("#dr").value.trim()) return Proto.snack("Nothing changed: a reason is needed"); Proto.snack(c.reference + " declined"); } });
+}
+function pause() {
+  Proto.dialog({ title: "Pause " + c.reference + "?", body: '<p class="text-body-md">Both charges pause, so nothing is withheld from the next payout. The member and the cooperative are told. Resuming puts it back where it was.</p>' +
+    '<div class="field"><label class="field-label" for="pr">Reason</label><textarea class="field-input" id="pr" rows="2" placeholder="A dispute, for example"></textarea><span class="field-help">Required</span></div>',
+    submit: "Pause", onSubmit: function (d) { if (!d.querySelector("#pr").value.trim()) return Proto.snack("Nothing changed: a reason is needed"); Proto.snack(c.reference + " paused"); } });
+}
+function resume() {
+  Proto.confirm({ title: "Resume " + c.reference + "?", message: "The charges start again, so the next payout carries the deduction. The member and the cooperative are told.", confirm: "Resume",
+    onConfirm: function () { Proto.snack(c.reference + " resumed"); } });
+}
+function closeCase() {
+  Proto.dialog({ title: "Close " + c.reference + "?", body:
+    '<p class="text-body-md">The loan\'s charge is cancelled at what it has recovered. A collection fee still owed stays, and keeps being taken from later payouts.</p>' +
+    '<div class="field"><label class="field-label" for="cw">Why</label><select class="field-input" id="cw"><option value="PARTNER_STOPPED">The lender asked us to stop</option><option value="OTHER">Other</option></select></div>' +
+    '<div class="field"><label class="field-label" for="cr">Reason</label><textarea class="field-input" id="cr" rows="2"></textarea><span class="field-help">Required. The member and the cooperative see that it ended</span></div>',
+    submit: "Close the case", onSubmit: function (d) { if (!d.querySelector("#cr").value.trim()) return Proto.snack("Nothing changed: a reason is needed"); Proto.snack(c.reference + " closed"); } });
+}
+function cancelFee() {
+  Proto.dialog({ title: "Cancel the collection fee?", body: '<p class="text-body-md">Nothing more is taken from the member\'s pay for the fee. What has already been withheld stays with the cooperative.</p>' +
+    '<div class="field"><label class="field-label" for="fr">Reason</label><textarea class="field-input" id="fr" rows="2" placeholder="After a dispute, for example"></textarea><span class="field-help">Required. The member and the cooperative are told in the app (G132)</span></div>',
+    submit: "Cancel the fee", onSubmit: function (d) { if (!d.querySelector("#fr").value.trim()) return Proto.snack("Nothing changed: a reason is needed"); Proto.snack("The collection fee is cancelled"); } });
+}
+draw();
+document.addEventListener("proto:state", function (e) {
+  if (!STATE[e.detail]) return;
+  view = e.detail; c = R.get(STATE[e.detail]); draw();
+});
+</script>
+</body>
+</html>

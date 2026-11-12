@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recovery · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="recovery-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Recovery" data-dest="recovery" data-wide>
+
+  <p class="proto-note"><b>C40 · Recovery (note 28, "How it works"; <code>GET cooperatives/{id}/recovery/cases/</code>).</b> A member's loan has defaulted, and GroFunder has confirmed it. The cooperative agrees with the member how much of each payout goes to the loan, records it, and from then on every payout draft carries the deduction by itself. The cooperative keeps its collection fee and remits the loan money to GroFunder.</p>
+  <p class="proto-note"><b>What the cooperative never sees</b> (28, Objectives): the loan's terms, the lender's pricing, and any credit score. Only the loan's reference, the lender's name, the debt and what is being taken.</p>
+  <p class="proto-note"><b>Who (28, Permissions).</b> Administrator, Manager, Accountant and Viewer read recovery (<code>recovery.view</code>); a Clerk has no Recovery in the navigation. Only an Administrator or Manager records an arrangement (<code>recovery.agree</code>).</p>
+  <p class="proto-note"><b>A case waiting to be agreed</b> is called out at the top. GroFunder reminds the cooperative after 14 days with nothing agreed, then weekly (<code>recovery_daily</code>).</p>
+  <p class="proto-note"><b>The story:</b> Kijani recovers for Tegemeo Microfinance. Peter Ndungu is recovering at 30% of each payout; Muthoni Thuku's loan is repaid and only the fee is left; Peter Gathogo's case is still with GroFunder; Kamau Nduati's was declined.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="recovery" data-current="cases" data-label="Recovery"></div>
+    <div id="to-agree"></div>
+    <div class="chip-row" data-choice role="radiogroup" aria-label="Show" id="filter"></div>
+    <div class="section"><div class="table-wrap only-wide"><table class="table">
+      <thead><tr><th>Member</th><th>Loan</th><th>Lender</th><th>Taken from each payout</th><th class="num">Left</th><th>Status</th></tr></thead>
+      <tbody id="rows"></tbody></table></div>
+      <div class="rowcards only-compact" id="cards"></div></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:260px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-check-all" aria-hidden="true"></span>
+    <span class="text-headline-sm">No recovery cases</span>
+    <span class="text-body-md">A case appears here only when a member's loan has defaulted and GroFunder has confirmed it. Nothing is ever taken from a member's pay before that.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the cases</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var U = RecoveryUI, R = GF.recovery, esc = U.esc, f = GF.fmt;
+var all = R.casesOf(Portal.COOP);
+var GROUPS = [["live", "Being recovered", ["OPEN", "RECOVERING", "PAUSED"]], ["ended", "Ended", ["CLOSED", "DECLINED", "WITHDRAWN"]], ["waiting", "With GroFunder", ["PENDING"]], ["all", "All", null]];
+var pick = new URLSearchParams(location.search).get("show") || "live";
+function rowsFor(g) { return all.filter(function (c) { return !g[2] || g[2].indexOf(c.status) > -1; }); }
+function draw() {
+  document.getElementById("filter").innerHTML = GROUPS.map(function (g) {
+    return '<button class="chip" type="button" role="radio" data-g="' + g[0] + '" aria-checked="' + (g[0] === pick) + '">' + g[1] + " · " + rowsFor(g).length + "</button>";
+  }).join("");
+  var list = rowsFor(GROUPS.find(function (g) { return g[0] === pick; }));
+  document.getElementById("rows").innerHTML = list.length ? list.map(function (c) {
+    var m = GF.get(c.member);
+    return '<tr><td class="primary-cell"><a href="case.html?c=' + c.id + '">' + esc(m.full_name) + '</a><span class="cell-sub tabular">' + m.member_no + "</span></td>" +
+      '<td class="tabular">' + U.refOf(c) + "</td><td>" + esc(U.lenderOf(c)) + "</td>" +
+      "<td>" + esc(U.arrangementLine(c)) + "</td>" +
+      '<td class="num tabular">' + esc(U.leftLine(c)) + "</td><td>" + U.chip(R.L.status[c.status]) + (c.status === "CLOSED" && c.end_reason ? '<span class="cell-sub">' + R.L.end[c.end_reason] + "</span>" : "") + "</td></tr>";
+  }).join("") : '<tr><td colspan="6" class="text-body-md tone-muted">Nothing here.</td></tr>';
+  document.getElementById("cards").innerHTML = list.map(function (c) {
+    var m = GF.get(c.member);
+    return '<a class="rowcard" href="case.html?c=' + c.id + '" style="align-items:flex-start"><span class="grow"><span class="text-body-lg">' + esc(m.full_name) + "</span>" +
+      '<span class="text-body-md tone-muted tabular">' + U.refOf(c) + " · " + esc(U.lenderOf(c)) + "</span>" +
+      '<span class="text-body-md">' + esc(U.arrangementLine(c)) + "</span>" +
+      '<span class="text-body-sm tone-muted">' + esc(U.leftLine(c)) + "</span></span>" + U.chip(R.L.status[c.status]) + "</a>";
+  }).join("") || '<div class="rowcard"><span class="text-body-md tone-muted">Nothing here.</span></div>';
+}
+document.getElementById("filter").addEventListener("click", function (e) { var b = e.target.closest("[data-g]"); if (b) { pick = b.getAttribute("data-g"); draw(); } });
+/* A case GroFunder has confirmed, with nothing agreed yet: the cooperative's to do. */
+var open = all.filter(function (c) { return c.status === "OPEN"; });
+if (open.length) document.getElementById("to-agree").innerHTML = '<div class="banner banner-warning"><span class="mdi mdi-handshake-outline" aria-hidden="true"></span><div class="grow">' +
+  '<span class="text-title-sm">' + open.length + (open.length === 1 ? " member is waiting for an arrangement" : " members are waiting for an arrangement") + "</span>" +
+  '<span class="text-body-md">' + open.map(function (c) { return esc(GF.get(c.member).full_name); }).join(", ") + ". Agree with them how much of each payout goes to the loan, then record it. GroFunder reminds you after 14 days.</span>" +
+  '<div class="banner-actions"><a class="btn btn-text" href="case.html?c=' + open[0].id + '">Record the arrangement</a></div></div></div>';
+draw();
+</script>
+</body>
+</html>

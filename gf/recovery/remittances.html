@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cooperative remittances · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/console.js"></script>
+<script src="recovery-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Recovery" data-dest="recovery" data-wide>
+
+  <p class="proto-note"><b>RC5 · Cooperative remittances (note 28, steps 7 and 8).</b> What each cooperative sent GroFunder of the loan money it withheld. The cooperative records it on its terms' cycle, with the transfer's reference; GroFunder matches it to the bank or M-Pesa statement and <b>confirms</b> it, or <b>disputes</b> it with a note. Only the loan withholdings are remitted: the collection fee stays with the cooperative.</p>
+  <p class="proto-note"><b>Confirming makes the pass-ons.</b> One per loan in the remittance, waiting to be sent to the lender (RC6). Confirming and disputing need <code>recovery.receive</code> (Full and Owner).</p>
+  <p class="proto-note"><b>Withheld but not remitted</b> is what has been taken from paid payouts and no live remittance covers yet. A voided remittance frees its withholdings to be sent again.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="recovery" data-current="remittances" data-label="Recovery"></div>
+    <div class="chip-row scroll" data-choice role="radiogroup" aria-label="Show" id="filter"></div>
+    <div class="section"><div class="table-wrap"><table class="table"><thead><tr><th>Reference</th><th>Cooperative</th><th>Period</th><th class="num">Amount</th><th>Sent</th><th>Status</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></div>
+
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Withheld but not remitted</span>
+      <span class="text-body-md tone-muted">Taken from paid payouts, waiting for the cooperative's next remittance</span></div></div>
+      <div class="rowcards" id="pending"></div></section>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:240px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-bank-transfer-in" aria-hidden="true"></span>
+    <span class="text-headline-sm">No remittances yet</span><span class="text-body-md">A cooperative records one once it has withheld loan money from a paid payout.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the remittances</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var R = GF.recovery, U = RecoveryUI, esc = U.esc, f = GF.fmt;
+var GROUPS = [["RECORDED", "To confirm", ["RECORDED"]], ["CONFIRMED", "Confirmed", ["CONFIRMED"]], ["DISPUTED", "Disputed", ["DISPUTED"]], ["VOIDED", "Voided", ["VOIDED"]], ["ALL", "All", null]];
+var pick = "ALL";
+function draw() {
+  document.getElementById("filter").innerHTML = GROUPS.map(function (g) {
+    var n = R.remittances.filter(function (r) { return !g[2] || g[2].indexOf(r.status) > -1; }).length;
+    return '<button class="chip" type="button" role="radio" data-g="' + g[0] + '" aria-checked="' + (g[0] === pick) + '">' + g[1] + " · " + n + "</button>";
+  }).join("");
+  var g = GROUPS.find(function (x) { return x[0] === pick; });
+  var list = R.remittances.filter(function (r) { return !g[2] || g[2].indexOf(r.status) > -1; }).sort(function (a, b) { return a.sent_on < b.sent_on ? 1 : -1; });
+  document.getElementById("rows").innerHTML = list.length ? list.map(function (r) {
+    return '<tr><td class="primary-cell"><button class="btn btn-text btn-sm tabular" type="button" data-open="' + r.id + '">' + esc(r.reference) + "</button></td>" +
+      "<td>" + esc(U.coopName(r.cooperative)) + "</td>" +
+      '<td class="text-body-sm">' + f.date(r.period_start, "short") + " to " + f.date(r.period_end, "short") + "</td>" +
+      '<td class="num tabular">' + U.money(r.amount_cents) + "</td>" +
+      '<td class="text-body-sm">' + f.date(r.sent_on, "short") + '<span class="cell-sub">' + (r.method === "BANK" ? "Bank transfer" : "M-Pesa") + "</span></td>" +
+      "<td>" + U.chip(R.L.remittance[r.status]) + (r.status === "DISPUTED" ? '<span class="cell-sub tone-error">waiting for the cooperative</span>' : "") + "</td>" +
+      '<td><div class="row gap-1" data-roles="' + U.ROLES.receive + '">' +
+        (r.status === "RECORDED" ? '<button class="btn btn-text btn-sm" type="button" data-confirm="' + r.id + '">Confirm</button><button class="btn btn-text btn-sm tone-error" type="button" data-dispute="' + r.id + '">Dispute</button>' : "") + "</div></td></tr>";
+  }).join("") : '<tr><td colspan="7" class="text-body-md tone-muted">Nothing here.</td></tr>';
+
+  var out = [];
+  GF.cooperatives.forEach(function (co) {
+    var un = R.unremitted(co.id);
+    if (!un.length) return;
+    var total = un.reduce(function (t2, w) { return t2 + w.amount_cents; }, 0), terms = R.inForce(co.id);
+    out.push('<div class="rowcard card-outlined" style="align-items:flex-start"><span class="mdi mdi-timer-sand" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">' + esc(co.profile.short_name) + " · " + U.money(total) + "</span>" +
+      '<span class="text-body-md tone-muted">' + un.length + (un.length === 1 ? " withholding" : " withholdings") + " from paid payouts: " +
+      un.map(function (w) { return esc(U.memberName(R.get(w["case"]).member)) + " " + U.money(w.amount_cents); }).join(", ") + "</span>" +
+      '<span class="text-body-sm tone-muted">Due ' + (terms ? R.L.cycle[terms.remittance_cycle].toLowerCase() + ", within " + terms.remit_within_days + " days of the end of the cycle" : "on its cycle") + "</span></span></div>");
+  });
+  document.getElementById("pending").innerHTML = out.length ? out.join("") : '<div class="rowcard"><span class="text-body-md tone-muted">Nothing waiting: every withholding from a paid payout is in a remittance.</span></div>';
+  if (window.Proto) Proto.applyRoles(document.getElementById("rows"));
+}
+document.getElementById("filter").addEventListener("click", function (e) { var b = e.target.closest("[data-g]"); if (b) { pick = b.getAttribute("data-g"); draw(); } });
+document.getElementById("rows").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-open],[data-confirm],[data-dispute]"); if (!b) return;
+  var id = b.getAttribute("data-open") || b.getAttribute("data-confirm") || b.getAttribute("data-dispute"), r = R.get(id);
+  if (b.hasAttribute("data-open")) return openRem(r);
+  if (b.hasAttribute("data-confirm")) return confirmRem(r);
+  disputeRem(r);
+});
+function openRem(r) {
+  var ls = R.linesOf(r.id), pos = R.passOnsOf(r.id);
+  Proto.sheet({ wide: true, title: esc(r.reference), body:
+    '<div class="row gap-2 wrap">' + U.chip(R.L.remittance[r.status]) + '<span class="text-body-md tone-muted">' + esc(U.coopName(r.cooperative)) + "</span></div>" +
+    '<dl class="facts"><dt>Period</dt><dd>' + f.date(r.period_start) + " to " + f.date(r.period_end) + "</dd>" +
+      '<dt>Amount</dt><dd class="tabular">' + U.money(r.amount_cents) + "</dd>" +
+      "<dt>Sent</dt><dd>" + f.date(r.sent_on) + " by " + (r.method === "BANK" ? "bank transfer" : "M-Pesa") + "</dd>" +
+      '<dt>Reference</dt><dd class="tabular">' + esc(r.reference) + "</dd>" +
+      "<dt>Recorded by</dt><dd>" + esc(U.who(r.recorded_by)) + ", " + U.when(r.created_at) + "</dd>" +
+      (r.confirmed_at ? "<dt>Confirmed</dt><dd>" + U.when(r.confirmed_at) + " by " + esc(U.who(r.confirmed_by)) + "</dd>" : "") +
+      (r.details.note ? "<dt>Note</dt><dd>" + esc(r.details.note) + "</dd>" : "") +
+      (r.details.dispute_note ? "<dt>Disputed</dt><dd>" + esc(r.details.dispute_note) + "</dd>" : "") + "</dl>" +
+    '<span class="text-title-sm">What it covers</span>' +
+    (ls.length ? '<div class="rowcards">' + ls.map(function (l) {
+      var c = R.get(l["case"]), po = GF.get(l.payout_item);
+      return '<a class="rowcard" href="case.html?c=' + c.id + '"><span class="grow"><span class="text-body-md">' + esc(U.memberName(c.member)) + " · " + U.money(l.amount_cents) +
+        '</span><span class="text-body-sm tone-muted">' + esc(c.reference) + (po ? " · withheld on " + esc(po.details.label) : "") + "</span></span></a>";
+    }).join("") + "</div>" : '<p class="text-body-md tone-muted">No lines: the cooperative recorded a transfer GroFunder couldn\'t match to any withholding, which is why it is disputed.</p>') +
+    '<span class="text-title-sm">Passed on to the lender</span>' +
+    (pos.length ? '<div class="rowcards">' + pos.map(function (x) {
+      return '<a class="rowcard" href="passons.html?p=' + x.id + '"><span class="grow"><span class="text-body-md tabular">' + esc(x.reference) + " · " + U.money(x.amount_cents) +
+        '</span><span class="text-body-sm tone-muted">' + esc(GF.partners.get(x.partner).name) + "</span></span>" + U.chip(R.L.passOn[x.status]) + "</a>";
+    }).join("") + "</div>" : '<p class="text-body-md tone-muted">' + (r.status === "CONFIRMED" ? "None yet." : "Pass-ons are made when GroFunder confirms the remittance.") + "</p>"),
+    footer: r.status === "RECORDED" ? '<button class="btn btn-filled" type="button" data-roles="' + U.ROLES.receive + '" onclick="Proto.close();confirmRem(GF.recovery.get(\'' + r.id + '\'))">Confirm</button>' +
+      '<button class="btn btn-outlined tone-error" type="button" data-roles="' + U.ROLES.receive + '" onclick="Proto.close();disputeRem(GF.recovery.get(\'' + r.id + '\'))">Dispute</button>' : "" });
+}
+function confirmRem(r) {
+  var ls = R.linesOf(r.id), loans = {};
+  ls.forEach(function (l) { var c = R.get(l["case"]); loans[c.loan] = (loans[c.loan] || 0) + l.amount_cents; });
+  var names = Object.keys(loans).map(function (id) { var l = GF.loans.get(id); return l.reference + " " + U.money(loans[id]); });
+  Proto.dialog({ title: "Confirm " + esc(r.reference) + "?", body:
+    '<p class="text-body-md">You have matched ' + U.money(r.amount_cents) + " from " + esc(U.coopName(r.cooperative)) + " to the statement. Confirming makes " +
+    (names.length === 1 ? "one pass-on" : names.length + " pass-ons") + ", waiting to be sent to the lender: " + esc(names.join(", ")) + ".</p>" +
+    '<p class="text-body-sm tone-muted">GroFunder passes on everything recovered, keeping none of its share (Q5).</p>',
+    submit: "Confirm", onSubmit: function () { Proto.snack(r.reference + " confirmed: " + (names.length === 1 ? "a pass-on is" : names.length + " pass-ons are") + " waiting to be sent"); } });
+}
+function disputeRem(r) {
+  Proto.dialog({ title: "Dispute " + esc(r.reference) + "?", body:
+    '<p class="text-body-md">' + esc(U.coopName(r.cooperative)) + "'s staff see your note and can void the remittance and record it again. Nothing is passed on until it is confirmed.</p>" +
+    '<div class="field"><label class="field-label" for="dn">What is wrong</label><textarea class="field-input" id="dn" rows="3" placeholder="The amount, the reference, or what the statement shows"></textarea><span class="field-help">Required</span></div>',
+    submit: "Dispute", onSubmit: function (d) { if (!d.querySelector("#dn").value.trim()) return Proto.snack("Nothing changed: say what is wrong"); Proto.snack(r.reference + " disputed: " + U.coopName(r.cooperative) + " is told"); } });
+}
+draw();
+var want = new URLSearchParams(location.search).get("r");
+if (want && R.get(want)) setTimeout(function () { openRem(R.get(want)); }, 200);
+</script>
+</body>
+</html>

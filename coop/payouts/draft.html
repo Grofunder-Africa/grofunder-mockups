@@ -11,6 +11,14 @@
 <link rel="stylesheet" href="../../assets/tokens.css">
 <link rel="stylesheet" href="../../assets/kit.css">
 <script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
 <script src="../assets/payouts.js"></script>
 <script src="../assets/nav.js" defer></script>
 <script src="../../assets/proto.js" defer></script>
@@ -26,6 +34,8 @@
   <p class="proto-note"><b>Pay to (08):</b> M-Pesa defaults to the member's phone and can be changed for this payout; bank takes the bank and the account's last four digits. The method is chosen here beside where the money goes, so the Mark as paid dialog only asks for the reference and the date.</p>
   <p class="proto-note proto-gap"><b>G35, G36.</b> Where a draft keeps its method and pay-to before it is paid (the model's <code>method</code> isn't nullable), and whether a saved draft's date or product can change, or it is cancelled and started again. Until answered, Change shows only before the draft is first saved.</p>
   <p class="proto-note"><b>Who (09):</b> a Viewer reads the draft with nothing to change; Accountant, Manager and Administrator work on it.</p>
+  <p class="proto-note"><b>Recovering a debt (08's charge amendment, with note 28).</b> A charge another app created on the member is recovered by the draft itself: it works out the take from the charge's limits and the cooperative's collection terms, and keeps one deduction per charge. Staff never type one, and can't raise it; they may <b>lower or skip</b> it on this draft, with a reason GroFunder sees (28 Q7). The loan is recovered first, and the collection fee only once the loan's charge is paid off (28 Q1). Marking the payout paid fixes what was taken, and a charge covered by it is settled.</p>
+  <p class="proto-note"><b>Try it:</b> <a href="draft.html?p=po-21">Peter Ndungu's October draft</a> carries a loan recovery for Tegemeo Microfinance, at 30% of the payout as he agreed with the cooperative.</p>
 
   <div class="banner banner-info" data-coop="on_hold">
     <span class="mdi mdi-information-outline" aria-hidden="true"></span>
@@ -77,6 +87,12 @@
           <span class="card-description">Typed for each payout, using the cooperative's types (Settings).</span></div>
           <button class="btn btn-tonal btn-sm" type="button" data-roles="admin manager accountant" data-write onclick="editItem()"><span class="mdi mdi-plus" aria-hidden="true"></span>Add</button></div>
         <div class="rowcards" id="items"></div>
+        <div class="col gap-2 hidden" id="charges-block">
+          <div class="divider"></div>
+          <div class="card-header"><div class="card-header-text"><span class="card-title">Recovered from this payout</span>
+            <span class="card-description">Set by GroFunder with the member's agreement. Staff can lower or skip it, with a reason.</span></div></div>
+          <div class="rowcards" id="charges"></div>
+        </div>
       </div>
       <div class="card card-outlined">
         <div class="card-header"><div class="card-header-text"><span class="card-title">Payment</span></div></div>
@@ -124,7 +140,7 @@ var D = (function () {
   if (p) {
     var lines = p.lines.map(function (l) { return P.line(GF.get(l.delivery), l.amount_cents); });
     return { id: p.id, member: p.member, to: p.period_end, product: p.product, label: p.details.label, created: p.history[0], lines: lines,
-      items: p.items.map(function (i) { return { type: i.type, amount_cents: i.amount_cents, note: i.details.note }; }) };
+      items: p.items.map(function (i) { return { type: i.type, amount_cents: i.amount_cents, note: (i.details && i.details.note) || i.note || "", charge: i.charge || null }; }) };
   }
   var m = GF.get(qs.get("m") || GF.who.wanjiku), to = qs.get("to") || GF.TODAY, product = qs.get("product") || null;
   var cp = GF.get(product || GF.coopProducts.find(function (c) { return c.cooperative === m.cooperative; }).id);
@@ -133,6 +149,25 @@ var D = (function () {
     label: MON[+to.slice(5, 7) - 1] + " " + to.slice(0, 4) + " – " + (product || P.productsOf(m.cooperative).length === 1 ? GF.get(cp.product).name.replace("Raw milk", "Milk") : "All products") };
 })();
 var M = D && GF.get(D.member);
+/* 08's charge amendment: a managed type's items come from charges, never from staff. They are kept
+ * apart from the typed items, worked out again whenever the draft changes, and may be lowered. */
+var managed = function (typeId) { var t = GF.get(typeId) || GF.payoutItemTypes.find(function (x) { return x.id === typeId; }); return !!(t && t.managed); };
+var CH = { items: [], overrides: {} };
+if (D) {
+  D.items.filter(function (i) { return managed(i.type); }).forEach(function (i) { if (i.charge) CH.overrides[i.charge] = null; });
+  D.items = D.items.filter(function (i) { return !managed(i.type); });
+}
+/* What the charges take from this draft, within each charge's limits and the terms' cap. */
+function charges() {
+  if (!D || !GF.recovery) return [];
+  var t = totalsBase();
+  var take = GF.recovery.takeFrom(D.member, t.gross + t.add - t.ded);
+  return take.all.map(function (x) {
+    var o = CH.overrides[x.charge.id];
+    return { charge: x.charge, amount_cents: o ? Math.min(o.amount_cents, x.amount_cents) : x.amount_cents, suggested_cents: x.amount_cents, left_after: x.left_after, override: o || null };
+  }).filter(function (x) { return x.amount_cents > 0 || x.suggested_cents > 0 || x.override; });
+}
+var chargeTotal = function () { return charges().reduce(function (s, x) { return s + x.amount_cents; }, 0); };
 var multi = D && !D.product && P.productsOf(M.cooperative).length > 1;
 var PAY = { method: "MPESA", phone: M ? M.phone : "", bank: "", last4: "", note: "" };
 var mode = "full";
@@ -142,12 +177,17 @@ var money = function (c) { return f.money(c); };
 var toCents = function (s) { var n = parseFloat(String(s).replace(/[^0-9.]/g, "")); return isNaN(n) ? 0 : Math.round(n * 100); };
 var plain = function (c) { return (c / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","); };
 var editable = function () { return P.canRecord(); };
-var typeOf = function (id) { return GF.get(id); };
-var totals = function () {
+/* Managed types (08) are added by the app that owns them, so they may not be in GF's index. */
+var typeOf = function (id) { return GF.get(id) || GF.payoutItemTypes.find(function (t) { return t.id === id; }) || { name: "", direction: "DEDUCTION" }; };
+var totalsBase = function () {
   var gross = q.sum(D.lines, function (l) { return l.selected ? l.amount_cents : 0; });
   var add = q.sum(D.items, function (i) { return typeOf(i.type).direction === "ADDITION" ? i.amount_cents : 0; });
   var ded = q.sum(D.items, function (i) { return typeOf(i.type).direction === "DEDUCTION" ? i.amount_cents : 0; });
   return { gross: gross, add: add, ded: ded, net: gross + add - ded };
+};
+var totals = function () {
+  var t = totalsBase(), ch = chargeTotal();
+  return { gross: t.gross, add: t.add, ded: t.ded, charges: ch, net: t.net - ch };
 };
 
 function head() {
@@ -197,7 +237,7 @@ function draw() {
   document.getElementById("all").disabled = !editable();
   var parts = D.lines.filter(function (l) { return l.paid_before_cents > 0; }).length;
   document.getElementById("del-sub").textContent = D.lines.length + " with a balance up to " + f.date(D.to) + (parts ? ", " + parts + " of them part paid before" : "") + ".";
-  drawItems(t); drawTotals(t);
+  drawItems(t); drawCharges(); drawTotals(t);
 }
 function drawItems(t) {
   var el = document.getElementById("items");
@@ -210,11 +250,56 @@ function drawItems(t) {
   }).join("") || '<div class="rowcard"><span class="text-body-md tone-muted">None on this payout.</span></div>';
   Proto.applyRoles(el);
 }
+/* Each charge as its own row, marked as GroFunder's, with Lower or skip (28 Q7). */
+function drawCharges() {
+  var list = charges(), block = document.getElementById("charges-block"), el = document.getElementById("charges");
+  block.classList.toggle("hidden", !list.length);
+  if (!list.length) return;
+  el.innerHTML = list.map(function (x) {
+    var ty = typeOf(x.charge.type) || {}, left = x.charge.amount_cents - GF.recovery.recovered(x.charge.id);
+    var waiting = x.suggested_cents === 0 && left > 0;
+    return '<div class="rowcard" style="align-items:flex-start"><span class="mdi mdi-cash-refund" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">' + esc(ty.name || "Charge") + "</span>" +
+      '<span class="text-body-sm tone-muted">' + (waiting ? "Waits until the loan is recovered" : money(left) + " left to recover · " + esc(x.charge.source_ref)) + "</span>" +
+      (x.override ? '<span class="text-body-sm tone-warning">Lowered from ' + money(x.suggested_cents) + ': "' + esc(x.override.reason) + '"' : "") +
+      "</span>" +
+      '<span class="trail"><span class="text-title-md tabular">' + (x.amount_cents ? "− " + money(x.amount_cents) : "–") + "</span></span>" +
+      (x.suggested_cents > 0 ? '<span class="row" data-roles="admin manager accountant" data-write><button class="btn btn-text btn-sm" type="button" onclick="lowerCharge(\'' + x.charge.id + '\')">' + (x.override ? "Change" : "Lower or skip") + "</button>" +
+        (x.override ? '<button class="btn btn-text btn-sm" type="button" onclick="clearOverride(\'' + x.charge.id + '\')">Undo</button>' : "") + "</span>" : "") + "</div>";
+  }).join("");
+  Proto.applyRoles(el);
+}
+/* An override only ever lowers the take, and needs a reason (08: kept in details.charge_overrides). */
+function lowerCharge(id) {
+  var x = charges().find(function (c) { return c.charge.id === id; }); if (!x) return;
+  var ty = typeOf(x.charge.type) || {};
+  Proto.dialog({ title: "Lower or skip " + esc(ty.name || "this deduction"), body:
+    '<p class="text-body-md">The rules give ' + money(x.suggested_cents) + " from this payout. You can take less, or none at all, for this payout only. The next draft starts from the rules again.</p>" +
+    '<div class="field money"><label class="field-label" for="ov-a">Take from this payout</label><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input" id="ov-a" inputmode="decimal" value="' + plain(x.override ? x.override.amount_cents : x.suggested_cents) + '" aria-describedby="ov-e"></div>' +
+      '<span class="field-error hidden" id="ov-e"></span></div>' +
+    '<div class="field"><label class="field-label" for="ov-r">Why</label><textarea class="field-input" id="ov-r" rows="2" placeholder="For example: he asked for less this month after the vet bill"></textarea>' +
+      '<span class="field-help">Required. GroFunder sees it on the case.</span></div>' +
+    '<div class="actions"><button class="btn btn-text" type="button" data-cancel>Cancel</button><button class="btn btn-filled" type="button" id="ov-go">Save</button></div>' });
+  var el = document.querySelector(".dialog");
+  el.querySelector("#ov-go").addEventListener("click", function () {
+    var cents = toCents(el.querySelector("#ov-a").value), why = el.querySelector("#ov-r").value.trim(), e = el.querySelector("#ov-e");
+    var bad = cents > x.suggested_cents ? "At most " + money(x.suggested_cents) + ": a deduction can only be lowered, never raised." : cents < 0 ? "Enter 0 or more." : !why ? "Say why, so GroFunder knows." : "";
+    e.classList.toggle("hidden", !bad); e.textContent = bad;
+    if (bad) return;
+    CH.overrides[id] = { charge: id, amount_cents: cents, reason: why };
+    Proto.close(); draw(); Proto.snack(cents ? "Lowered to " + money(cents) : "Skipped on this payout");
+  });
+}
+function clearOverride(id) { delete CH.overrides[id]; draw(); Proto.snack("Back to what the rules give"); }
+
 function drawTotals(t) {
   var rows = '<div><span>For deliveries</span><span>' + money(t.gross) + "</span></div>";
   D.items.forEach(function (it) {
     var ty = typeOf(it.type), add = ty.direction === "ADDITION";
     rows += "<div><span>" + esc(ty.name) + (it.note ? ' <span class="sub">' + esc(it.note) + "</span>" : "") + "</span><span>" + (add ? "+ " : "− ") + money(it.amount_cents) + "</span></div>";
+  });
+  charges().filter(function (x) { return x.amount_cents > 0; }).forEach(function (x) {
+    var ty = typeOf(x.charge.type) || {};
+    rows += "<div><span>" + esc(ty.name || "Charge") + ' <span class="sub">Set by GroFunder' + (x.override ? ", lowered" : "") + "</span></span><span>− " + money(x.amount_cents) + "</span></div>";
   });
   rows += '<div class="net"><span>Net to pay</span><span' + (t.net < 0 ? ' class="tone-error"' : "") + ">" + money(t.net) + "</span></div>";
   document.getElementById("totals").innerHTML = rows;
@@ -254,7 +339,8 @@ function applyFill() {
 /* Additions and deductions: a dialog of three fields (UI-13). A deduction that takes the net below zero is refused (08). */
 function editItem(i) {
   var it = i === undefined ? { type: "", amount_cents: 0, note: "" } : D.items[i];
-  var types = GF.payoutItemTypes.filter(function (t) { return t.cooperative === M.cooperative && (t.status === "ACTIVE" || t.id === it.type); });
+  /* A managed type's items come only from charges, so staff can't type one (08). */
+  var types = GF.payoutItemTypes.filter(function (t) { return t.cooperative === M.cooperative && !t.managed && (t.status === "ACTIVE" || t.id === it.type); });
   var opt = function (dir) { return types.filter(function (t) { return t.direction === dir; }).map(function (t) { return '<option value="' + t.id + '"' + (t.id === it.type ? " selected" : "") + ">" + esc(t.name) + "</option>"; }).join(""); };
   var el = Proto.dialog({ title: i === undefined ? "Add an addition or deduction" : "Edit " + typeOf(it.type).name, body:
     '<div class="field"><label class="field-label" for="it-t">Type</label><select class="field-input" id="it-t"><optgroup label="Additions: paid on top">' + opt("ADDITION") + '</optgroup><optgroup label="Deductions: taken off">' + opt("DEDUCTION") + "</optgroup></select></div>" +

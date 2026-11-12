@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gateway calls · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../assets/console.js"></script>
+<script src="partners-ui.js"></script>
+<script src="gateway-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Lending partners" data-dest="partners" data-wide>
+
+  <p class="proto-note"><b>LP9 · Gateway calls (note 24 part 2, <code>PartnerCall</code>; note 27, "Outbound").</b> Every attempt at an operation we sent a partner: SUBMIT, AMEND, CANCEL, UPDATE_CUSTOMER, POST_CHARGE, REPORT_REPAYMENT, the READ_* operations, READ_ACCOUNT and TEST. It answers: what did we send, when, and what did the partner say? Every outbound operation uses this one log (26, forwarding).</p>
+  <p class="proto-note"><b>Retries reuse the key.</b> Each attempt is one row; a retry keeps the same idempotency key and counts up the attempt (forwarding retries 5 times over about an hour, 26). The outcome is blank exactly while the call is in flight; once it has finished, a trigger keeps the row fixed.</p>
+  <p class="proto-note"><b>Redacted.</b> ID images and secrets are never stored, ID numbers are masked to their last 3 digits, and the phone is kept (it is how the partner reaches the member). Bodies are cut to 64 KB.</p>
+  <p class="proto-note"><b>Pruning.</b> The poll's reads (READ_*) that found nothing new are pruned after 90 days; reads that changed something, or failed, are kept, as is every write, as long as its loan.</p>
+
+  <div data-roles="view agent" class="empty"><span class="mdi mdi-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">For Operations and up</span><span class="text-body-md">The gateway's logs need <code>lending_partners.operate</code>.</span>
+    <a class="btn btn-tonal" href="index.html">Lending partners</a></div>
+
+  <div data-state="loaded" class="col gap-4" data-roles="owner full ops">
+    <div data-subnav="partners" data-current="gateway" data-label="Lending partners"></div>
+    <div id="tabs"></div>
+    <div class="section">
+      <div class="section-toolbar"><div class="row gap-3 wrap">
+        <select class="field-input" id="f-partner" aria-label="Lender" style="width:auto"></select>
+        <select class="field-input" id="f-op" aria-label="Operation" style="width:auto"></select>
+        <select class="field-input" id="f-outcome" aria-label="Outcome" style="width:auto"></select>
+      </div></div>
+      <div class="table-wrap only-wide"><table class="table">
+        <thead><tr><th>Started</th><th>Operation</th><th>Loan</th><th>Attempt</th><th>Trigger</th><th class="num">HTTP</th><th>Outcome</th><th class="num">Took</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+      <div class="rowcards only-compact" id="cards"></div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4" data-roles="owner full ops"><div class="skeleton-card" style="height:320px"></div></div>
+  <div data-state="empty" class="empty" data-roles="owner full ops"><span class="mdi mdi-send-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No calls yet</span><span class="text-body-md">Each forwarding, amendment, cancellation, poll read and connection test shows here, one row per attempt.</span></div>
+  <div data-state="error" class="error-state" data-roles="owner full ops"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the calls</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var Gw = GF.gateway, G = GatewayUI, U = PartnersUI, esc = U.esc, L = Gw.L;
+document.getElementById("tabs").innerHTML = G.tabs("calls");
+var ops = []; Gw.calls.forEach(function (c) { if (ops.indexOf(c.operation) === -1) ops.push(c.operation); });
+/* Every log can be read for one lender (design, 2026-11-10). */
+document.getElementById("f-partner").innerHTML = '<option value="">Every lender</option>' + GF.partners.partners.map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + "</option>"; }).join("");
+document.getElementById("f-op").innerHTML = '<option value="">Every operation</option>' + ops.map(function (o) { return '<option value="' + o + '">' + o + "</option>"; }).join("");
+document.getElementById("f-outcome").innerHTML = '<option value="all">Every outcome</option>' + Object.keys(L.outcome).map(function (k) { return '<option value="' + k + '">' + L.outcome[k][1] + "</option>"; }).join("");
+var took = function (c) { return c.outcome ? (c.details.duration_ms / 1000).toFixed(1) + " s" : '<span class="tone-muted">…</span>'; };
+var trig = function (c) { return L.trigger[c.trigger] + (c.actor ? " · " + esc(U.who(c.actor)) : ""); };
+function list() {
+  var op = document.getElementById("f-op").value, oc = document.getElementById("f-outcome").value, who = document.getElementById("f-partner").value;
+  return Gw.calls.filter(function (c) { return (!who || c.partner === who) && (!op || c.operation === op) && (oc === "all" || c.outcome === oc); }).sort(function (a, b) { return a.started_at < b.started_at ? 1 : -1; });
+}
+function draw() {
+  var rows = list();
+  document.getElementById("rows").innerHTML = rows.length ? rows.map(function (c) {
+    return '<tr data-href onclick="openCall(\'' + c.id + '\')"><td class="tabular">' + U.when(c.started_at) + '<span class="cell-sub">' + esc(G.partnerName(c.partner)) + "</span></td>" +
+      '<td class="primary-cell"><a href="#" onclick="openCall(\'' + c.id + '\');return false"><code>' + c.operation + "</code></a></td><td>" + G.refLink(c.loan_ref) + "</td>" +
+      '<td class="tabular">' + c.attempt + '<span class="cell-sub">' + esc(c.idempotency_key) + "</span></td><td>" + trig(c) + '</td><td class="num tabular">' + (c.http_status || "–") + "</td>" +
+      "<td>" + U.chip(L.outcome[c.outcome]) + (c.error_code ? '<span class="cell-sub">' + esc(c.error_code) + "</span>" : "") + '</td><td class="num tabular">' + took(c) + "</td></tr>";
+  }).join("") : '<tr><td colspan="8" class="text-body-md tone-muted">Nothing here.</td></tr>';
+  document.getElementById("cards").innerHTML = rows.length ? rows.map(function (c) {
+    return '<button class="rowcard" type="button" onclick="openCall(\'' + c.id + '\')" style="align-items:flex-start"><span class="grow"><span class="text-body-lg"><code>' + c.operation + "</code>" + (c.loan_ref ? " · " + esc(c.loan_ref) : "") + "</span>" +
+      '<span class="text-body-md tone-muted tabular">' + U.when(c.started_at) + " · attempt " + c.attempt + " · " + trig(c) + "</span></span>" + U.chip(L.outcome[c.outcome]) + "</button>";
+  }).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">Nothing here.</span></div>';
+}
+function openCall(id) {
+  var c = Gw.get(id), d = c.details;
+  Proto.sheet({ wide: true, title: c.operation + (c.loan_ref ? " · " + esc(c.loan_ref) : ""), body:
+    '<div class="row gap-2 wrap">' + U.chip(L.outcome[c.outcome]) + '<span class="status status-neutral">' + L.trigger[c.trigger] + "</span></div>" +
+    (!c.outcome ? '<div class="banner banner-info"><span class="mdi mdi-timer-sand" aria-hidden="true"></span><div class="grow"><span class="text-body-md">In flight: no answer yet. It times out after the connection\'s limit, and the row is fixed once it finishes.</span></div></div>' : "") +
+    (c.outcome === "UNREACHABLE" ? '<div class="banner banner-warning"><span class="mdi mdi-lan-disconnect" aria-hidden="true"></span><div class="grow"><span class="text-body-md">The partner couldn\'t be reached, or the outcome is unknown. The retry uses the same key, so the partner treats it as one request.</span></div></div>' : "") +
+    '<dl class="facts"><dt>Partner</dt><dd>' + esc(G.partnerName(c.partner)) + " · connection <code>" + esc(c.connection) + "</code></dd>" +
+      "<dt>Loan</dt><dd>" + G.refLink(c.loan_ref) + "</dd>" +
+      '<dt>Idempotency key</dt><dd class="tabular"><code>' + esc(c.idempotency_key) + "</code> · attempt " + c.attempt + "</dd>" +
+      "<dt>Trigger</dt><dd>" + trig(c) + "</dd>" +
+      "<dt>Started</dt><dd>" + U.when(c.started_at) + "</dd><dt>Finished</dt><dd>" + (c.finished_at ? U.when(c.finished_at) + " · " + took(c) : '<span class="tone-muted">Not yet</span>') + "</dd>" +
+      '<dt>HTTP status</dt><dd class="tabular">' + (c.http_status || '<span class="tone-muted">None</span>') + "</dd>" +
+      "<dt>Partner's code</dt><dd>" + (c.error_code ? "<code>" + esc(c.error_code) + "</code>" : '<span class="tone-muted">None</span>') + "</dd>" +
+      "<dt>Ids it gave back</dt><dd>" + (Object.keys(d.partner_ids).length ? Object.keys(d.partner_ids).map(function (k) { return k + " <code>" + esc(d.partner_ids[k]) + "</code>"; }).join("<br>") : '<span class="tone-muted">None</span>') + "</dd></dl>" +
+    '<span class="text-title-sm">Sent (redacted)</span>' + G.pre(d.request) +
+    '<span class="text-title-sm">Received</span>' + G.pre(d.response) });
+}
+["f-partner", "f-op", "f-outcome"].forEach(function (id) { document.getElementById(id).addEventListener("change", draw); });
+draw();
+</script>
+</body>
+</html>

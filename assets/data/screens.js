@@ -34,24 +34,37 @@
   var CONSENTS_OPS = ["consents.view", "consents.record", "consents.withdraw"];
   /* Loan codes (note 26): view for every office role; prepare for Operations and up; review, manage and
    * pause for Full and Owner; pausing everyone for the Owner only. */
-  var LOANS_OPS = ["loans.view", "loans.prepare"], LOANS_FULL = LOANS_OPS.concat(["loans.review", "loans.manage", "loans.pause"]);
+  var LOANS_OPS = ["loans.view", "loans.prepare", "loans.follow_up", "lending_partners.operate"], LOANS_FULL = LOANS_OPS.concat(["loans.review", "loans.manage", "loans.pause"]);
+  /* Recovery codes (note 28): view for every office role and for the cooperative's staff; terms, confirm and
+   * receive for Full and Owner; the cooperative agrees, remits and acknowledges. */
+  var REC_VIEW = ["recovery.view"], REC_FULL = REC_VIEW.concat(["recovery.terms", "recovery.confirm", "recovery.receive"]);
+  var REC_COOP = ["recovery.view", "recovery.agree", "recovery.remit"];
+  /* Partner portal codes (note 29), on the PARTNER surface. */
+  var PP_VIEW = ["partner_portal.view"];
   var ROLES = {
     coop: {
-      admin: { label: "Administrator", codes: COOP_ALL, owner: true },
-      manager: { label: "Manager", codes: COOP_ALL },
-      accountant: { label: "Accountant", codes: ["cooperatives.view", "members.view", "produce.view", "payouts.view", "payouts.record", "payouts.configure"] },
+      admin: { label: "Administrator", codes: COOP_ALL.concat(REC_COOP, ["recovery.acknowledge"]), owner: true },
+      manager: { label: "Manager", codes: COOP_ALL.concat(REC_COOP) },
+      accountant: { label: "Accountant", codes: ["cooperatives.view", "members.view", "produce.view", "payouts.view", "payouts.record", "payouts.configure", "recovery.view", "recovery.remit"] },
       clerk: { label: "Clerk", codes: ["cooperatives.view", "members.view", "produce.view", "produce.record"] },
-      viewer: { label: "Viewer", codes: ["cooperatives.view", "members.view", "produce.view", "payouts.view"] }
+      viewer: { label: "Viewer", codes: ["cooperatives.view", "members.view", "produce.view", "payouts.view", "recovery.view"] }
     },
     gf: {
-      owner: { label: "Owner", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile", "cooperatives.set_status", "catalog.manage", "places.manage", "member_access.disable"], KYC_OFFICE, GROUPS_OFFICE, LP_FULL, ["lending_partners.credentials"], CREDIT_OPS, ["credit.publish"], CONSENTS_OPS, ["consents.manage", "consents.publish"], LOANS_FULL, ["loans.pause_all"]), owner: true },
-      full: { label: "Full", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile", "cooperatives.set_status", "catalog.manage", "places.manage", "member_access.disable"], KYC_OFFICE, GROUPS_OFFICE, LP_FULL, CREDIT_OPS, ["credit.publish"], CONSENTS_OPS, ["consents.manage"], LOANS_FULL) },
-      ops: { label: "Operations", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile"], KYC_OFFICE, GROUPS_OFFICE, ["lending_partners.view"], CREDIT_OPS, CONSENTS_OPS, LOANS_OPS) },
-      view: { label: "View only", codes: GF_VIEW.concat(["kyc.view", "groups.view", "lending_partners.view", "credit.view", "consents.view", "loans.view"]) },
+      owner: { label: "Owner", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile", "cooperatives.set_status", "catalog.manage", "places.manage", "member_access.disable"], KYC_OFFICE, GROUPS_OFFICE, LP_FULL, ["lending_partners.credentials"], CREDIT_OPS, ["credit.publish"], CONSENTS_OPS, ["consents.manage", "consents.publish"], LOANS_FULL, ["loans.pause_all"], REC_FULL), owner: true },
+      full: { label: "Full", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile", "cooperatives.set_status", "catalog.manage", "places.manage", "member_access.disable"], KYC_OFFICE, GROUPS_OFFICE, LP_FULL, CREDIT_OPS, ["credit.publish"], CONSENTS_OPS, ["consents.manage"], LOANS_FULL, REC_FULL) },
+      ops: { label: "Operations", codes: GF_VIEW.concat(["cooperatives.onboard", "cooperatives.edit_profile"], KYC_OFFICE, GROUPS_OFFICE, ["lending_partners.view"], CREDIT_OPS, CONSENTS_OPS, LOANS_OPS, REC_VIEW) },
+      view: { label: "View only", codes: GF_VIEW.concat(["kyc.view", "groups.view", "lending_partners.view", "credit.view", "consents.view", "loans.view", "recovery.view"]) },
       /* Farmer Support Agent (note 20, draft): only their own visits. */
       agent: { label: "Farmer Support Agent", codes: ["kyc.capture", "groups.assigned", "consents.record"] }
     },
-    member: { "in": { label: "Signed in", codes: [] }, out: { label: "Signed out", codes: [] } }
+    member: { "in": { label: "Signed in", codes: [] }, out: { label: "Signed out", codes: [] } },
+    /* The partner portal (29): kit roles in the PARTNER category. */
+    partner: {
+      admin: { label: "Administrator", codes: PP_VIEW.concat(["partner_portal.decide", "partner_portal.disburse", "partner_portal.payments", "partner_portal.write_off", "partner_portal.settle", "partner_portal.export"]), owner: true },
+      credit: { label: "Credit officer", codes: PP_VIEW.concat(["partner_portal.decide"]) },
+      finance: { label: "Finance", codes: PP_VIEW.concat(["partner_portal.disburse", "partner_portal.payments", "partner_portal.settle", "partner_portal.export"]) },
+      viewer: { label: "Viewer", codes: PP_VIEW }
+    }
   };
 
   var P = "coop/patterns/", G = "gf/", M = "member/patterns/";
@@ -113,6 +126,9 @@
           { id: "LP4", title: "Loan product", kind: "detail", purpose: "What it's for in English and Swahili, the purposes members pick, every terms version (in force, scheduled, past, withdrawn, draft) and the cooperatives it covers; draft, link, pause, retire", notes: ["24"], codes: ["lending_partners.view"], phase: 13, href: G + "partners/product.html?pr=pr-mav-dairy" },
           { id: "LP5", title: "Terms version", kind: "detail", purpose: "Limits, repayment, overdue, default and flag days, and each charge with its GroFunder/partner split; a worked example from loans' quote (26); edit a draft, publish (Full and Owner), withdraw a scheduled version", notes: ["24"], codes: ["lending_partners.view"], phase: 13, href: G + "partners/terms.html?t=pt-dairy-4" },
           { id: "LP6", title: "Coverage", kind: "list", purpose: "Which products serve which cooperatives, and whether each is offered today", notes: ["24"], codes: ["lending_partners.view"], phase: 13, href: G + "partners/coverage.html" },
+          { id: "LP8", title: "Gateway: events", kind: "list", purpose: "Every message in and every difference the poll found, with the signature result and what the handler did (applied, ignored, held, failed, rejected); the raw body; run a failed event again; poll a loan", notes: ["24", "27"], codes: ["lending_partners.operate"], phase: 17, href: G + "partners/events.html" },
+          { id: "LP9", title: "Gateway: calls", kind: "list", purpose: "Every attempt at an operation we sent (submit, amend, cancel, reads, test): key, attempt, trigger, HTTP status, outcome, the redacted request and response", notes: ["24", "27"], codes: ["lending_partners.operate"], phase: 17, href: G + "partners/calls.html" },
+          { id: "LP10", title: "Gateway: data reads", kind: "list", purpose: "Every read of a member's data by a lender, served or refused, with the consent it relied on and the loans that allowed it", notes: ["24", "27", "22"], codes: ["lending_partners.operate"], phase: 17, href: G + "partners/reads.html" },
           { id: "LP7", title: "Remittances", kind: "list", purpose: "What partners have paid GroFunder of its share, by period and one by one; record from the bank statement and void (Full and Owner)", notes: ["24"], codes: ["lending_partners.view"], phase: 13, href: G + "partners/remittances.html" }
         ] },
         { label: "Credit (phase 14, note 25)", dest: "credit", screens: [
@@ -125,10 +141,19 @@
         { label: "Loans (phase 16, note 26 part 1)", dest: "loans", screens: [
           { id: "LN1", title: "Loans", kind: "list", purpose: "One queue: requests to review oldest first with their approvals (1 of 2), drafts with their expiry, approved loans waiting to be sent, ended ones; what fails a check now", notes: ["26"], codes: ["loans.view"], phase: 16, href: G + "loans/index.html" },
           { id: "LN2", title: "Prepare a loan", kind: "flow", purpose: "For a member without the app: pick the member (every check, with reasons), then product, amount, duration and purpose with the quote; saves a DRAFT the member accepts within 7 days", notes: ["26"], codes: ["loans.prepare"], phase: 16, href: G + "loans/prepare.html" },
-          { id: "LN3", title: "Loan", kind: "detail", purpose: "The request and the quote as accepted, the checks now with a fresh score, the score, override, KYC, circle and spaces, declarations and consents it relies on, reviews and history; approve, reject, cancel; accept a draft by SMS code; forwarding shown as the next step (L4)", notes: ["26", "22"], codes: ["loans.view"], phase: 16, href: G + "loans/loan.html?l=ln-105" },
+          { id: "LN3", title: "Loan", kind: "detail", purpose: "After forwarding (phase 17): the lender's ids, stage and approved figures, disbursement, the schedule with when each instalment was settled, payments and their split, late fees, flags and the gateway's events and calls; send an amendment, poll, cancel while the lender can. Before: the request and the quote as accepted, the checks now with a fresh score, the score, override, KYC, circle and spaces, declarations and consents it relies on, reviews and history; approve, reject, cancel; accept a draft by SMS code; forwarding shown as the next step (L4)", notes: ["26", "22"], codes: ["loans.view"], phase: 16, href: G + "loans/loan.html?l=ln-105" },
           { id: "LN4", title: "Approve or reject", kind: "dialog", purpose: "Each approval by a different person, never the drafter or the borrower; the last needed makes it APPROVED; any one rejection ends it, with a reason code and words, prefilled when a check fails", notes: ["26"], codes: ["loans.review"], phase: 16, href: G + "loans/loan.html?l=ln-105" },
           { id: "LN5", title: "Accept a draft by SMS code", kind: "dialog", purpose: "The quote read out from a script, the declarations confirmed, an SMS carrying the key figures, the code read back", notes: ["26", "22"], codes: ["loans.prepare"], phase: 16, href: G + "loans/loan.html?l=ln-104" },
+          { id: "LN7", title: "Flags", kind: "list", purpose: "What a lender hasn't told us or doesn't add up (forwarding failed, quote difference, disbursement failed or estimated, schedule changed, poll difference, status conflict, split unknown, past the flag threshold, event failed); resolve or dismiss with a note (Operations and up)", notes: ["26", "27"], codes: ["loans.view"], phase: 17, href: G + "loans/flags.html" },
           { id: "LN6", title: "Pauses", kind: "list", purpose: "Pauses in force and ended, for everyone, a cooperative, a cluster or a circle, with the reason and what members see in both languages; start and end (everyone: Owner only)", notes: ["26"], codes: ["loans.view"], phase: 16, href: G + "loans/pauses.html" }
+        ] },
+        { label: "Recovery (phase 18, note 28)", dest: "recovery", screens: [
+          { id: "RC1", title: "Recovery", kind: "list", purpose: "The queue: cases to confirm, to agree, recovering, paused and ended, with the member, lender and balance; and the defaulted loans no cooperative can take, which GroFunder handles with the lender", notes: ["28"], codes: ["recovery.view"], phase: 18, href: G + "recovery/index.html" },
+          { id: "RC2", title: "Recovery case", kind: "detail", purpose: "One case: the loan, the terms it opened under, what the member agreed and how, the loan's charge and the collection fee with what each has taken, every withholding by payout, the remittances and pass-ons, and the history; confirm, decline, pause, resume or close", notes: ["28"], codes: ["recovery.view"], phase: 18, href: G + "recovery/case.html?c=rc-3" },
+          { id: "RC3", title: "Collection terms", kind: "list", purpose: "Each cooperative's terms: whether it recovers, the most one payout may give up, the fee, the cycle, and whether its administrator has acknowledged them", notes: ["28"], codes: ["recovery.view"], phase: 18, href: G + "recovery/terms.html" },
+          { id: "RC4", title: "Collection terms version", kind: "detail", purpose: "One dated version in full, with where the cooperative sends the money; draft, publish, or withdraw before it takes effect", notes: ["28"], codes: ["recovery.terms"], phase: 18, href: G + "recovery/terms-version.html?t=ct-kij-1" },
+          { id: "RC5", title: "Cooperative remittances", kind: "list", purpose: "What cooperatives have sent GroFunder, with the withholdings each covers; confirm on seeing the money, or dispute with a note; and what is withheld but not yet remitted", notes: ["28"], codes: ["recovery.view"], phase: 18, href: G + "recovery/remittances.html" },
+          { id: "RC6", title: "Pass-ons", kind: "list", purpose: "What GroFunder passes to each lender for one loan: to send, sent, reported and posted by the lender; record the transfer and report it", notes: ["28", "27"], codes: ["recovery.view"], phase: 18, href: G + "recovery/passons.html" }
         ] },
         { label: "Consents (phase 15, note 22)", dest: "consents", screens: [
           { id: "CN1", title: "Consent documents", kind: "list", purpose: "GroFunder's documents and each lender's, with the slots they are bound to and the version in force in English and Swahili; flags languages out of step; where members are asked", notes: ["22"], codes: ["consents.view"], phase: 15, href: G + "consents/index.html" },
@@ -179,6 +204,13 @@
           { id: "C20", title: "Payout statement", kind: "detail", purpose: "What was paid against which deliveries, what's still owed, additions, deductions, net, and where it went", notes: ["08"], codes: ["payouts.view"], phase: 8, href: "coop/payouts/statement.html?p=po-3" },
           { id: "C21", title: "Cancel a draft", kind: "dialog", purpose: "Nothing was fixed; its items are dropped", notes: ["08"], codes: ["payouts.record"], phase: 8, href: "coop/payouts/draft.html?p=po-9" }
         ] },
+        { label: "Recovery (phase 18, note 28)", dest: "recovery", screens: [
+          { id: "C40", title: "Recovery", kind: "list", purpose: "The cooperative's cases: the member, the lender's loan reference, what is being taken from each payout and what is left; a case waiting for an arrangement is called out", notes: ["28"], codes: ["recovery.view"], phase: 18, href: "coop/recovery/index.html" },
+          { id: "C41", title: "Recovery case", kind: "detail", purpose: "One case as the cooperative sees it, with no pricing or score: the debt, the arrangement, the loan's charge and the fee, and every withholding; record or change the arrangement within the terms", notes: ["28"], codes: ["recovery.view"], phase: 18, href: "coop/recovery/case.html?c=rc-3" },
+          { id: "C42", title: "Remittances to GroFunder", kind: "list", purpose: "What has been sent and what is still to send; record a remittance from the withholdings on paid payouts, or void one with a reason", notes: ["28"], codes: ["recovery.remit"], phase: 18, href: "coop/recovery/remittances.html" },
+          { id: "C43", title: "Fees earned", kind: "list", purpose: "The collection fees this cooperative has earned per case, what has been taken and what is still owed", notes: ["28"], codes: ["recovery.view"], phase: 18, href: "coop/recovery/fees.html" },
+          { id: "C44", title: "Collection terms", kind: "detail", purpose: "The terms GroFunder set, in plain words, with past versions; the administrator acknowledges the version in force", notes: ["28"], codes: ["recovery.view"], phase: 18, href: "coop/recovery/terms.html" }
+        ] },
         { label: "Settings", dest: "settings", screens: [
           { id: "C22", title: "Profile", kind: "settings", purpose: "About, address, contact, language, logo and documents; the registered name and number read-only (GroFunder changes them)", notes: ["01", "04"], codes: ["cooperatives.edit_profile"], phase: 5, href: "coop/settings/profile.html" },
           { id: "C23", title: "Products", kind: "settings", purpose: "Add from the catalog, recording unit and factor, local name, archive", notes: ["01", "02"], codes: ["cooperatives.edit_profile"], phase: 5, href: "coop/settings/products.html" },
@@ -189,6 +221,19 @@
           { id: "C28", title: "Team", kind: "settings", purpose: "Staff, their roles, pending invitations; invite, change role, remove (the kit's team page, for owners)", notes: ["09"], codes: ["owner"], phase: 5, href: "coop/settings/team.html", kit: true },
           { id: "C29", title: "Roles", kind: "settings", purpose: "The standard roles, read-only, and the cooperative's own roles built from codes it may use", notes: ["09"], codes: ["owner"], phase: 5, href: "coop/settings/roles.html", kit: true },
           { id: "C30", title: "Notifications", kind: "settings", purpose: "Which status notices reach the staff, by email and in the app; the mandatory ones locked", notes: ["01"], codes: ["cooperatives.edit_profile"], phase: 5, href: "coop/settings/notifications.html" }
+        ] }
+      ] },
+
+    { id: "partner", name: "Partner portal", about: "Web, for a lending partner that has no loan system of its own (29). A fourth shell in the same app, at /partner/. Its staff are members of the partner's own account, and two-step sign-in is required.", roleSet: "partner",
+      sections: [
+        { label: "Portal (phase 19, note 29)", dest: "home", screens: [
+          { id: "PP7", title: "Partner home", kind: "dashboard", purpose: "What needs attention: applications waiting, loans in arrears, money owed to GroFunder", notes: ["29"], codes: ["partner_portal.view"], phase: 19, href: "partner/index.html" },
+          { id: "PP1", title: "Applications", kind: "list", purpose: "The queue of forwarded loans: the request, the quote and the terms version, with the member's name only until details are opened; approve as requested, reject, ask for an amendment or cancel", notes: ["29", "27"], codes: ["partner_portal.view"], phase: 19, href: "partner/applications/index.html" },
+          { id: "PP2", title: "Loans", kind: "list", purpose: "The partner's loans by status, with balance and arrears", notes: ["29"], codes: ["partner_portal.view"], phase: 19, href: "partner/loans/index.html" },
+          { id: "PP3", title: "A loan", kind: "detail", purpose: "The request and quote, the schedule, payments and charges, and the status history; record a disbursement or a failed one, record or reverse a payment, waive a late penalty, write off a defaulted loan; member details open on demand and each opening is logged", notes: ["29", "26", "27", "22"], codes: ["partner_portal.view"], phase: 19, href: "partner/loans/loan.html?l=ln-161" },
+          { id: "PP4", title: "Collections", kind: "list", purpose: "Loans in arrears and defaulted, from GroFunder's nightly sweep; a defaulted loan shows that it is with GroFunder's recovery, and the money passed on, which the partner confirms", notes: ["29", "28"], codes: ["partner_portal.view"], phase: 19, href: "partner/collections/index.html" },
+          { id: "PP5", title: "Money", kind: "list", purpose: "Disbursed, collected, outstanding and in arrears, and GroFunder's share owed and remitted by period; record a remittance, which waits for GroFunder to confirm; export for audits", notes: ["29", "24"], codes: ["partner_portal.view"], phase: 19, href: "partner/money/index.html" },
+          { id: "PP6", title: "Team", kind: "settings", purpose: "The partner's staff and their roles, pending invitations, and the kit's invite, change role and remove; two-step sign-in is required for every partner login", notes: ["29", "09"], codes: ["owner"], phase: 19, href: "partner/team/index.html", kit: true }
         ] }
       ] },
 
@@ -231,7 +276,10 @@
         { label: "Loans (phase 16, note 26 part 1)", dest: "home", screens: [
           { id: "ML1", title: "Borrow", kind: "detail", purpose: "From What can I borrow: each product offered, its lender and the most you can borrow from it; or every reason you can't yet, each with what to do", notes: ["26"], codes: [], phase: 16, href: "member/loans/index.html" },
           { id: "ML2", title: "Ask for a loan", kind: "flow", purpose: "How much, how long, what for; the quote with every charge and the total cost; your declarations confirmed; the loan agreement and sharing with the named lender. Also accepting a GroFunder draft", notes: ["26", "22"], codes: [], phase: 16, href: "member/loans/request.html?pr=pr-mav-dairy" },
-          { id: "ML3", title: "Your loan", kind: "detail", purpose: "Where it stands in plain words, the quote as agreed and our reference; cancel a request; accept or decline a draft", notes: ["26"], codes: [], phase: 16, href: "member/loans/loan.html?state=requested" }
+          { id: "ML3", title: "Your loan", kind: "detail", purpose: "Where it stands in plain words, the quote as agreed and our reference; cancel a request; accept or decline a draft. Once disbursed (phase 17): what you received, the balance, each instalment and payment, days late and the amount overdue, late fees apart, how to pay", notes: ["26", "27"], codes: [], phase: 16, href: "member/loans/loan.html?state=requested" }
+        ] },
+        { label: "Recovery (phase 18, note 28)", dest: "account", screens: [
+          { id: "MR1", title: "Repaying from your pay", kind: "detail", purpose: "The member's own case: what was agreed and when, what is taken from each payout, what has been taken and what is left, and the collection fee. Never the lender's pricing or a score", notes: ["28"], codes: [], phase: 18, href: "member/recovery/index.html" }
         ] },
         { label: "Consents (phase 15, note 22)", dest: "account", screens: [
           { id: "MS1", title: "Consents", kind: "list", purpose: "From Account: what you've agreed to, per cooperative, then your login's terms; the version, when and how (in the app, or with whom by SMS code)", notes: ["22"], codes: [], phase: 15, href: "member/consents/index.html" },
@@ -257,6 +305,6 @@
   }
 
   /* Flows whose screens are drawn for real; other links are phase 2 pattern samples. */
-  var DRAWN = [4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16];
+  var DRAWN = [4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19];
   root.GF_SCREENS = { ROLES: ROLES, SURFACES: SURFACES, rolesFor: rolesFor, DRAWN: DRAWN };
 })(typeof window !== "undefined" ? window : globalThis);

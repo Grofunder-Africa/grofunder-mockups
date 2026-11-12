@@ -16,6 +16,9 @@
 <script src="../../assets/data/partners.js"></script>
 <script src="../../assets/data/consents.js"></script>
 <script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
 <script src="../assets/app.js"></script>
 <script src="../assets/nav.js" defer></script>
 <script src="../../assets/proto.js" defer></script>
@@ -60,6 +63,7 @@
       <div class="list rowcards">
         <a class="rowcard" href="../kyc/index.html"><span class="mdi mdi-shield-check-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Get verified for loans</span><span class="text-body-md tone-muted" id="kyc-line"></span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
         <a class="rowcard" href="../credit/index.html"><span class="mdi mdi-sprout-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">What can I borrow</span><span class="text-body-md tone-muted" id="credit-line"></span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
+        <a class="rowcard hidden" href="../recovery/index.html" id="recovery-row"><span class="mdi mdi-cash-refund" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Repaying from your pay</span><span class="text-body-md tone-muted" id="recovery-line"></span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
         <a class="rowcard" href="../circle/index.html"><span class="mdi mdi-account-group-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg">Your Growth Circle</span><span class="text-body-md tone-muted" id="circle-line"></span></span><span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>
       </div>
     </section>
@@ -115,6 +119,14 @@ document.getElementById("phone-line").textContent = f.phone(login.phone);
   document.getElementById("terms-line").textContent = ts.state === "BLOCKED" ? "Agree to version " + ts.version.number + " to start anything new" : ts.state === "EARLY" ? "Version " + ts.version.number + " applies from " + f.date(ts.from, "short") + ": you can agree now" : "Version " + v.number + ", accepted on " + f.date(t.occurred_at); })();
 /* MB1 entry (phase 14, note 25). */
 (function () { var l = GF.credit.limit(me.id); document.getElementById("credit-line").textContent = l.eligible ? "Up to " + f.money(l.limit_cents, { whole: true }) : l.reason === "PAUSED" ? "Borrowing is paused" : "Not available yet"; })();
+/* MR1 entry (phase 18, note 28): shown only while a case of the member's is live. */
+(function () {
+  var R = GF.recovery; if (!R) return;
+  var c = R.caseOf(me.id); if (!c) return;
+  var p = R.progress(c);
+  document.getElementById("recovery-line").textContent = c.status === "RECOVERING" ? f.money(p.loan_left_cents, { whole: true }) + " left on your loan" : "Your cooperative will talk to you";
+  document.getElementById("recovery-row").classList.remove("hidden");
+})();
 /* MC1 entry (phase 12, note 23). */
 (function () {
   var G = GF.groups, c = G.circleOf(me.id), inv = G.invitationsOf(me.id).length;

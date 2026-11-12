@@ -18,7 +18,7 @@
   var money = function (c) { return f.money(c); };
   var whole = function (c) { return f.money(c, { whole: true }); };
   var who = function (id) { var s = GF.get(id); return s ? s.name : GF.kyc ? GF.kyc.staffName(id) || id : id; };
-  var ROLES = { prepare: "owner full ops", review: "owner full", manage: "owner full", pause: "owner full", pause_all: "owner" };
+  var ROLES = { prepare: "owner full ops", review: "owner full", manage: "owner full", pause: "owner full", pause_all: "owner", follow_up: "owner full ops" };
   var FREQ = { MONTHLY: "monthly", WEEKLY: "weekly", BIWEEKLY: "fortnightly", DAILY: "daily", END_OF_TERM: "at the end" };
   /** The quote, as note 26 lists it: each charge, what the member receives, instalments, totals, late penalties apart. */
   function quoteCard(q, opts) {

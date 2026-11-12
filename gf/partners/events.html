@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Gateway events · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../assets/console.js"></script>
+<script src="partners-ui.js"></script>
+<script src="gateway-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Lending partners" data-dest="partners" data-wide>
+
+  <p class="proto-note"><b>LP8 · Gateway events (note 24 part 2, <code>PartnerEvent</code>; note 27, "Inbound" and "The envelope").</b> Every message a partner sent (CALLBACK) and every difference the poll found (POLL), logged before anything is acted on. It answers: what did the partner tell us, exactly, when, was it really from them, and what did we do with it? The adapter turns each into canonical events (27), which loans applies.</p>
+  <p class="proto-note"><b>Status.</b> <i>Applied</i>: the handler changed something. <i>Ignored</i>: valid but changed nothing (a stale status, a repeat). <i>Held</i>: the loan wasn't found yet; retried for 24 hours, then failed. <i>Failed</i>: processing raised an error; flagged for staff (<code>EVENT_FAILED</code>). <i>Rejected</i>: the signature failed (exactly when the signature is invalid, and then the event id is blank), answered 401, never parsed or processed.</p>
+  <p class="proto-note"><b>Never edited.</b> A trigger keeps the partner, connection, source, event id, partner event, arrival time, signature and raw body fixed; a row is never deleted. Staff with <code>lending_partners.operate</code> (Operations and up) may run a FAILED event again after a fix, and ask the gateway to poll the loan. View only doesn't see the logs.</p>
+  <p class="proto-note"><b>Order (27).</b> Status events apply only if newer than the last applied (by sequence, then when they happened, then arrival); ledger facts apply in any order. A repeated event id is answered 200 and ignored: its <i>duplicates</i> count goes up.</p>
+
+  <div data-roles="view agent" class="empty"><span class="mdi mdi-lock-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">For Operations and up</span><span class="text-body-md">The gateway's logs need <code>lending_partners.operate</code>.</span>
+    <a class="btn btn-tonal" href="index.html">Lending partners</a></div>
+
+  <div data-state="loaded" class="col gap-4" data-roles="owner full ops">
+    <div data-subnav="partners" data-current="gateway" data-label="Lending partners"></div>
+    <div id="tabs"></div>
+    <div class="section">
+      <div class="section-toolbar"><div class="row gap-3 wrap">
+        <select class="field-input" id="f-partner" aria-label="Lender" style="width:auto"></select>
+        <select class="field-input" id="f-status" aria-label="Status" style="width:auto"></select>
+        <select class="field-input" id="f-source" aria-label="Source" style="width:auto"><option value="">Callbacks and polls</option><option value="CALLBACK">Callbacks</option><option value="POLL">Polls</option></select>
+        <div class="field search" style="min-width:200px"><div class="field-box"><span class="lead"><span class="mdi mdi-magnify" aria-hidden="true"></span></span>
+          <input class="field-input" id="f-ref" type="search" placeholder="Loan reference" aria-label="Loan reference"></div></div>
+      </div></div>
+      <div class="table-wrap only-wide"><table class="table">
+        <thead><tr><th>Received</th><th>Event</th><th>Loan</th><th>Signature</th><th>Status</th><th class="num">Attempts</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+      <div class="rowcards only-compact" id="cards"></div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4" data-roles="owner full ops"><div class="skeleton-card" style="height:320px"></div></div>
+  <div data-state="empty" class="empty" data-roles="owner full ops"><span class="mdi mdi-inbox-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No events yet</span><span class="text-body-md">Messages from partners show here once a partner with live loans sends one, or the poll finds a difference.</span></div>
+  <div data-state="error" class="error-state" data-roles="owner full ops"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the events</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var Gw = GF.gateway, G = GatewayUI, U = PartnersUI, esc = U.esc, L = Gw.L;
+var ATTN = ["FAILED", "HELD", "REJECTED"];
+document.getElementById("tabs").innerHTML = G.tabs("events");
+var qs = new URLSearchParams(location.search);
+var fs = document.getElementById("f-status");
+fs.innerHTML = '<option value="attention">Needs attention (' + Gw.events.filter(function (e) { return ATTN.indexOf(e.status) > -1; }).length + ")</option><option value=\"\">All (" + Gw.events.length + ")</option>" +
+  Object.keys(L.eventStatus).map(function (k) { var n = Gw.events.filter(function (e) { return e.status === k; }).length; return '<option value="' + k + '">' + L.eventStatus[k][1] + " (" + n + ")</option>"; }).join("");
+fs.value = qs.get("status") === null ? "attention" : qs.get("status");
+if (qs.get("ref")) document.getElementById("f-ref").value = qs.get("ref");
+var canon = function (e) { return e.details.canonical.length ? e.details.canonical.map(function (c) { return c.event; }).join(", ") : '<span class="tone-muted">Not parsed</span>'; };
+/* Every log can be read for one lender (design, 2026-11-10). */
+document.getElementById("f-partner").innerHTML = '<option value="">Every lender</option>' + GF.partners.partners.map(function (p) { return '<option value="' + p.id + '">' + esc(p.name) + "</option>"; }).join("");
+function list() {
+  var st = fs.value, src = document.getElementById("f-source").value, ref = document.getElementById("f-ref").value.trim().toUpperCase();
+  var who = document.getElementById("f-partner").value;
+  return Gw.events.filter(function (e) {
+    return (!who || e.partner === who) && (st === "attention" ? ATTN.indexOf(e.status) > -1 : !st || e.status === st) && (!src || e.source === src) && (!ref || (e.loan_ref || "").indexOf(ref) > -1);
+  }).sort(function (a, b) { return a.received_at < b.received_at ? 1 : -1; });
+}
+function draw() {
+  var rows = list();
+  document.getElementById("rows").innerHTML = rows.length ? rows.map(function (e) {
+    return '<tr data-href onclick="openEvent(\'' + e.id + '\')"><td class="tabular">' + U.when(e.received_at) + '<span class="cell-sub">' + esc(G.partnerName(e.partner)) + " · " + L.source[e.source] + "</span></td>" +
+      '<td class="primary-cell"><a href="#" onclick="openEvent(\'' + e.id + '\');return false">' + esc(e.partner_event) + '</a><span class="cell-sub">→ ' + canon(e) + "</span></td>" +
+      "<td>" + G.refLink(e.loan_ref) + "</td><td>" + L.signature[e.signature] + "</td><td>" + U.chip(L.eventStatus[e.status]) + '</td><td class="num tabular">' + e.attempts + "</td></tr>";
+  }).join("") : '<tr><td colspan="6" class="text-body-md tone-muted">Nothing here.</td></tr>';
+  document.getElementById("cards").innerHTML = rows.length ? rows.map(function (e) {
+    return '<button class="rowcard" type="button" onclick="openEvent(\'' + e.id + '\')" style="align-items:flex-start"><span class="grow"><span class="text-body-lg">' + esc(e.partner_event) + " → " + canon(e) + "</span>" +
+      '<span class="text-body-md tone-muted tabular">' + (e.loan_ref ? esc(e.loan_ref) + " · " : "") + U.when(e.received_at) + " · " + L.source[e.source] + "</span></span>" + U.chip(L.eventStatus[e.status]) + "</button>";
+  }).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">Nothing here.</span></div>';
+}
+function openEvent(id) {
+  var e = Gw.get(id), d = e.details;
+  var note = { REJECTED: "The signature didn't match: answered 401, never parsed or processed. It keeps no event id, so it can never take a real event's id.",
+    HELD: "The loan wasn't found yet (it can arrive before our forwarding answer is saved). Retried for 24 hours from " + U.when(e.received_at) + ", then failed and flagged.",
+    FAILED: "Processing raised an error. Fix the cause, then run it again; the event is never edited.", IGNORED: "Valid, but it changed nothing.", APPLIED: "", RECEIVED: "Logged; processing hasn't run yet." }[e.status];
+  var acts = (e.status === "FAILED" ? '<button class="btn btn-filled" type="button" id="run-again" data-roles="' + G.OPERATE + '" onclick="GatewayUI.runAgain(\'' + e.id + '\')">Run again</button>' : "") +
+    (e.loan_ref && G.loanByRef(e.loan_ref) ? '<button class="btn btn-outlined" type="button" id="poll-loan" data-roles="' + G.OPERATE + '" onclick="GatewayUI.pollLoan(\'' + e.loan_ref + '\')">Poll this loan</button>' : "");
+  Proto.sheet({ wide: true, title: esc(e.partner_event) + " · " + L.eventStatus[e.status][1], body:
+    '<div class="row gap-2 wrap">' + U.chip(L.eventStatus[e.status]) + '<span class="status status-neutral">' + L.source[e.source] + "</span></div>" +
+    (note ? '<div class="banner banner-' + (e.status === "FAILED" || e.status === "REJECTED" ? "error" : "info") + '"><span class="mdi mdi-information-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">' + esc(note) + "</span></div></div>" : "") +
+    '<dl class="facts"><dt>Partner</dt><dd>' + esc(G.partnerName(e.partner)) + "</dd>" +
+      '<dt>Event id</dt><dd class="tabular">' + (e.event_id ? "<code>" + esc(e.event_id) + "</code>" : '<span class="tone-muted">None (rejected)</span>') + "</dd>" +
+      "<dt>Loan</dt><dd>" + G.refLink(e.loan_ref) + "</dd>" +
+      '<dt>Sequence</dt><dd class="tabular">' + (e.sequence == null ? '<span class="tone-muted">Not sent</span>' : e.sequence) + "</dd>" +
+      "<dt>Happened</dt><dd>" + (e.occurred_at ? U.when(e.occurred_at) : "–") + "</dd><dt>Received</dt><dd>" + U.when(e.received_at) + "</dd>" +
+      "<dt>Processed</dt><dd>" + (e.processed_at ? U.when(e.processed_at) : '<span class="tone-muted">Not yet</span>') + " · attempts " + e.attempts + "</dd>" +
+      "<dt>Signature</dt><dd>" + L.signature[e.signature] + (e.connection ? " · connection <code>" + esc(e.connection) + "</code>" : " · no connection (poll)") + "</dd>" +
+      "<dt>Resent</dt><dd>" + (d.duplicates ? d.duplicates + " time" + (d.duplicates === 1 ? "" : "s") + ", answered 200 and ignored" : "No") + "</dd></dl>" +
+    (d.result ? '<span class="text-title-sm">What we did</span><p class="text-body-md" id="ev-result">' + esc(d.result) + "</p>" : "") +
+    (d.error ? '<span class="text-title-sm">Error</span><p class="text-body-md tone-error">' + esc(d.error) + "</p>" : "") +
+    '<span class="text-title-sm">Canonical events</span>' + (d.canonical.length ? '<div class="rowcards">' + d.canonical.map(function (c) { return '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="text-body-md"><code>' + esc(c.event) + "</code></span></div>"; }).join("") + "</div>" : '<p class="text-body-md tone-muted">None: not parsed.</p>') +
+    '<span class="text-title-sm">Raw body, as received</span>' + G.pre(e.raw_body) +
+    '<span class="text-title-sm">Headers kept</span>' + G.pre(d.headers),
+    footer: acts });
+}
+["f-partner", "f-status", "f-source"].forEach(function (id) { document.getElementById(id).addEventListener("change", draw); });
+document.getElementById("f-ref").addEventListener("input", draw);
+draw();
+if (qs.get("e")) document.addEventListener("DOMContentLoaded", function () { openEvent(qs.get("e")); });
+</script>
+</body>
+</html>

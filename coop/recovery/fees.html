@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Collection fees · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="recovery-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Recovery" data-dest="recovery" data-wide>
+
+  <p class="proto-note"><b>C43 · Collection fees (note 28; <code>GET cooperatives/{id}/recovery/fees/</code>).</b> What the cooperative earns for collecting. The fee is worked out once, when the arrangement is first recorded, by the collection terms in force then (Q2). It is taken from the member's payouts only after the loan itself is recovered (Q1), and it is never remitted: the cooperative keeps it.</p>
+  <p class="proto-note"><b>A fee outlives its case.</b> When a loan is repaid or the case is closed, the fee charge stays open until it is paid off from later payouts. GroFunder may cancel it with a reason, for example after a dispute.</p>
+  <p class="proto-note">Read-only: nothing is changed here. The amounts come from the fee deductions on paid payouts.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="recovery" data-current="fees" data-label="Recovery"></div>
+    <div class="section"><div class="section-band">
+      <div class="section-figure lg"><span class="k">Earned so far</span><span class="v" id="t-earned"></span></div>
+      <div class="section-figure"><span class="k">Still to collect</span><span class="v" id="t-left"></span></div>
+      <div class="section-figure"><span class="k">Cases with a fee</span><span class="v" id="t-cases"></span></div>
+    </div></div>
+    <div class="section"><div class="table-wrap only-wide"><table class="table">
+      <thead><tr><th>Member</th><th>Case</th><th class="num">Fee</th><th class="num">Taken</th><th class="num">Left</th><th>How it was worked out</th></tr></thead>
+      <tbody id="rows"></tbody></table></div>
+      <div class="rowcards only-compact" id="cards"></div></div>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Taken from payouts</span>
+      <span class="text-body-md tone-muted">Each fee deduction, on the payout it came from</span></div></div>
+      <div class="rowcards" id="items"></div></section>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:120px"></div><div class="skeleton-card" style="height:200px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-cash-remove" aria-hidden="true"></span>
+    <span class="text-headline-sm">No fees yet</span><span class="text-body-md">A collection fee is worked out when an arrangement is first recorded with a member.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the fees</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var U = RecoveryUI, R = GF.recovery, esc = U.esc, f = GF.fmt;
+var COOP = Portal.COOP;
+var withFee = R.casesOf(COOP).filter(function (c) { return c.fee_charge; });
+var earned = 0, left = 0;
+var rows = withFee.map(function (c) {
+  var ch = R.chargeOf(c.fee_charge), got = R.recovered(ch.id), rest = Math.max(0, ch.amount_cents - got);
+  earned += got; left += rest;
+  var t = c.terms ? R.get(c.terms) : null;
+  var how = !t ? "" : t.fee_basis === "FLAT_PER_CASE" ? "A flat fee per case"
+    : U.pct(t.fee_rate_bps) + " of " + U.money(c.debt_at_agreement_cents) + " owed when agreed" + (t.fee_cap_cents && ch.amount_cents === t.fee_cap_cents ? ", capped at " + U.money(t.fee_cap_cents) : "");
+  return { c: c, ch: ch, got: got, rest: rest, how: how, m: GF.get(c.member) };
+});
+document.getElementById("t-earned").textContent = U.money(earned);
+document.getElementById("t-left").textContent = U.money(left);
+document.getElementById("t-cases").textContent = String(withFee.length);
+document.getElementById("rows").innerHTML = rows.length ? rows.map(function (r) {
+  return '<tr><td class="primary-cell">' + esc(r.m.full_name) + '<span class="cell-sub tabular">' + r.m.member_no + "</span></td>" +
+    '<td><a href="case.html?c=' + r.c.id + '" class="tabular">' + r.c.reference + "</a>" + '<span class="cell-sub">' + R.L.status[r.c.status][1] + "</span></td>" +
+    '<td class="num tabular">' + U.money(r.ch.amount_cents) + '</td><td class="num tabular">' + U.money(r.got) + '</td><td class="num tabular">' + (r.rest ? U.money(r.rest) : "–") + "</td>" +
+    '<td class="text-body-sm">' + esc(r.how) + "</td></tr>";
+}).join("") : '<tr><td colspan="6" class="text-body-md tone-muted">No fees yet.</td></tr>';
+document.getElementById("cards").innerHTML = rows.map(function (r) {
+  return '<a class="rowcard" href="case.html?c=' + r.c.id + '" style="align-items:flex-start"><span class="grow"><span class="text-body-lg">' + esc(r.m.full_name) + "</span>" +
+    '<span class="text-body-md tone-muted">' + U.money(r.got) + " taken of " + U.money(r.ch.amount_cents) + (r.rest ? " · " + U.money(r.rest) + " left" : "") + "</span>" +
+    '<span class="text-body-sm tone-muted">' + esc(r.how) + "</span></span>" + U.chip(R.L.chargeStatus[r.ch.status]) + "</a>";
+}).join("");
+var items = R.feesEarned(COOP);
+document.getElementById("items").innerHTML = items.length ? items.map(function (w) {
+  var c = R.get(w["case"]), po = GF.get(w.payout);
+  return '<div class="rowcard"><span class="grow"><span class="text-body-lg tabular">' + U.money(w.amount_cents) + "</span>" +
+    '<span class="text-body-md tone-muted">' + esc(GF.get(c.member).full_name) + " · " + esc(po.details.label) + "</span>" +
+    '<span class="text-body-sm tone-muted">' + (w.status === "PAID" ? "Paid " + f.date(w.paid_at, "short") : "On the draft, not paid yet") + "</span></span>" +
+    (w.status === "PAID" ? '<span class="status status-success">Earned</span>' : '<span class="status status-info">On a draft</span>') + "</div>";
+}).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">Nothing taken yet. The fee waits until the loan itself is recovered.</span></div>';
+</script>
+</body>
+</html>

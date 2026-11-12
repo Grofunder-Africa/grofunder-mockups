@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Repaying from your pay · GroFunder member app</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/app.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Repaying from your pay" data-dest="account" data-back="../account/index.html" data-compact>
+
+  <p class="proto-note"><b>MR1 · Repaying from your pay (note 28; <code>GET me/memberships/{id}/recovery/</code>).</b> The member's own case: what was agreed with the cooperative and when, how much of each payout goes to the loan, what has been taken so far and what is left, the collection fee, and what happens next. Never the lender's pricing, the loan's terms or a credit score.</p>
+  <p class="proto-note"><b>Who is shown.</b> Wanjiku has no case, so this draws the member who has one: <b>Peter Ndungu</b> at Kijani Valley Dairy, recovering at 30% of each payout. <code>?c=rc-2</code> shows Muthoni Thuku's, which is closed with the fee still owed.</p>
+  <p class="proto-note"><b>A fee that outlives the loan (G132, the owner, 2026-11-11; 28's notices).</b> Once the loan is repaid, the screen says "Collection fee still owed: KES 300, taken from your pay" until the fee is paid or cancelled (<code>?c=rc-2</code>). In-app notices: <i>feepaid</i>, "Your collection fee is fully paid."; <i>feecancelled</i>, sent to the member and the cooperative when GroFunder cancels it. Swahili in 28's table.</p>
+  <p class="proto-note"><b>What the member can do here:</b> nothing but read. The arrangement is agreed with the cooperative, in person or by phone, and changed the same way; the screen says who to talk to.</p>
+
+  <div data-roles="out" class="empty"><span class="mdi mdi-account-lock-outline" aria-hidden="true"></span><span class="text-headline-sm">You're signed out</span>
+    <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a></div>
+
+  <div data-state="loaded feepaid feecancelled" class="col gap-6" data-roles="in" id="main"></div>
+
+  <div data-state="loading" class="col gap-4" data-roles="in"><div class="skeleton-card" style="height:180px"></div><div class="skeleton-card" style="height:200px"></div></div>
+  <div data-state="empty" class="empty" data-roles="in"><span class="mdi mdi-check-all" aria-hidden="true"></span>
+    <span class="text-headline-sm">Nothing is taken from your pay</span>
+    <span class="text-body-md">If a loan of yours is ever not repaid, GroFunder checks it first and your cooperative agrees an arrangement with you before anything is taken.</span></div>
+  <div data-state="error" class="error-state" data-roles="in"><span class="mdi mdi-wifi-off" aria-hidden="true"></span>
+    <span class="text-headline-sm">No connection</span><span class="text-body-md">This shows again once you're back online.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+<script>
+var A = MemberApp, R = GF.recovery, f = GF.fmt, esc = A.esc;
+var c = R.get(new URLSearchParams(location.search).get("c") || "rc-3") || R.get("rc-3");
+var m = GF.get(c.member), coop = GF.get(m.cooperative).profile.short_name, loan = GF.loans.get(c.loan);
+var lender = GF.partners.get(loan.partner).name;
+var money = function (x) { return f.money(x, { whole: x % 100 === 0 }).replace(/^Ksh/, "KES"); };
+var pct = function (bps) { return (bps / 100).toFixed(bps % 100 ? 1 : 0) + "%"; };
+
+var view = "loaded";
+function draw() {
+  var p = R.progress(c), wh = R.withheldOf(c.id).filter(function (w) { return w.status === "PAID"; });
+  var taking = c.status === "RECOVERING", closed = c.status === "CLOSED";
+  var how = c.arrangement === "FULL" ? "as much of each payment as allowed" : c.per_payout_bps ? pct(c.per_payout_bps) + " of each payment" : money(c.per_payout_cents) + " from each payment";
+  var ban = closed
+    ? (view === "feepaid" ? ["success", "check-all", "Your collection fee is fully paid.", "Nothing more is taken from your pay."]
+      : view === "feecancelled" ? ["success", "check-all", "Your " + money(p.fee ? p.fee.amount_cents : p.fee_left_cents) + " collection fee was cancelled.", "Nothing more will be taken from your pay for it."]
+      : ["success", "check-all", "Your loan is repaid", p.fee_left_cents ? "Collection fee still owed: " + money(p.fee_left_cents) + ", taken from your pay" : "Nothing more is taken from your pay."])
+    : c.status === "PAUSED" ? ["warning", "pause-circle-outline", "Paused", "Nothing is taken from your pay at the moment. GroFunder will tell you when it starts again."]
+    : taking ? ["info", "cash-sync", money(p.loan_left_cents) + " left to repay", how.charAt(0).toUpperCase() + how.slice(1) + " goes to your " + esc(lender) + " loan, as you agreed with " + esc(coop) + " on " + f.date(c.agreed_on) + "."]
+    : ["info", "handshake-outline", coop + " will talk to you", "Your " + esc(lender) + " loan wasn't repaid, so " + esc(coop) + " will agree with you how much of each payment goes to it. Nothing is taken until you agree."];
+  document.getElementById("main").innerHTML =
+    '<div class="banner banner-' + ban[0] + '"><span class="mdi mdi-' + ban[1] + '" aria-hidden="true"></span><div class="grow"><span class="text-title-sm" id="rec-title">' + esc(ban[2]) + '</span><span class="text-body-md">' + esc(ban[3]) + "</span></div></div>" +
+    (p.loan ? '<div class="card card-outlined col gap-3">' +
+      '<div class="row between gap-2"><span class="text-body-md">Taken so far</span><span class="text-title-md tabular" id="rec-taken">' + money(p.loan_recovered_cents) + "</span></div>" +
+      '<div class="row between gap-2"><span class="text-body-md">Still to repay</span><span class="text-title-md tabular" id="rec-left">' + money(p.loan_left_cents) + "</span></div>" +
+      (p.fee ? '<div class="divider"></div><div class="row between gap-2"><span class="text-body-md">Collection fee, kept by ' + esc(coop) + '</span><span class="text-title-md tabular" id="rec-fee">' + money(p.fee_left_cents || 0) + "</span></div>" +
+        '<span class="text-body-sm tone-muted">' + (p.loan_left_cents ? "It is taken only after your loan is fully repaid." : "It is taken from your next payments until it is paid.") + "</span>" : "") +
+      "</div>" : "") +
+    (c.arrangement ? '<div class="card card-outlined"><dl class="facts stack"><dt>What you agreed</dt><dd>' + esc(how.charAt(0).toUpperCase() + how.slice(1)) + "</dd>" +
+      "<dt>Agreed on</dt><dd>" + f.date(c.agreed_on) + " · " + (c.details.agreed_via === "PHONE" ? "by phone" : "in person") + "</dd>" +
+      "<dt>Your loan</dt><dd>" + esc(lender) + ' · <span class="tabular">' + loan.reference + "</span></dd></dl></div>" : "") +
+    (wh.length ? '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Taken from your payments</span></div></div><div class="list rowcards" id="rec-items">' +
+      wh.map(function (w) {
+        var po = GF.get(w.payout), ch = R.chargeOf(w.charge), fee = ch && ch.type === "pit-kij-recfee";
+        return '<a class="rowcard" href="../payments/statement.html?p=' + po.id + '"><span class="grow"><span class="text-body-lg tabular">' + money(w.amount_cents) + "</span>" +
+          '<span class="text-body-md tone-muted">' + esc(po.details.label) + " · " + (fee ? "collection fee" : "loan") + "</span>" +
+          '<span class="text-body-sm tone-muted">Paid ' + f.date(w.paid_at, "short") + "</span></span>" + '<span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>';
+      }).join("") + "</div></section>" : "") +
+    '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">What happens next</span></div></div>' +
+      '<div class="list rowcards"><div class="rowcard"><span class="mdi mdi-cash-multiple" aria-hidden="true"></span><span class="grow"><span class="text-body-md">' +
+        (taking ? "Each time " + esc(coop) + " pays you, " + esc(how) + " goes to the loan. You see it on your statement." : closed ? "Your statements show what was taken." : "Nothing is taken until you and " + esc(coop) + " agree.") + "</span></span></div>" +
+      '<div class="rowcard"><span class="mdi mdi-account-voice" aria-hidden="true"></span><span class="grow"><span class="text-body-md">If this is too much to live on, talk to ' + esc(coop) + ". They can agree a smaller amount with you, within what GroFunder allows.</span></span></div>" +
+      '<div class="rowcard"><span class="mdi mdi-sprout-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-md">You can borrow again once this is settled.</span></span></div></div></section>' +
+    '<p class="text-body-sm tone-muted">Shown for ' + esc(m.full_name) + " at " + esc(coop) + ".</p>";
+}
+draw();
+document.addEventListener("proto:state", function (e) { if (["loaded", "feepaid", "feecancelled"].indexOf(e.detail) > -1) { view = e.detail; if (e.detail !== "loaded" && c.status !== "CLOSED") { c = R.cases.find(function (x) { return x.status === "CLOSED"; }) || c; } draw(); } });
+</script>
+</body>
+</html>

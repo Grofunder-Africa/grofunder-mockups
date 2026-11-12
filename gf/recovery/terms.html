@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Collection terms · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/console.js"></script>
+<script src="recovery-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Recovery" data-dest="recovery" data-wide>
+
+  <p class="proto-note"><b>RC3 · Collection terms (note 28, <code>GET cooperatives/{id}/terms/</code>).</b> What each cooperative may take from a member's pay, what it earns for collecting, and how often it remits. GroFunder agrees the terms outside the system and enters them as a dated version; the cooperative's administrator acknowledges them in its portal.</p>
+  <p class="proto-note"><b>No terms, no case.</b> A cooperative with nothing in force, or whose terms say it doesn't recover, never receives a case: its defaulted loans are GroFunder's to settle with the lender. Terms that are in force but not acknowledged stop a case being confirmed until the administrator acknowledges them (Q8).</p>
+  <p class="proto-note"><b>Versions work as a lender's terms do (24):</b> one draft at a time, published from a date, never changed once published, and withdrawn only before they take effect. Drafting and publishing need <code>recovery.terms</code> (Full and Owner).</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="recovery" data-current="terms" data-label="Recovery"></div>
+    <div class="section"><div class="table-wrap"><table class="table"><thead><tr><th>Cooperative</th><th>In force</th><th class="num">Most per payout</th><th>Collection fee</th><th>Remits</th><th>Acknowledged</th><th></th></tr></thead><tbody id="rows"></tbody></table></div></div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:240px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-file-document-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">No collection terms yet</span><span class="text-body-md">Until a cooperative has terms in force that it has acknowledged, no case can be confirmed for its members.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the terms</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var R = GF.recovery, U = RecoveryUI, esc = U.esc, f = GF.fmt;
+function draw() {
+  document.getElementById("rows").innerHTML = GF.cooperatives.map(function (co) {
+    var all = R.termsOf(co.id), t = R.inForce(co.id), draft = all.find(function (x) { return x.status === "DRAFT"; });
+    var why = R.cannotRecover(co.id);
+    var inForce = t ? '<a href="terms-version.html?t=' + t.id + '">Version ' + t.version + "</a>" + (t.recovers ? "" : ' <span class="status status-neutral">Doesn\'t recover</span>')
+      : '<span class="tone-muted">None</span>';
+    return '<tr><td class="primary-cell">' + esc(co.profile.short_name) + '<span class="cell-sub">' + co.status.toLowerCase().replace("_", " ") + "</span></td>" +
+      "<td>" + inForce + (t ? '<span class="cell-sub">from ' + f.date(t.effective_from, "short") + "</span>" : "") + "</td>" +
+      '<td class="num">' + (t && t.recovers ? U.capLine(t) : "–") + "</td>" +
+      '<td class="text-body-sm">' + (t ? esc(U.feeLine(t)) : "–") + "</td>" +
+      '<td class="text-body-sm">' + (t ? R.L.cycle[t.remittance_cycle] + ", within " + t.remit_within_days + " days" : "–") + "</td>" +
+      "<td>" + (!t ? "–" : t.acknowledged_at ? U.chip(["success", "Yes"]) + '<span class="cell-sub">' + f.date(t.acknowledged_at, "short") + (t.acknowledged_by ? " · " + esc(U.who(t.acknowledged_by)) : "") + "</span>"
+        : U.chip(["warning", "Not yet"]) + '<span class="cell-sub">no case can be confirmed</span>') + "</td>" +
+      '<td><div class="row gap-1" data-roles="' + U.ROLES.terms + '">' +
+        (draft ? '<a class="btn btn-text btn-sm" href="terms-version.html?t=' + draft.id + '">Open the draft</a>'
+          : '<button class="btn btn-text btn-sm" type="button" data-draft="' + co.id + '">Draft a new version</button>') + "</div>" +
+        (why && t ? '<span class="cell-sub tone-warning">' + esc(why) + "</span>" : "") + "</td></tr>";
+  }).join("");
+  if (window.Proto) Proto.applyRoles(document.getElementById("rows"));
+}
+document.getElementById("rows").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-draft]"); if (!b) return;
+  var co = GF.get(b.getAttribute("data-draft")), t = R.inForce(co.id);
+  Proto.dialog({ title: "Draft collection terms for " + esc(co.profile.short_name), body:
+    '<p class="text-body-md">' + (t ? "A copy of version " + t.version + ", which you then change and publish from a date." : "The first version for this cooperative, started empty.") + "</p>" +
+    '<p class="text-body-sm tone-muted">Published terms never change: a change is a new version. ' + esc(co.profile.short_name) + "'s administrator acknowledges each one before a case can be confirmed under it.</p>",
+    submit: "Draft", onSubmit: function () { Proto.snack("Draft started for " + co.profile.short_name); } });
+});
+draw();
+</script>
+</body>
+</html>

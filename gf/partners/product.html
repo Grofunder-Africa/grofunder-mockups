@@ -12,6 +12,11 @@
 <link rel="stylesheet" href="../../assets/kit.css">
 <script src="../../assets/data/canon.js"></script>
 <script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
 <script src="../assets/console.js"></script>
 <script src="partners-ui.js"></script>
 <script src="../assets/nav.js" defer></script>
@@ -21,6 +26,7 @@
 
 <div data-screen data-title="Loan product" data-dest="partners" data-wide id="screen">
 
+  <p class="proto-note"><b>Deleting (G82, the owner, 2026-11-09; <code>delete_product</code> in 24).</b> <b>Delete</b> shows only while nothing points at the product: no published terms version, no cooperative ever linked, and no loan. It needs <code>lending_partners.manage</code> and is audited. Otherwise <b>Retire</b> is the way out, and the product is kept. In the data every product has been used, so Delete shows on a product you add.</p>
   <p class="proto-note"><b>LP4 · Product (note 24; <code>GET products/{id}/</code>, <code>products/{id}/terms/</code>).</b> What members can borrow from one partner, under the partner's code: what it's for in English and Swahili, the purposes members pick (each <code>value</code> is sent as <code>loanPurpose</code>, P3), every terms version and the cooperatives it covers.</p>
   <p class="proto-note"><b>Versions</b> are marked in force, scheduled, past, withdrawn or draft. The version in force is the latest published one that has taken effect, as produce's prices work. One draft at a time (P1); a new draft starts as a copy of the version in force.</p>
   <p class="proto-note"><b>Draft a new version</b> asks which version to copy (<code>from_version</code>); the one in force is suggested.</p>
@@ -81,12 +87,15 @@ document.getElementById("head").innerHTML = '<div class="section"><div class="se
     '<button class="btn btn-outlined btn-sm" type="button" id="edit-product-btn" onclick="editProduct()">' + icon("pencil-outline") + "Edit</button>" +
     (x.status === "ACTIVE" ? '<button class="btn btn-outlined btn-sm" type="button" id="pause-btn" onclick="setStatus(\'PAUSED\')">' + icon("pause-circle-outline") + "Pause</button>"
       : '<button class="btn btn-outlined btn-sm" type="button" id="activate-btn" onclick="setStatus(\'ACTIVE\')">' + icon("play-circle-outline") + "Make active again</button>") +
-    '<button class="btn btn-text btn-sm tone-error" type="button" id="retire-btn" onclick="setStatus(\'RETIRED\')">' + icon("archive-outline") + "Retire</button></div>" : "") +
+    '<button class="btn btn-text btn-sm tone-error" type="button" id="retire-btn" onclick="setStatus(\'RETIRED\')">' + icon("archive-outline") + "Retire</button>" +
+    '<span id="delete-slot"></span></div>' : "") +
   (retired ? '<span class="text-body-sm tone-muted">Retired: final. No new quotes, and its coverage has ended. Live loans keep their terms.</span>' : partnerEnded ? '<span class="text-body-sm tone-muted">' + esc(p.name) + " has ended, so nothing here changes.</span>" : "") +
   '<span class="text-body-md">' + (t ? "Version " + t.version + " in force: " + esc(U.termsLine(t)) : '<span class="tone-muted">No terms in force, so it isn\'t quoted</span>') + "</span>" +
   (x.status === "PAUSED" ? '<span class="text-body-sm tone-muted">Paused: no new quotes. Live loans keep their terms.</span>' : "") + "</div></div>";
 
 var versions = P.termsOf(x.id), draft = P.draftOf(x.id);
+/* G82 (owner, 2026-11-09): a product with no published terms, no coverage and no loans can be deleted. */
+var neverUsed = !versions.some(function (v) { return v.status !== "DRAFT"; }) && !P.coverageOf(x.id, true).length && !(GF.loans && GF.loans.loans.some(function (l) { return l.product === x.id; }));
 document.getElementById("versions").innerHTML = versions.map(function (v) {
   var st = P.termsState(v), sub;
   if (st === "DRAFT") sub = "Drafted " + U.when(v.created_at) + " by " + esc(U.who(v.created_by));
@@ -149,6 +158,17 @@ function link() {
 function endCov(id) {
   var co = GF.get(P.get(id).cooperative);
   Proto.confirm({ title: "Stop offering it to " + esc(co.profile.short_name) + "?", message: "No new quotes for its members. Live loans carry on. You can link it again later.", confirm: "End coverage", destructive: true, onConfirm: function () { Proto.snack("Coverage ended"); } });
+}
+/* G82: the button appears only while nothing points at the product; otherwise Retire is the way out. */
+if (live && neverUsed) {
+  document.getElementById("delete-slot").innerHTML = '<button class="btn btn-text btn-sm tone-error" type="button" id="delete-product-btn" onclick="removeProduct()">' + icon("delete-outline") + "Delete</button>";
+  menu.push({ label: "Delete this product", icon: "delete-outline", roles: R.manage, on: "removeProduct()", destructive: true });
+  document.querySelector("[data-screen]").setAttribute("data-menu", JSON.stringify(menu));
+}
+function removeProduct() {
+  Proto.confirm({ title: "Delete " + esc(x.name) + "?", destructive: true, confirm: "Delete",
+    message: "It has no published terms, no cooperative linked and no loans, so nothing points at it. It goes for good, with its drafts. To keep the record instead, retire it.",
+    onConfirm: function () { Proto.snack(x.name + " deleted"); setTimeout(function () { location.href = "partner.html?p=" + p.id + "&tab=products"; }, 900); } });
 }
 function setStatus(to) {
   var msg = { PAUSED: "No new quotes; live loans keep their terms. You can make it active again.", ACTIVE: "It's quoted again where it has terms in force and coverage.", RETIRED: "Final: no new quotes, and its coverage ends. Live loans keep their terms." }[to];

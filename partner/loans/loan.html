@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Loan · GroFunder partner portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/portal-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen id="screen" data-title="Loan" data-dest="loans" data-back="index.html" data-wide>
+
+  <p class="proto-note"><b>PP3 · A loan (note 29, "The loan through the portal"; 26 part 2 for the ledger).</b> The application and the quote the member accepted, the terms version, the schedule GroFunder generated from the terms and your disbursement date, every payment you posted with the split GroFunder worked out, the charges, and the status history. What you record here raises the canonical event beside it; GroFunder's ledger does the rest.</p>
+  <p class="proto-note"><b>What you can do, by role.</b> Record a disbursement, or one that failed (<code>partner_portal.disburse</code>: Administrator, Finance). Record a payment, or reverse one with a reason while the loan isn't closed or written off (<code>partner_portal.payments</code>). Waive a late penalty, with a reason (the same). Write off a defaulted loan, with a reason and the amount (<code>partner_portal.write_off</code>: the Administrator alone, Q4). <b>A payment above the balance is refused</b>: refund the member and record only what was owed. <b>There is no restructuring in v1</b> (Q6): ask GroFunder.</p>
+  <p class="proto-note"><b>How a payment is split</b> (Q3): oldest instalment first and, within it, its fees, then interest, then principal; open late penalties only once every instalment due is paid; anything more pays ahead. GroFunder splits it, because its ledger is the record.</p>
+  <p class="proto-note"><b>State switcher.</b> Chemi Chemi has no defaulted loan today, so <i>defaulted</i> shows Otieno's loan as it would be once GroFunder's sweep defaults it: with GroFunder's recovery, the money passed on, and <b>Write it off</b> for the Administrator alone.</p>
+  <p class="proto-note"><b>Try:</b> <code>?l=ln-161</code> behind, with a late fee · <code>?l=ln-162</code> repaid and closed · <code>?l=ln-160</code> waiting for your decision · <code>?l=ln-163</code> rejected.</p>
+
+  <div data-state="loaded defaulted" class="col gap-6">
+    <div class="col gap-1"><div class="row gap-2 wrap" id="chips"></div><span class="text-body-md tone-muted" id="sub"></span></div>
+    <div id="banner"></div>
+    <div class="actions actions-start" id="acts"></div>
+    <div class="two-col">
+      <div class="col gap-4">
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">The application</span><dl class="facts" id="facts"></dl></div></div>
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">The quote the member accepted</span><span class="text-body-sm tone-muted">Fixed when they accepted it; your terms version set it</span><div id="quote"></div></div></div>
+        <div class="col gap-4" id="ledger"></div>
+      </div>
+      <div class="col gap-4">
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">The member</span><span class="text-body-sm tone-muted">Opening the details is logged as a data read</span><div class="col gap-2" id="member"></div></div></div>
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">History</span><div class="rowcards" id="history"></div></div></div>
+        <div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">Your actions on this loan</span><span class="text-body-sm tone-muted">Each one as the event it raised</span><div class="rowcards" id="events"></div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:160px"></div><div class="skeleton-card" style="height:320px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the loan</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var U = PortalUI, esc = U.esc, f = GF.fmt, Lo = GF.loans, P = GF.partners, G = GF.gateway, R = GF.recovery;
+var l = Lo.get(new URLSearchParams(location.search).get("l") || "ln-161");
+if (!l || l.partner !== U.PARTNER) l = Lo.get("ln-161");
+var m = GF.get(l.member), first = m.full_name.split(" ")[0], t = P.get(l.terms), pr = P.get(l.product), q = l.details.quote;
+document.getElementById("screen").setAttribute("data-title", l.reference);
+
+document.getElementById("chips").innerHTML = U.chip(U.statusOf(l)) + '<span class="status status-neutral">' + esc(pr.name) + "</span>";
+document.getElementById("sub").textContent = m.full_name + " · " + GF.get(m.cooperative).profile.short_name + " · " + U.whole(l.amount_cents) + " for " + Lo.durationLine(l.duration, t.duration_unit);
+
+var B = function (cls, ic, title, body) { return '<div class="banner banner-' + cls + '"><span class="mdi mdi-' + ic + '" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">' + title + '</span><span class="text-body-md">' + body + "</span></div></div>"; };
+var ban = "", acts = "";
+if (l.status === "FORWARDED" || l.status === "AMENDMENT_REQUIRED") {
+  ban = B("info", "inbox-arrow-down-outline", "Waiting for your decision", "GroFunder approved it on " + f.date(l.reviewed_at) + " and forwarded it. Approve it as asked for, reject it, ask GroFunder for an amendment, or cancel it.");
+  acts = '<span class="row gap-2 wrap" data-roles="' + U.ROLES.decide + '"><a class="btn btn-filled" href="../applications/index.html">Decide in Applications</a></span>';
+} else if (l.status === "PARTNER_APPROVED") {
+  ban = B("success", "cash-fast", "Approved: send the money", "Send " + U.money(q.amount_received_cents) + " to " + esc(first) + ", then record the disbursement here. GroFunder then generates the schedule from your terms and the date you give.");
+  acts = '<span class="row gap-2 wrap" data-roles="' + U.ROLES.disburse + '"><button class="btn btn-filled" type="button" id="disburse-btn" onclick="disburse()">Record the disbursement</button>' +
+    '<button class="btn btn-outlined tone-error" type="button" id="failed-btn" onclick="disburseFailed()">It failed</button></span>';
+} else if (l.status === "ACTIVE" || l.status === "IN_ARREARS" || l.status === "DEFAULTED") {
+  ban = l.status === "ACTIVE" ? B("success", "cash-check", "Being repaid", "Balance " + U.money(l.balance_cents) + ", up to date as of " + f.date(l.arrears_as_of, "short") + ".")
+    : B(l.status === "DEFAULTED" ? "error" : "warning", "cash-clock", l.days_past_due + " days behind, " + U.money(l.overdue_cents) + " overdue",
+      (l.status === "DEFAULTED" ? "GroFunder's sweep defaulted it, and it is with GroFunder's recovery. " : "GroFunder's nightly sweep set this; you can't set arrears or default yourself. ") +
+      "Balance " + U.money(l.balance_cents) + ".");
+  acts = '<span class="row gap-2 wrap" data-roles="' + U.ROLES.payments + '"><button class="btn btn-filled" type="button" id="payment-btn" onclick="payment()">Record a payment</button></span>' +
+    (l.status === "DEFAULTED" ? '<span class="row gap-2 wrap" data-roles="' + U.ROLES.write_off + '"><button class="btn btn-outlined tone-error" type="button" id="writeoff-btn" onclick="writeOff()">Write it off</button></span>' : "");
+} else if (l.status === "CLOSED") {
+  ban = B("neutral", "check-all", "Repaid and closed", "GroFunder's ledger reached zero with no open charges on " + f.date(l.closed_at) + ", so the loan closed by itself.");
+} else if (l.status === "WRITTEN_OFF") {
+  ban = B("neutral", "close-octagon-outline", "Written off", "Recovery still follows 28 if a case is open.");
+} else {
+  ban = B("neutral", "close-circle-outline", U.statusOf(l)[1], (Lo.historyOf(l.id)[0].details || {}).reason || "");
+}
+document.getElementById("banner").innerHTML = ban;
+document.getElementById("acts").innerHTML = acts;
+var chipsHtml = document.getElementById("chips").innerHTML, demoBox = null;
+
+var purpose = pr.details.purposes.find(function (x) { return x.value === l.purpose; });
+document.getElementById("facts").innerHTML =
+  "<dt>Reference</dt><dd class=\"tabular\">" + l.reference + "</dd>" +
+  "<dt>Product</dt><dd>" + esc(pr.name) + " (" + esc(pr.code) + ")</dd>" +
+  "<dt>Terms</dt><dd>Version " + t.version + ", in force from " + f.date(t.effective_from, "short") + "</dd>" +
+  "<dt>Asked for</dt><dd class=\"tabular\">" + U.money(l.amount_cents) + " for " + Lo.durationLine(l.duration, t.duration_unit) + "</dd>" +
+  "<dt>Purpose</dt><dd>" + esc(purpose ? purpose.en : l.purpose) + "</dd>" +
+  "<dt>GroFunder approved</dt><dd>" + f.date(l.reviewed_at) + '<span class="cell-sub tone-muted">Who approved it isn\'t shown (29)</span></dd>' +
+  (l.disbursed_at ? "<dt>You disbursed</dt><dd>" + U.when(l.disbursed_at) + " · " + U.money(l.disbursed_cents) + ", " + esc(first) + " received " + U.money(l.received_cents) +
+    (l.details.disbursement ? " by " + l.details.disbursement.channel + ", ref " + esc(l.details.disbursement.reference) : "") + "</dd>" : "") +
+  (l.balance_cents != null ? "<dt>Balance</dt><dd class=\"tabular\">" + U.money(l.balance_cents) + "</dd>" : "");
+document.getElementById("quote").innerHTML = U.quoteCard(q);
+
+/* The ledger: schedule, payments and charges (26 part 2), as GroFunder works them out. */
+var sec = function (title, sub, body) { return '<div class="section"><div class="section-body" style="gap:8px"><span class="text-title-md">' + title + "</span>" + (sub ? '<span class="text-body-sm tone-muted">' + sub + "</span>" : "") + body + "</div></div>"; };
+var lines = Lo.scheduleOf(l.id), pays = Lo.paymentsOf(l.id), chs = Lo.chargesOf(l.id), out = [];
+if (lines.length) {
+  out.push(sec("Schedule", "Generated by GroFunder from your terms and the disbursement date", '<div class="table-wrap"><table class="table" id="schedule"><thead><tr><th class="num">#</th><th>Due</th><th class="num">Total</th><th>Settled</th></tr></thead><tbody>' +
+    lines.map(function (i) {
+      var late = i.settled_on && i.settled_on > i.due_on, over = !i.settled_on && i.due_on < GF.TODAY;
+      return '<tr><td class="num">' + i.number + "</td><td>" + f.date(i.due_on, "short") + '</td><td class="num tabular">' + U.money(i.total_cents) + "</td><td>" +
+        (i.settled_on ? f.date(i.settled_on, "short") + (late ? ' <span class="status status-warning">Late</span>' : "") : over ? '<span class="status status-error">Overdue</span>' : '<span class="tone-muted">Not yet due</span>') + "</td></tr>";
+    }).join("") + "</tbody></table></div>"));
+  out.push(sec("Payments", "What you posted, with the split GroFunder worked out", pays.length ? '<div class="table-wrap"><table class="table" id="payments"><thead><tr><th>Paid</th><th class="num">Amount</th><th>Split</th><th>Receipt</th><th>Status</th></tr></thead><tbody>' +
+    pays.map(function (x) {
+      return "<tr><td>" + f.date(x.paid_on, "short") + '</td><td class="num tabular">' + U.money(x.amount_cents) + '</td><td class="text-body-sm">' +
+        (x.split_known ? "Principal " + U.money(x.principal_cents) + ", interest " + U.money(x.interest_cents) : "Not split yet") + '</td><td class="tabular">' + esc(x.receipt) + "</td><td>" + U.chip(Lo.L.paymentStatus[x.status]) +
+        (x.status === "POSTED" && ["CLOSED", "WRITTEN_OFF"].indexOf(l.status) === -1 ? '<button class="btn btn-text btn-sm" type="button" data-roles="' + U.ROLES.payments + '" data-reverse="' + x.id + '">Reverse</button>' : "") + "</td></tr>";
+    }).join("") + "</tbody></table></div>" : '<span class="text-body-md tone-muted">No payments yet.</span>'));
+}
+if (chs.length) out.push(sec("Charges", "Late penalties GroFunder's sweep levied from your terms. You can waive one; you can't add a charge the terms don't name", '<div class="rowcards" id="charges">' +
+  chs.map(function (c) {
+    return '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="grow"><span class="text-body-md">' + esc(c.name) + " · " + U.money(c.amount_cents) + '</span><span class="text-body-sm tone-muted">' + U.when(c.charged_at) + " · collected " + U.money(c.collected_cents) + "</span></span>" +
+      U.chip(Lo.L.chargeStatus[c.status]) + (c.status === "OPEN" ? '<button class="btn btn-text btn-sm" type="button" data-roles="' + U.ROLES.payments + '" data-waive="' + c.id + '">Waive</button>' : "") + "</div>";
+  }).join("") + "</div>"));
+if (R && l.status === "DEFAULTED") {
+  var kase = R.caseForLoan(l.id), pos = kase ? R.passOns.filter(function (x) { return x.loan === l.id; }) : [];
+  out.push(sec("With GroFunder's recovery", "You see that it is in recovery and the money passed on to you, never the arrangement, the cooperative's fee or what was taken from each payout (29)",
+    '<div class="rowcards">' + (pos.length ? pos.map(function (x) {
+      return '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="grow"><span class="text-body-md tabular">' + esc(x.reference) + " · " + U.money(x.amount_cents) + '</span><span class="text-body-sm tone-muted">' +
+        (x.sent_on ? "Sent " + f.date(x.sent_on, "short") + (x.transfer_ref ? ", ref " + esc(x.transfer_ref) : "") : "Not sent yet") + "</span></span>" + U.chip(R.L.passOn[x.status]) +
+        (x.status === "SENT" || x.status === "REPORTED" ? '<button class="btn btn-text btn-sm" type="button" data-roles="' + U.ROLES.settle + '" data-confirm="' + x.id + '">Confirm receipt</button>' : "") + "</div>";
+    }).join("") : '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="text-body-md tone-muted">' + (kase ? "A case is open with " + esc(GF.get(l.cooperative).profile.short_name) + ". Nothing has been passed on yet." : "No case yet.") + "</span></div>") + "</div>"));
+}
+out.push('<p class="text-body-sm tone-muted">No restructuring in the portal (Q6). If the schedule has to change, ask GroFunder.</p>');
+document.getElementById("ledger").innerHTML = out.join("");
+
+document.getElementById("member").innerHTML = '<span class="text-body-lg">' + esc(m.full_name) + '</span><span class="text-body-md tone-muted">' + esc(GF.get(m.cooperative).profile.short_name) + "</span>" +
+  '<div class="actions actions-start"><button class="btn btn-tonal btn-sm" type="button" id="member-btn" onclick="PortalUI.memberSheet(\'' + m.id + "','" + l.id + '\')">Open the details</button></div>' +
+  '<span class="text-body-sm tone-muted">Only what your sharing text lists, under their consent. Never their GroFunder score, any limit set by hand, or GroFunder\'s review notes.</span>';
+
+document.getElementById("history").innerHTML = Lo.historyOf(l.id).map(function (h) {
+  return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start">' + U.chip(Lo.L.status[h.to_status]) + '<span class="grow"><span class="text-body-md">' +
+    (h.from_status ? "From " + Lo.L.status[h.from_status][1].toLowerCase() : "Created") + (h.details.reason ? ': "' + esc(h.details.reason) + '"' : "") + '</span><span class="text-body-sm tone-muted">' + U.when(h.changed_at) + "</span></span></div>";
+}).join("");
+
+var evs = G.events.filter(function (e) { return e.loan_ref === l.reference; }).sort(function (a, b) { return a.received_at < b.received_at ? 1 : -1; });
+document.getElementById("events").innerHTML = evs.length ? evs.map(function (e) {
+  return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start"><span class="grow"><span class="text-body-md"><code>' + esc(e.partner_event) + '</code></span><span class="text-body-sm tone-muted">' +
+    U.when(e.received_at) + " · " + (e.actor ? "by " + esc(U.staffName(e.actor)) : "by GroFunder") + " · " + esc(e.details.result) + "</span></span></div>";
+}).join("") : '<div class="rowcard" style="padding-left:0;padding-right:0"><span class="text-body-md tone-muted">Nothing yet.</span></div>';
+
+document.addEventListener("click", function (e) {
+  var b = e.target.closest("[data-reverse],[data-waive],[data-confirm]");
+  if (!b) return;
+  if (b.hasAttribute("data-reverse")) return reverse(b.getAttribute("data-reverse"));
+  if (b.hasAttribute("data-waive")) return waive(b.getAttribute("data-waive"));
+  confirmPassOn(b.getAttribute("data-confirm"));
+});
+
+function disburse() {
+  var fees = q.lines.filter(function (x) { return x.collected === "DEDUCTED_AT_DISBURSEMENT"; }).reduce(function (a, x) { return a + x.amount_cents; }, 0);
+  Proto.dialog({ title: "Record the disbursement", wide: true, body:
+    '<p class="text-body-md">Record what you actually sent. GroFunder then generates the schedule from your terms and this date, and the loan becomes active.</p>' +
+    '<div class="form-grid"><div class="field"><label class="field-label" for="dd">Date</label><input class="field-input tabular" id="dd" type="date" value="' + GF.TODAY + '"></div>' +
+    '<div class="field"><label class="field-label" for="dt2">Time</label><input class="field-input tabular" id="dt2" type="time" value="10:00"></div>' +
+    '<div class="field"><label class="field-label" for="da">Amount</label><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input tabular" id="da" inputmode="numeric" value="' + l.amount_cents / 100 + '"></div></div>' +
+    '<div class="field"><label class="field-label" for="df">Fees deducted</label><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input tabular" id="df" inputmode="numeric" value="' + fees / 100 + '"></div><span class="field-help">Prefilled from the terms\' charges taken at disbursement</span></div>' +
+    '<div class="field"><label class="field-label" for="dc">Channel</label><select class="field-input" id="dc"><option>M-Pesa</option><option>Bank transfer</option></select></div>' +
+    '<div class="field"><label class="field-label" for="dr">Transaction reference</label><input class="field-input tabular" id="dr" placeholder="RGH4K2P9QT"></div></div>',
+    submit: "Record it", onSubmit: function (d) {
+      if (!d.querySelector("#dr").value.trim()) return Proto.snack("Nothing recorded: the transaction reference is needed");
+      U.raised("loan.disbursed", "GroFunder generates the schedule; the loan is active");
+    } });
+}
+function disburseFailed() {
+  Proto.dialog({ title: "The disbursement failed", body:
+    '<p class="text-body-md">The loan stays approved, and GroFunder is told. Try again, or cancel it.</p>' +
+    '<div class="field"><label class="field-label" for="fr">What happened</label><textarea class="field-input" id="fr" rows="2" placeholder="The M-Pesa transfer was reversed: the number is not registered."></textarea></div>',
+    submit: "Record it", onSubmit: function (d) {
+      if (!d.querySelector("#fr").value.trim()) return Proto.snack("Nothing recorded: say what happened");
+      U.raised("disbursement.failed", "GroFunder is told");
+    } });
+}
+function payment() {
+  var bal = l.balance_cents || 0;
+  Proto.dialog({ title: "Record a payment", wide: true, body:
+    '<p class="text-body-md">What you received in your paybill. GroFunder splits it: oldest instalment first and, within it, fees, then interest, then principal; late penalties only once every instalment due is paid.</p>' +
+    '<div class="form-grid"><div class="field"><label class="field-label" for="pa">Amount</label><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input tabular" id="pa" inputmode="numeric" value="' + Math.round(bal / 100) + '"></div>' +
+    '<span class="field-help">Not more than the balance, ' + U.money(bal) + '</span><span class="field-error hidden" id="pa-e">More than the balance. Refund the member and record only what was owed.</span></div>' +
+    '<div class="field"><label class="field-label" for="pd">Date paid</label><input class="field-input tabular" id="pd" type="date" value="' + GF.TODAY + '"></div>' +
+    '<div class="field"><label class="field-label" for="pr2">Receipt</label><input class="field-input tabular" id="pr2" placeholder="RHK9MM2L01"></div>' +
+    '<div class="field"><label class="field-label" for="pc">Channel</label><select class="field-input" id="pc"><option>M-Pesa paybill</option><option>Bank transfer</option><option>Cash at the office</option></select></div></div>',
+    submit: "Record the payment", onSubmit: function (d) {
+      var amt = Math.round(+String(d.querySelector("#pa").value).replace(/[^0-9.]/g, "") * 100);
+      if (!amt) return Proto.snack("Nothing recorded: the amount is needed");
+      if (amt > bal) { d.querySelector("#pa-e").classList.remove("hidden"); return; }
+      if (!d.querySelector("#pr2").value.trim()) return Proto.snack("Nothing recorded: the receipt is needed");
+      U.raised("payment.posted", "GroFunder split it and worked out the balance");
+    } });
+}
+function reverse(id) {
+  var x = Lo.paymentsOf(l.id).find(function (p) { return p.id === id; });
+  Proto.dialog({ title: "Reverse this payment?", body:
+    '<p class="text-body-md">' + U.money(x.amount_cents) + " of " + f.date(x.paid_on) + ", receipt " + esc(x.receipt) + ". It stays on the record, marked reversed, and GroFunder works the ledger out again.</p>" +
+    '<div class="field"><label class="field-label" for="vr">Why</label><textarea class="field-input" id="vr" rows="2" placeholder="Recorded against the wrong loan."></textarea></div>' +
+    '<p class="text-body-sm tone-muted">Only while the loan isn\'t closed or written off. After that, ask GroFunder.</p>',
+    submit: "Reverse", destructive: true, onSubmit: function (d) {
+      if (!d.querySelector("#vr").value.trim()) return Proto.snack("Nothing changed: a reason is needed");
+      U.raised("payment.reversed", "GroFunder works the balance out again");
+    } });
+}
+function waive(id) {
+  var c = Lo.chargesOf(l.id).find(function (x) { return x.id === id; });
+  Proto.dialog({ title: "Waive " + esc(c.name) + "?", body:
+    '<p class="text-body-md">' + U.money(c.amount_cents) + " levied " + f.date(c.charged_at) + ". " + esc(first) + " no longer owes it.</p>" +
+    '<div class="field"><label class="field-label" for="wr">Why</label><textarea class="field-input" id="wr" rows="2" placeholder="He paid the day the factory paid him; the delay was ours."></textarea></div>',
+    submit: "Waive", onSubmit: function (d) {
+      if (!d.querySelector("#wr").value.trim()) return Proto.snack("Nothing changed: a reason is needed");
+      U.raised("charge.status WAIVED", esc(c.name) + " is waived");
+    } });
+}
+function writeOff() {
+  Proto.dialog({ title: "Write off " + l.reference + "?", body:
+    '<p class="text-body-md">For a defaulted loan only, and the Administrator alone. The balance is ' + U.money(l.balance_cents) + '. Writing it off doesn\'t stop GroFunder\'s recovery (28, Q4).</p>' +
+    '<div class="field"><label class="field-label" for="wa">Amount written off</label><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input tabular" id="wa" inputmode="numeric" value="' + Math.round((l.balance_cents || 0) / 100) + '"></div></div>' +
+    '<div class="field"><label class="field-label" for="wo">Why</label><textarea class="field-input" id="wo" rows="2"></textarea></div>',
+    submit: "Write it off", destructive: true, onSubmit: function (d) {
+      if (!d.querySelector("#wo").value.trim()) return Proto.snack("Nothing changed: a reason is needed");
+      U.raised("loan.written_off", l.reference + " is written off");
+    } });
+}
+/* The review state: the same loan once GroFunder's sweep has defaulted it (26 part 2). */
+function showDefaulted(on) {
+  if (!on) {
+    if (demoBox) { demoBox.remove(); demoBox = null; }
+    document.getElementById("chips").innerHTML = chipsHtml;
+    document.getElementById("banner").innerHTML = ban;
+    document.getElementById("acts").innerHTML = acts;
+    if (window.Proto) Proto.applyRoles(document.querySelector("[data-screen]"));
+    return;
+  }
+  if (demoBox) return;
+  document.getElementById("chips").innerHTML = U.chip(U.statusOf({ status: "DEFAULTED" })) + '<span class="status status-neutral">' + esc(pr.name) + "</span>";
+  document.getElementById("banner").innerHTML = B("error", "alert-octagon-outline", "Defaulted, and with GroFunder's recovery",
+    "GroFunder's sweep defaulted it after " + t.default_after_days + " days overdue. Its cooperative may agree with " + esc(first) +
+    " to recover it from their pay; you see the money passed on, never the arrangement.");
+  document.getElementById("acts").innerHTML = '<span class="row gap-2 wrap" data-roles="' + U.ROLES.payments + '"><button class="btn btn-filled" type="button" id="payment-btn" onclick="payment()">Record a payment</button></span>' +
+    '<span class="row gap-2 wrap" data-roles="' + U.ROLES.write_off + '"><button class="btn btn-outlined tone-error" type="button" id="writeoff-btn" onclick="writeOff()">Write it off</button></span>';
+  var box = document.createElement("div");
+  demoBox = box;
+  box.innerHTML = sec("With GroFunder's recovery", "You see that it is in recovery and the money passed on, never the arrangement, the cooperative's fee or what was taken from each payout (29)",
+    '<div class="rowcards"><div class="rowcard" style="padding-left:0;padding-right:0"><span class="grow"><span class="text-body-md tabular">' + esc(l.reference) + '-R1 · ' + U.money(120000) + '</span>' +
+    '<span class="text-body-sm tone-muted">Sent 6 Nov, ref FT26110600571 · recovered from ' + esc(first) + "'s pay by " + esc(GF.get(l.cooperative).profile.short_name) + '</span></span>' +
+    U.chip(GF.recovery.L.passOn.SENT) + '<button class="btn btn-text btn-sm" type="button" data-roles="' + U.ROLES.settle + '" id="confirm-passon" onclick="PortalUI.raised(\'payment.posted (recovery)\', \'The pass-on is posted\')">Confirm receipt</button></div></div>');
+  document.getElementById("ledger").appendChild(box);
+  if (window.Proto) Proto.applyRoles(document.querySelector("[data-screen]"));
+}
+document.addEventListener("proto:state", function (e) { if (e.detail === "defaulted") showDefaulted(true); else if (e.detail === "loaded") showDefaulted(false); });
+
+function confirmPassOn(id) {
+  var x = R.passOns.find(function (p) { return p.id === id; });
+  Proto.confirm({ title: "Confirm you received " + U.money(x.amount_cents) + "?", confirm: "Confirm receipt",
+    message: "Reference " + x.reference + ", sent " + (x.sent_on ? f.date(x.sent_on) : "") + ". Confirming posts it as a payment on " + l.reference + ", recovered through the cooperative.",
+    onConfirm: function () { U.raised("payment.posted (recovery)", "The pass-on is posted"); } });
+}
+</script>
+</body>
+</html>

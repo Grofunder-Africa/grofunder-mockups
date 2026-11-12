@@ -19,6 +19,8 @@
  *   Gitimu Vijana (Mawingu)     DISSOLVED by GroFunder
  *   Kiganjo Pamoja (Gatundu)    DISSOLVED, NEVER_COMPLETED after 60 days
  *   Juja Farm Mothers (Ruiru)   FORMING while Ruiru is ON_HOLD: nothing new starts
+ *   Parachichi Bora (Gatundu)   COMPLETE since July, Mercy; 5 borrowing spaces; added 2026-11-09 for loan
+ *                               servicing (phase 17, UI-120): its members borrow from Tegemeo, one is behind
  */
 (function (root) {
   "use strict";
@@ -58,6 +60,9 @@
     { id: "ci-gat-01", cooperative: "co-gatundu", cluster: "cl-gat-kiganjo", name: "Kiganjo Pamoja", status: "DISSOLVED", agent: null, borrowing_spaces: 2,
       completed_at: null, dissolved_at: "2026-10-09T00:15:00+03:00", dissolved_by: null, dissolve_reason: "NEVER_COMPLETED", created_by: "u-brian", created_at: "2026-08-10T09:00:00+03:00", updated_at: "2026-10-09T00:15:00+03:00",
       details: { meeting: { day: "WED", time: "11:00", place: "Kiganjo market", lat: null, lng: null }, description: "" } },
+    { id: "ci-gat-02", cooperative: "co-gatundu", cluster: "cl-gat-kiganjo", name: "Parachichi Bora", status: "COMPLETE", agent: "u-mercy", borrowing_spaces: 5,
+      completed_at: "2026-07-20T10:00:00+03:00", dissolved_at: null, dissolved_by: null, dissolve_reason: "", created_by: "u-brian", created_at: "2026-06-28T09:00:00+03:00", updated_at: "2026-09-01T10:00:00+03:00",
+      details: { meeting: { day: "FRI", time: "15:00", place: "Kiganjo avocado collection shed", lat: -1.01522, lng: 36.90418 }, description: "Avocado growers who sell through the cooperative to two exporters." } },
     { id: "ci-rui-01", cooperative: "co-ruiru", cluster: "cl-rui-juja", name: "Juja Farm Mothers", status: "FORMING", agent: null, borrowing_spaces: 2,
       completed_at: null, dissolved_at: null, dissolved_by: null, dissolve_reason: "", created_by: "u-brian", created_at: "2026-10-02T10:00:00+03:00", updated_at: "2026-10-27T00:15:00+03:00",
       details: { meeting: { day: "SUN", time: "14:00", place: "Juja Farm chief's camp", lat: null, lng: null }, description: "" } }
@@ -132,6 +137,15 @@
   p("cp-704", "ci-gat-01", "m-gat-GA-0004", "MEMBER", "CANCELLED", { by: "u-brian", at: T("08-10"), ended: T("08-24", "09:15"), why: "EXPIRED" });
   p("cp-705", "ci-gat-01", "m-gat-GA-0005", "MEMBER", "CANCELLED", { by: "u-brian", at: T("08-10"), ended: T("08-24", "09:15"), why: "EXPIRED" });
 
+  /* Parachichi Bora: Brian started it in the console for Paul, whose neighbours have no app; Lydia accepted in the app. */
+  p("cp-901", "ci-gat-02", "m-gat-GA-0004", "LEADER", "MEMBER", { at: T("06-28"), joined: T("06-28") });
+  p("cp-902", "ci-gat-02", "m-gat-GA-0007", "MEMBER", "MEMBER", { by: "u-brian", at: T("06-28"), joined: T("07-06", "10:00") });
+  p("cp-903", "ci-gat-02", "m-gat-GA-0014", "MEMBER", "MEMBER", { by: "u-brian", at: T("06-28"), joined: T("07-07", "11:00") });
+  p("cp-904", "ci-gat-02", "m-gat-GA-0010", "MEMBER", "MEMBER", { by: "u-brian", at: T("06-28"), joined: T("07-08", "09:30") });
+  p("cp-905", "ci-gat-02", "m-gat-GA-0011", "MEMBER", "MEMBER", { by: "u-brian", at: T("06-28"), joined: T("07-12", "14:00") });
+  p("cp-906", "ci-gat-02", "m-gat-GA-0013", "MEMBER", "MEMBER", { by: "u-m-gat-GA-0004", at: T("07-10"), joined: T("07-20", "10:00") });
+  p("cp-907", "ci-gat-02", "m-gat-GA-0009", "MEMBER", "MEMBER", { by: "u-m-gat-GA-0004", at: T("08-20"), joined: T("08-28", "16:00") });
+
   /* Juja Farm Mothers: three members when Ruiru went on hold on 14 Oct; the last invitation ran out. */
   p("cp-801", "ci-rui-01", "m-rui-RH-0003", "LEADER", "MEMBER", { at: T("10-02", "10:00"), joined: T("10-02", "10:00") });
   p("cp-802", "ci-rui-01", "m-rui-RH-0008", "MEMBER", "MEMBER", { by: "u-brian", at: T("10-02", "10:00"), joined: T("10-08", "12:00") });
@@ -165,6 +179,10 @@
     ["ci-maw-02", T("09-15", "14:00"), "u-brian", "Dissolved: \"The members asked us to; most deliver to the Mawingu factory now.\""],
     ["ci-gat-01", T("08-10"), "u-brian", "Started in the console for Chebet Kibe, with four invitations"],
     ["ci-gat-01", T("10-09", "00:15"), null, "Dissolved: fewer than 2 members after 60 days"],
+    ["ci-gat-02", T("06-28"), "u-brian", "Started in the console for Paul Wanyoike, with four invitations"],
+    ["ci-gat-02", T("07-14", "10:00"), "u-peter", "Agent assigned: Mercy Chebet"],
+    ["ci-gat-02", T("07-20", "10:00"), null, "Complete: 5 members"],
+    ["ci-gat-02", T("09-01", "10:00"), "u-peter", "Borrowing spaces 2 → 5: \"Seven members, avocado season; Tegemeo agreed a larger book for the circle.\""],
     ["ci-rui-01", T("10-02", "10:00"), "u-brian", "Started in the console for Teresia Karanja, with four invitations"]
   ].map(function (a) { return { circle: a[0], at: a[1], by: a[2], text: a[3] }; });
 

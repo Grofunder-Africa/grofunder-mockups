@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Collections · GroFunder partner portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/portal-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Collections" data-dest="collections" data-wide>
+
+  <p class="proto-note"><b>Pass-ons (G141, the owner, 2026-11-11).</b> Every portal role, the Viewer included, sees what was passed on, read only (<code>GET pass-ons/</code> under <code>partner_portal.view</code>). Confirming receipt takes <code>partner_portal.settle</code> (Administrator and Finance).</p>
+  <p class="proto-note"><b>PP4 · Collections (note 29, step 5; 26 part 2, "Settling instalments and counting arrears").</b> Your loans that are behind or defaulted, with the days past due and the amount overdue. <b>GroFunder's nightly sweep sets both</b>, from the schedule and the payments you have posted: in arrears after the grace days, defaulted after the terms' default days, and a late penalty per missed instalment. Partner staff can't set arrears or default.</p>
+  <p class="proto-note"><b>Days past due</b> count from the oldest unsettled instalment. The <b>amount overdue</b> is the instalments due and unpaid, never late fees, which are shown apart.</p>
+  <p class="proto-note"><b>State switcher.</b> Nothing has been passed on to Chemi Chemi yet, so <i>passon</i> shows what arrives when a cooperative recovers from a member's pay: the amount, its reference, and <b>Confirm receipt</b> for the Administrator and Finance.</p>
+  <p class="proto-note"><b>A defaulted loan goes to GroFunder's recovery</b> (28), where the member's cooperative may agree to recover it from their pay. You see that it is in recovery and the money passed on to you, with its reference, and you confirm each amount when it reaches your account (<code>partner_portal.settle</code>: Administrator and Finance). You never see the arrangement, the cooperative's fee, or what was taken from each payout.</p>
+
+  <div data-state="loaded passon" class="col gap-6">
+    <div class="stats-grid" id="stats"></div>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Behind</span><span class="text-body-md tone-muted">Oldest first. GroFunder's nightly sweep sets arrears and default from the schedule and the payments, so these can't be set here</span></div></div>
+      <div class="rowcards" id="rows"></div></section>
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Recovered money passed on</span><span class="text-body-md tone-muted">What GroFunder has sent you from a cooperative's withholdings</span></div></div>
+      <div class="rowcards" id="passons"></div></section>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:120px"></div><div class="skeleton-card" style="height:200px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-check-circle-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Nobody is behind</span><span class="text-body-md">Every live loan is up to date, by GroFunder's count.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load collections</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var U = PortalUI, esc = U.esc, f = GF.fmt, Lo = GF.loans, R = GF.recovery;
+var late = U.behind().sort(function (a, b) { return b.days_past_due - a.days_past_due; });
+var overdue = late.reduce(function (t, l) { return t + l.overdue_cents; }, 0);
+var defaulted = late.filter(function (l) { return l.status === "DEFAULTED"; });
+document.getElementById("stats").innerHTML = [
+  ["Behind", String(late.length), "Of " + U.loans(["ACTIVE", "IN_ARREARS", "DEFAULTED"]).length + " disbursed loans"],
+  ["Overdue", U.whole(overdue), "Instalments due and unpaid"],
+  ["Defaulted", String(defaulted.length), defaulted.length ? "With GroFunder's recovery" : "None"]
+].map(function (s) { return '<div class="stat-card"><span class="stat-text"><span class="stat-label">' + s[0] + '</span><span class="stat-value">' + s[1] + '</span><span class="stat-caption">' + esc(s[2]) + "</span></span></div>"; }).join("");
+
+document.getElementById("rows").innerHTML = late.length ? late.map(function (l) {
+  var m = GF.get(l.member), chs = Lo.chargesOf(l.id).filter(function (c) { return c.status === "OPEN"; });
+  var fees = chs.reduce(function (t, c) { return t + c.amount_cents; }, 0);
+  var kase = R ? R.caseForLoan(l.id) : null;
+  return '<div class="rowcard card-outlined" style="align-items:flex-start"><span class="grow"><span class="row gap-2 wrap" style="align-items:center">' +
+    '<a class="text-body-lg" href="../loans/loan.html?l=' + l.id + '">' + esc(m.full_name) + "</a>" + U.chip(U.statusOf(l)) + "</span>" +
+    '<span class="text-body-md">' + l.days_past_due + " days past due · " + U.money(l.overdue_cents) + " overdue · balance " + U.money(l.balance_cents) + "</span>" +
+    (fees ? '<span class="text-body-sm tone-muted">Late fees, shown apart: ' + U.money(fees) + "</span>" : "") +
+    '<span class="text-body-sm tone-muted tabular">' + l.reference + " · " + esc(GF.get(m.cooperative).profile.short_name) + " · as of " + f.date(l.arrears_as_of, "short") + "</span>" +
+    (l.status === "DEFAULTED" ? '<span class="text-body-sm">' + (kase ? "In GroFunder's recovery, case " + esc(kase.reference) + ". You see the money passed on, never the arrangement." : "With GroFunder's recovery queue.") + "</span>" : "") +
+    "</span></div>";
+}).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">Nobody is behind.</span></div>';
+
+var mine = R ? R.passOns.filter(function (p) { return p.partner === U.PARTNER; }) : [];
+function drawPassOns() {
+document.getElementById("passons").innerHTML = mine.length ? mine.map(function (x) {
+  var l = Lo.get(x.loan);
+  return '<div class="rowcard" style="align-items:flex-start"><span class="grow"><span class="text-body-md tabular">' + esc(x.reference) + " · " + U.money(x.amount_cents) + '</span>' +
+    '<span class="text-body-sm tone-muted">' + esc(GF.get(l.member).full_name) + " · " + esc(l.reference) + " · " + (x.sent_on ? "sent " + f.date(x.sent_on, "short") + (x.transfer_ref ? ", ref " + esc(x.transfer_ref) : "") : "not sent yet") + "</span></span>" +
+    U.chip(R.L.passOn[x.status]) + (x.status === "SENT" || x.status === "REPORTED" ? '<button class="btn btn-text btn-sm" type="button" data-roles="' + U.ROLES.settle + '" data-confirm="' + x.id + '">Confirm receipt</button>' : "") + "</div>";
+}).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">Nothing has been passed on to you yet. When a cooperative recovers from a member\'s pay, GroFunder sends it here with a reference, and you confirm it.</span></div>';
+}
+drawPassOns();
+
+document.getElementById("passons").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-confirm]"); if (!b) return;
+  var x = R.passOns.find(function (p) { return p.id === b.getAttribute("data-confirm"); }), l = Lo.get(x.loan);
+  Proto.confirm({ title: "Confirm you received " + U.money(x.amount_cents) + "?", confirm: "Confirm receipt",
+    message: "Reference " + x.reference + ", for " + l.reference + ". Confirming posts it as a payment on that loan, recovered through the cooperative. A pass-on you don't confirm within 7 days is flagged to GroFunder.",
+    onConfirm: function () { U.raised("payment.posted (recovery)", "The pass-on is posted"); } });
+});
+/* The review state: a pass-on waiting for the partner to confirm it (28; 29, "Recovered money passed on"). */
+document.addEventListener("proto:state", function (e) {
+  if (e.detail !== "passon") { if (e.detail === "loaded") { drawPassOns(); if (window.Proto) Proto.applyRoles(document.querySelector("[data-screen]")); } return; }
+  var l = U.loans(["IN_ARREARS", "DEFAULTED"])[0] || U.loans()[0];
+  document.getElementById("passons").innerHTML = '<div class="rowcard" style="align-items:flex-start"><span class="grow"><span class="text-body-md tabular">' + esc(l.reference) + "-R1 · " + U.money(120000) + "</span>" +
+    '<span class="text-body-sm tone-muted">' + esc(GF.get(l.member).full_name) + " · " + esc(l.reference) + ' · sent 6 Nov, ref FT26110600571</span></span>' +
+    U.chip(R.L.passOn.SENT) + '<button class="btn btn-text btn-sm" type="button" data-roles="' + U.ROLES.settle + '" data-demo-confirm="1">Confirm receipt</button></div>';
+  document.getElementById("passons").querySelector("[data-demo-confirm]").addEventListener("click", function () {
+    Proto.confirm({ title: "Confirm you received " + U.money(120000) + "?", confirm: "Confirm receipt",
+      message: "Reference " + l.reference + "-R1. Confirming posts it as a payment on that loan, recovered through the cooperative. A pass-on you don't confirm within 7 days is flagged to GroFunder.",
+      onConfirm: function () { U.raised("payment.posted (recovery)", "The pass-on is posted"); } });
+  });
+  if (window.Proto) Proto.applyRoles(document.querySelector("[data-screen]"));
+});
+if (window.Proto) Proto.applyRoles(document.querySelector("[data-screen]"));
+</script>
+</body>
+</html>

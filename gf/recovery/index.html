@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recovery · GroFunder console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/console.js"></script>
+<script src="recovery-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen data-title="Recovery" data-dest="recovery" data-wide>
+
+  <p class="proto-note"><b>Polling (G130, the owner, 2026-11-11).</b> <i>Poll first</i> shows to <code>recovery.confirm</code> holders and calls <code>POST loans/{id}/poll/</code> (<code>loans.follow_up</code>, which every confirm holder has). Confirming still answers "poll first" while the loan hasn't been polled in the last hour.</p>
+  <p class="proto-note"><b>RC1 · Recovery (note 28, <code>GET cases/</code>).</b> Every attempt to recover a defaulted loan through the member's cooperative. A case is queued by itself when a loan defaults (26), and waits here <b>to confirm</b>: GroFunder checks the loan before anything is withheld from a member's pay (21 Q6). Then the cooperative agrees an arrangement with the member (<b>to agree</b>), and the payouts carry the deductions (<b>recovering</b>).</p>
+  <p class="proto-note"><b>Confirming (step 3).</b> In API mode the loan is polled first, so the figures are the lender's latest; the button says so until it has been. A case can only be confirmed where the cooperative has collection terms in force that recover and are acknowledged: Kijani's are, Mawingu's aren't acknowledged, Ruiru's say it doesn't recover, and Gatundu has none. Confirming and declining need <code>recovery.confirm</code> (Full and Owner).</p>
+  <p class="proto-note"><b>A cure while waiting</b> withdraws a pending case by itself: the loan came back up to date, so nothing is recovered.</p>
+
+  <div data-state="loaded" class="col gap-4">
+    <div data-subnav="recovery" data-current="cases" data-label="Recovery"></div>
+    <div class="chip-row scroll" data-choice role="radiogroup" aria-label="Show" id="filter"></div>
+    <div class="section"><div class="table-wrap"><table class="table"><thead><tr><th>Case</th><th>Member</th><th>Loan</th><th class="num">Still owed</th><th>Status</th><th>Waiting</th></tr></thead><tbody id="rows"></tbody></table></div></div>
+
+    <section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Defaulted loans with no case</span>
+      <span class="text-body-md tone-muted">Their cooperative can't recover from members' pay, so GroFunder settles these with the lender</span></div></div>
+      <div class="rowcards" id="nocase"></div></section>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:260px"></div></div>
+  <div data-state="empty" class="empty"><span class="mdi mdi-cash-refund" aria-hidden="true"></span>
+    <span class="text-headline-sm">Nothing to recover</span><span class="text-body-md">No loan has defaulted. A case appears here by itself when one does.</span></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the cases</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var R = GF.recovery, U = RecoveryUI, esc = U.esc, f = GF.fmt;
+var GROUPS = [["PENDING", "To confirm", ["PENDING"]], ["OPEN", "To agree", ["OPEN"]], ["RECOVERING", "Recovering", ["RECOVERING"]], ["PAUSED", "Paused", ["PAUSED"]],
+  ["ENDED", "Ended", ["DECLINED", "WITHDRAWN", "CLOSED"]], ["ALL", "All", null]];
+var pick = new URLSearchParams(location.search).get("show") || "PENDING";
+function draw() {
+  document.getElementById("filter").innerHTML = GROUPS.map(function (g) {
+    var n = R.cases.filter(function (c) { return !g[2] || g[2].indexOf(c.status) > -1; }).length;
+    return '<button class="chip" type="button" role="radio" data-g="' + g[0] + '" aria-checked="' + (g[0] === pick) + '">' + g[1] + " · " + n + "</button>";
+  }).join("");
+  var g = GROUPS.find(function (x) { return x[0] === pick; });
+  var list = R.cases.filter(function (c) { return !g[2] || g[2].indexOf(c.status) > -1; })
+    .sort(function (a, b) { return a.created_at < b.created_at ? -1 : 1; });
+  document.getElementById("rows").innerHTML = list.length ? list.map(function (c) {
+    var l = GF.loans.get(c.loan), pr = R.progress(c), blocked = c.status === "PENDING" ? U.blockedReason(c) : "";
+    var owed = c.status === "RECOVERING" || c.status === "PAUSED" ? pr.loan_left_cents : c.status === "CLOSED" ? pr.fee_left_cents : l.balance_cents;
+    return '<tr><td class="primary-cell"><a class="tabular" href="case.html?c=' + c.id + '">' + c.reference + '</a><span class="cell-sub">' + U.when(c.created_at) + "</span></td>" +
+      "<td>" + esc(U.memberName(c.member)) + '<span class="cell-sub">' + esc(U.coopName(c.cooperative)) + "</span></td>" +
+      '<td class="text-body-sm"><a class="tabular" href="../loans/loan.html?l=' + l.id + '">' + l.reference + "</a>" + '<span class="cell-sub">' + esc(GF.partners.get(l.partner).name) + "</span></td>" +
+      '<td class="num tabular">' + U.money(owed) + (c.status === "CLOSED" && pr.fee_left_cents ? '<span class="cell-sub">collection fee</span>' : "") + "</td>" +
+      "<td>" + U.chip(R.L.status[c.status]) + (c.end_reason ? '<span class="cell-sub">' + R.L.end[c.end_reason] + "</span>" : "") +
+        (blocked ? '<span class="cell-sub tone-warning">' + esc(blocked) + "</span>" : "") + "</td>" +
+      '<td class="text-body-sm">' + U.ageLine(c.created_at) +
+        (c.status === "PENDING" ? '<div class="row gap-1" data-roles="' + U.ROLES.confirm + '">' +
+          (blocked && blocked.indexOf("polled") > -1 ? '<button class="btn btn-text btn-sm" type="button" data-poll="' + c.id + '">Poll first</button>' : '<button class="btn btn-text btn-sm" type="button" data-confirm="' + c.id + '">Confirm</button>') +
+          '<button class="btn btn-text btn-sm tone-error" type="button" data-decline="' + c.id + '">Decline</button></div>' : "") + "</td></tr>";
+  }).join("") : '<tr><td colspan="6" class="text-body-md tone-muted">Nothing here.</td></tr>';
+  var none = R.noCaseLoans();
+  document.getElementById("nocase").innerHTML = none.length ? none.map(function (x) {
+    return '<a class="rowcard" href="../loans/loan.html?l=' + x.loan.id + '"><span class="mdi mdi-bank-off-outline" aria-hidden="true"></span><span class="grow"><span class="text-body-lg tabular">' + x.loan.reference +
+      '</span><span class="text-body-md tone-muted">' + esc(U.memberName(x.loan.member)) + " · " + esc(U.coopName(x.loan.cooperative)) + " · " + esc(x.why) + "</span></span>" + U.chip(["neutral", "No case"]) + "</a>";
+  }).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">None. Every defaulted loan is at a cooperative that recovers.</span></div>';
+  if (window.Proto) Proto.applyRoles(document.getElementById("rows"));
+}
+document.getElementById("filter").addEventListener("click", function (e) { var b = e.target.closest("[data-g]"); if (b) { pick = b.getAttribute("data-g"); draw(); } });
+document.getElementById("rows").addEventListener("click", function (e) {
+  var b = e.target.closest("[data-poll],[data-confirm],[data-decline]");
+  if (!b) return;
+  var id = b.getAttribute("data-poll") || b.getAttribute("data-confirm") || b.getAttribute("data-decline"), c = R.get(id);
+  if (b.hasAttribute("data-poll")) return U.pollNow(GF.loans.get(c.loan), draw);
+  if (b.hasAttribute("data-confirm")) return confirmCase(c);
+  declineCase(c);
+});
+function confirmCase(c) {
+  var why = U.blockedReason(c), l = GF.loans.get(c.loan), t = R.inForce(c.cooperative);
+  if (why) return Proto.dialog({ title: "Can't confirm yet", body: '<p class="text-body-md">' + esc(why) + ".</p>" +
+    '<p class="text-body-sm tone-muted">Note 28: a case opens only under collection terms in force that recover and are acknowledged, and in API mode only on figures the lender confirmed within the hour.</p>' });
+  Proto.dialog({ title: "Confirm " + c.reference + "?", body:
+    '<p class="text-body-md">' + esc(U.memberName(c.member)) + " owes " + U.money(l.balance_cents) + " on " + l.reference + ". Confirming opens the case: " + esc(U.coopName(c.cooperative)) +
+    " agrees an arrangement with them, and their payouts carry the deductions, up to " + U.capLine(t) + ".</p>" +
+    '<p class="text-body-md">' + esc(U.memberName(c.member).split(" ")[0]) + " is told in the app and by SMS, and the cooperative's staff get the case to agree.</p>",
+    submit: "Confirm", onSubmit: function () { Proto.snack(c.reference + " confirmed: " + U.coopName(c.cooperative) + " agrees the arrangement next"); } });
+}
+function declineCase(c) {
+  Proto.dialog({ title: "Decline " + c.reference + "?", body:
+    '<p class="text-body-md">Nothing is withheld from ' + esc(U.memberName(c.member)) + "'s pay. It is final for this default; if the loan comes up to date and defaults again, a new case is queued.</p>" +
+    '<div class="field"><label class="field-label" for="dr">Reason</label><textarea class="field-input" id="dr" rows="2" placeholder="Why GroFunder isn\'t recovering through the cooperative"></textarea><span class="field-help">Required. The cooperative and the lender see it</span></div>',
+    submit: "Decline", onSubmit: function (d) { if (!d.querySelector("#dr").value.trim()) return Proto.snack("Nothing changed: a reason is needed"); Proto.snack(c.reference + " declined"); } });
+}
+draw();
+</script>
+</body>
+</html>

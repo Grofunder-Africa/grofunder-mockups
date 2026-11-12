@@ -17,6 +17,8 @@
 <script src="../../assets/data/consents.js"></script>
 <script src="../../assets/data/credit.js"></script>
 <script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
 <script src="../assets/app.js"></script>
 <script src="loans-app.js"></script>
 <script src="../assets/nav.js" defer></script>
@@ -27,12 +29,13 @@
 <div data-screen data-title="Your loan" data-dest="home" data-back="index.html" data-compact>
 
   <p class="proto-note"><b>ML3 · Your loan (note 26 part 1).</b> Where the member's loan stands, in plain words, with the quote as they accepted it and our reference. <i>requested</i>: with GroFunder for review; the member can cancel. <i>draft</i>: GroFunder prepared it; accept within 7 days (the request flow from the quote) or decline. <i>approved</i>: on its way to the lender; after a day, "We're sending your request to Mavuno Capital". <i>rejected</i> gives the reviewer's reason; <i>cancelled</i> says who ended it.</p>
+  <p class="proto-note"><b>After forwarding (phase 17, note 26 part 2, 27).</b> <i>withlender</i>: "Your request is with Mavuno Capital." <i>repaying</i>: what you received, the balance, the next instalment and how to pay, each instalment and payment. <i>behind</i>: days late and the amount overdue (missed instalments only), the paybill, and late fees shown apart ("Late fees: KES 600"). <i>repaid</i>: "Your loan is fully repaid." The figures are the lender's, mirrored; days late count from the oldest unpaid instalment.</p>
   <p class="proto-note"><b>Wanjiku has no loan today</b>: each state is her loan as it would be, on the real quote. Never shown: the score, the number of approvals, who reviewed.</p>
 
   <div data-roles="out" class="empty"><span class="mdi mdi-account-lock-outline" aria-hidden="true"></span><span class="text-headline-sm">You're signed out</span>
     <a class="btn btn-filled" href="../auth/sign-in.html">Sign in</a></div>
 
-  <div data-state="requested draft approved sending rejected cancelled" class="col gap-6" data-roles="in" id="main"></div>
+  <div data-state="requested draft approved sending rejected cancelled withlender repaying behind repaid" class="col gap-6" data-roles="in" id="main"></div>
   <div data-state="loaded" class="empty" data-roles="in"><span class="mdi mdi-cash-remove" aria-hidden="true"></span><span class="text-headline-sm">No loan yet</span>
     <span class="text-body-md">When you ask for one, or GroFunder prepares one for you, it shows here.</span><a class="btn btn-tonal" href="index.html">What can I borrow</a></div>
   <div data-state="loading" class="col gap-4" data-roles="in"><div class="skeleton-card" style="height:200px"></div></div>
@@ -50,7 +53,44 @@ var S = {
   rejected: ["error", "close-circle-outline", "GroFunder couldn't approve this loan", "\"Your school fees and other loan leave too little each month for this amount. Ask for less, or call GroFunder.\"", '<a class="btn btn-tonal" href="index.html">What can I borrow</a>'],
   cancelled: ["neutral", "cancel", "Cancelled", "You cancelled this request on " + f.date(GF.NOW, "short") + ". Its borrowing space is free again.", '<a class="btn btn-tonal" href="index.html">What can I borrow</a>']
 };
+/* Servicing (part 2), on Wanjiku's quote: disbursed 19 Aug, monthly from 18 Sep. */
+var SV = (function () {
+  if (!D) return null;
+  var q = D.quote, n = q.instalments.count, due = ["2026-09-18", "2026-10-18", "2026-11-17", "2026-12-17", "2027-01-16", "2027-02-15"].slice(0, n);
+  var lines = due.map(function (d, i) { return { n: i + 1, due: d, total: i < n - 1 ? q.instalments.amount_cents : q.instalments.last_amount_cents }; });
+  var late = q.late_penalties[0];
+  return { q: q, lines: lines, late: late };
+})();
+function money(c) { return LA.money(c).replace(/^Ksh/, "KES"); }
+function servicing(st) {
+  var q = SV.q, partner = D.partner.name, pb = q.partner.paybill, lines = SV.lines;
+  var paid = st === "repaid" ? lines.length : st === "behind" ? 1 : st === "repaying" ? 2 : 0;
+  var paidAmt = lines.slice(0, paid).reduce(function (t, i) { return t + i.total; }, 0), bal = q.total_repayable_cents - paidAmt;
+  var overdue = st === "behind" ? lines[1].total : 0, fee = st === "behind" ? Math.round(lines[1].total * 0.02) : 0, next = lines[paid];
+  var ban = {
+    withlender: ["info", "send-check-outline", "Your request is with " + partner, partner + " is looking at it. You'll get an SMS when it decides."],
+    repaying: ["success", "cash-check", "You're up to date", next ? "Next: " + money(next.total) + " by " + f.date(next.due) + ". We'll remind you 2 days before." : ""],
+    behind: ["error", "cash-clock", "You're 12 days late", money(overdue) + " is overdue. Pay " + partner + " through paybill " + pb + ", account " + D.reference + ". Until you're up to date, nobody in your circle can start a new loan."],
+    repaid: ["success", "party-popper", "Your loan is fully repaid", "Well done. How you repaid helps your limit for next time."]
+  }[st];
+  var rows = st === "withlender" ? "" :
+    '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Your loan</span></div></div><div class="card card-outlined col gap-2">' +
+      '<div class="row between"><span class="text-body-md">You received</span><span class="text-title-md tabular">' + money(q.amount_received_cents) + "</span></div>" +
+      '<div class="row between"><span class="text-body-md">Still to repay</span><span class="text-title-md tabular" id="balance">' + money(st === "repaid" ? 0 : bal) + "</span></div>" +
+      (fee ? '<div class="row between"><span class="text-body-md">Late fees</span><span class="text-title-md tabular" id="late-fees">' + money(fee) + "</span></div>" : "") + "</div></section>" +
+    '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Instalments</span></div></div><div class="list rowcards" id="instalments">' +
+      lines.map(function (i, k) {
+        var st2 = k < paid ? ["success", "Paid"] : st === "behind" && k === 1 ? ["error", "12 days late"] : ["neutral", "Due " + f.date(i.due, "short")];
+        return '<div class="rowcard"><span class="grow"><span class="text-body-lg tabular">' + money(i.total) + '</span><span class="text-body-md tone-muted">Instalment ' + i.n + " · due " + f.date(i.due, "short") + "</span></span>" + '<span class="status status-' + st2[0] + '">' + st2[1] + "</span></div>";
+      }).join("") + "</div></section>" +
+    (paid ? '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">Payments</span></div></div><div class="list rowcards">' +
+      lines.slice(0, paid).map(function (i) { return '<div class="rowcard"><span class="grow"><span class="text-body-lg tabular">' + money(i.total) + '</span><span class="text-body-md tone-muted">Paid ' + f.date(i.due, "short") + " · receipt QK" + (4400 + i.n) + "MX</span></span></div>"; }).join("") + "</div></section>" : "") +
+    (st !== "repaid" ? '<p class="text-body-sm tone-muted">Pay ' + esc(partner) + " through paybill " + pb + ", account " + D.reference + ". " + (SV.late ? "If you pay late: " + esc(SV.late.rule) + "." : "") + "</p>" : "");
+  document.getElementById("main").innerHTML = '<div class="banner banner-' + ban[0] + '"><span class="mdi mdi-' + ban[1] + '" aria-hidden="true"></span><div class="grow"><span class="text-title-sm" id="loan-title">' + esc(ban[2]) + '</span><span class="text-body-md">' + esc(ban[3]) + "</span></div></div>" +
+    '<div class="card card-outlined"><dl class="facts stack"><dt>Loan</dt><dd>' + money(D.amount_cents) + " from " + esc(partner) + '</dd><dt>Reference</dt><dd class="tabular">' + D.reference + "</dd></dl></div>" + rows + recoveryRow();
+}
 function draw(st) {
+  if (["withlender", "repaying", "behind", "repaid"].indexOf(st) > -1) { if (D) servicing(st); return; }
   var x = S[st]; if (!x || !D) return;
   var q = D.quote;
   document.getElementById("main").innerHTML =
@@ -59,6 +99,13 @@ function draw(st) {
       "<dt>For</dt><dd>" + esc(D.purpose.en) + " · " + Lo.durationLine(D.duration, D.terms.duration_unit) + "</dd><dt>Membership</dt><dd>" + esc(coop) + "</dd></dl></div>" +
     '<section class="section"><div class="section-header"><div class="grow"><span class="text-title-lg">' + (st === "draft" ? "What it would cost" : "What you agreed to") + "</span></div></div>" + LA.quoteHtml(q) + "</section>" +
     (x[4] ? '<div class="actions actions-start">' + x[4] + "</div>" : "");
+}
+/* 28: a loan being recovered from the member's pay links to what is being taken. */
+function recoveryRow() {
+  if (!GF.recovery || !GF.recovery.inRecovery(A.current.id)) return "";
+  return '<a class="rowcard card-outlined" href="../recovery/index.html" id="recovery-row"><span class="mdi mdi-cash-refund" aria-hidden="true"></span>' +
+    '<span class="grow"><span class="text-body-lg">Repaying from your pay</span><span class="text-body-md tone-muted">What your cooperative takes from each payment</span></span>' +
+    '<span class="mdi mdi-chevron-right tone-muted" aria-hidden="true"></span></a>';
 }
 function cancelReq() { Proto.confirm({ title: "Cancel your request?", message: "GroFunder stops reviewing it, and your circle's borrowing space opens again. You can ask again later.", confirm: "Cancel the request", destructive: true, onConfirm: function () { Proto.snack("Request cancelled"); } }); }
 function decline() { Proto.confirm({ title: "Decline this loan?", message: "GroFunder's draft is cancelled. You can ask for a loan later.", confirm: "Decline", onConfirm: function () { Proto.snack("Declined"); } }); }

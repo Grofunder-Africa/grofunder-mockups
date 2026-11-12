@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recovery case · GroFunder portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.4.47/css/materialdesignicons.min.css">
+<link rel="stylesheet" href="../../assets/tokens.css">
+<link rel="stylesheet" href="../../assets/kit.css">
+<script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
+<script src="../../assets/data/partners.js"></script>
+<script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
+<script src="../../assets/data/recovery.js"></script>
+<script src="../assets/portal.js"></script>
+<script src="recovery-ui.js"></script>
+<script src="../assets/nav.js" defer></script>
+<script src="../../assets/proto.js" defer></script>
+</head>
+<body>
+
+<div data-screen id="screen" data-title="Recovery case" data-dest="recovery" data-back="index.html" data-wide>
+
+  <p class="proto-note"><b>C41 · A recovery case (note 28; <code>GET cooperatives/{id}/recovery/cases/{id}/</code>).</b> What the member owes, what was agreed, the two charges on their payouts (the loan first, the fee only once the loan is recovered, Q1), every withholding by payout, and what is still to remit to GroFunder.</p>
+  <p class="proto-note"><b>Recording the arrangement</b> (<code>recovery.agree</code>, Administrator and Manager). FULL takes as much of each payout as the terms allow; PARTIAL takes a fixed amount or a share of each payout. Anything above the terms' maximum is refused, naming it. The date agreed can't be in the future, and how it was agreed is kept as evidence. The fee is worked out once, when the arrangement is first recorded, and never again (Q2). The member is told in the app and by SMS.</p>
+  <p class="proto-note"><b>Never shown here:</b> the loan's terms or charges, the lender's pricing, and the member's credit score. The cooperative sees the loan's reference, the lender's name and the debt only.</p>
+  <p class="proto-note"><b>Try:</b> <code>?c=rc-3</code> Peter Ndungu, recovering at 30% · <code>?c=rc-2</code> Muthoni Thuku, repaid with the fee still owed · <code>?c=rc-4</code> Peter Gathogo, still with GroFunder · <code>?c=rc-1</code> declined.</p>
+
+  <div data-state="loaded" class="col gap-6">
+    <div class="col gap-1"><div class="row gap-2 wrap" id="chips"></div><span class="text-body-md tone-muted" id="sub"></span></div>
+    <div id="banner"></div>
+    <div class="actions actions-start" id="acts"></div>
+    <div class="two-col">
+      <div class="col gap-4">
+        <div class="card card-outlined"><div class="card-header"><div class="card-header-text"><span class="card-title">The case</span></div></div><dl class="facts" id="facts"></dl></div>
+        <div class="card card-outlined"><div class="card-header"><div class="card-header-text"><span class="card-title">What is being taken</span>
+          <span class="card-description">The loan first; the collection fee only once the loan is recovered.</span></div></div><div class="rowcards" id="charges"></div></div>
+      </div>
+      <div class="col gap-4">
+        <div class="card card-outlined"><div class="card-header"><div class="card-header-text"><span class="card-title">Withheld from payouts</span>
+          <span class="card-description">Each deduction on one payout, and whether it has been remitted.</span></div></div><div class="rowcards" id="withheld"></div></div>
+        <div class="card card-outlined"><div class="card-header"><div class="card-header-text"><span class="card-title">History</span></div></div><div class="rowcards" id="history"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div data-state="loading" class="col gap-4"><div class="skeleton-card" style="height:140px"></div><div class="skeleton-card" style="height:280px"></div></div>
+  <div data-state="error" class="error-state"><span class="mdi mdi-cloud-alert-outline" aria-hidden="true"></span>
+    <span class="text-headline-sm">Couldn't load the case</span><span class="text-body-md">Check the connection and try again.</span>
+    <button class="btn btn-tonal" type="button" onclick="Proto.go('loaded')">Try again</button></div>
+</div>
+
+<script>
+var U = RecoveryUI, R = GF.recovery, esc = U.esc, f = GF.fmt;
+var c = R.get(new URLSearchParams(location.search).get("c") || "rc-3") || R.get("rc-3");
+var m = GF.get(c.member), first = m.full_name.split(" ")[0], loan = GF.loans.get(c.loan), lender = U.lenderOf(c);
+var t = c.terms ? R.get(c.terms) : U.terms();
+document.querySelector("[data-screen]").setAttribute("data-title", m.full_name);
+
+function draw() {
+  var p = R.progress(c);
+  document.getElementById("chips").innerHTML = U.chip(R.L.status[c.status]) + '<span class="status status-neutral tabular">' + c.reference + "</span>";
+  document.getElementById("sub").textContent = m.full_name + " · " + m.member_no + " · loan " + loan.reference + " from " + lender;
+  var B = function (cls, ic, title, body, actions) { return '<div class="banner banner-' + cls + '"><span class="mdi mdi-' + ic + '" aria-hidden="true"></span><div class="grow"><span class="text-title-sm">' + title + '</span><span class="text-body-md">' + body + "</span>" + (actions || "") + "</div></div>"; };
+  var acts = "";
+  if (c.status === "PENDING") {
+    document.getElementById("banner").innerHTML = B("info", "timer-sand", "With GroFunder", "GroFunder checks the default with " + esc(lender) + " before anything is taken from " + esc(first) + "'s pay. You'll be told when it is confirmed.");
+  } else if (c.status === "DECLINED") {
+    document.getElementById("banner").innerHTML = B("neutral", "close-circle-outline", "GroFunder declined this case", esc(c.details.decline_reason) + " Nothing is taken from " + esc(first) + "'s pay.");
+  } else if (c.status === "OPEN") {
+    document.getElementById("banner").innerHTML = B("warning", "handshake-outline", "Agree with " + esc(first) + " how it is repaid",
+      "GroFunder confirmed the default on " + f.date(c.confirmed_at) + ". Talk to " + esc(first) + ", then record what you agreed. Nothing is taken until you do. GroFunder reminds you after 14 days.");
+    acts = '<button class="btn btn-filled" type="button" id="agree-btn" data-roles="' + U.ROLES.agree + '" onclick="agree()">Record the arrangement</button>';
+  } else if (c.status === "RECOVERING") {
+    document.getElementById("banner").innerHTML = B("success", "cash-sync", "Recovering from each payout",
+      esc(U.arrangementLine(c)) + ", agreed with " + esc(first) + " on " + f.date(c.agreed_on) + ". " + U.money(p.loan_left_cents) + " of the loan is left" + (p.fee_left_cents ? ", then " + U.money(p.fee_left_cents) + " of the collection fee" : "") + ".");
+    acts = '<button class="btn btn-outlined" type="button" id="agree-btn" data-roles="' + U.ROLES.agree + '" onclick="agree()">Change the arrangement</button>';
+  } else if (c.status === "PAUSED") {
+    document.getElementById("banner").innerHTML = B("warning", "pause-circle-outline", "Paused by GroFunder", "Nothing is taken from " + esc(first) + "'s payouts while it is paused. GroFunder will tell you when it starts again.");
+  } else {
+    document.getElementById("banner").innerHTML = B("neutral", "check-all", "Closed: " + R.L.end[c.end_reason],
+      "Nothing more is taken for the loan." + (p.fee_left_cents ? " " + U.money(p.fee_left_cents) + " of the collection fee is still owed, and is taken from later payouts until it is paid." : " The collection fee is paid too."));
+  }
+  document.getElementById("acts").innerHTML = acts;
+
+  document.getElementById("facts").innerHTML =
+    "<dt>Member</dt><dd>" + '<a href="../members/member.html?m=' + m.id + '">' + esc(m.full_name) + '</a> · <span class="tabular">' + m.member_no + "</span></dd>" +
+    "<dt>Loan</dt><dd class=\"tabular\">" + loan.reference + "</dd><dt>Lender</dt><dd>" + esc(lender) + "</dd>" +
+    "<dt>Defaulted</dt><dd>" + (loan.defaulted_at ? f.date(loan.defaulted_at) : "–") + "</dd>" +
+    (c.confirmed_at ? "<dt>Confirmed by GroFunder</dt><dd>" + f.date(c.confirmed_at) + "</dd>" : "") +
+    (c.debt_at_agreement_cents ? '<dt>Owed when agreed</dt><dd class="tabular">' + U.money(c.debt_at_agreement_cents) + "</dd>" : "") +
+    (c.arrangement ? "<dt>Arrangement</dt><dd>" + esc(U.arrangementLine(c)) + "</dd><dt>Agreed</dt><dd>" + f.date(c.agreed_on) + " · " + R.L.via[c.details.agreed_via] + (c.agreed_by ? " · recorded by " + esc((GF.get(c.agreed_by) || {}).name || c.agreed_by) : "") + "</dd>" +
+      (c.details.agreement_note ? "<dt>Note</dt><dd>" + esc(c.details.agreement_note) + "</dd>" : "") : "") +
+    (t ? "<dt>Under terms</dt><dd>Version " + t.version + ', at most ' + U.pct(t.max_per_payout_bps) + ' of a payout · <a href="terms.html">See the terms</a></dd>' : "");
+
+  var el = document.getElementById("charges");
+  el.innerHTML = p.loan ? [p.loan, p.fee].filter(Boolean).map(function (ch) {
+    var isLoan = ch.id === p.loan.id, rec = R.recovered(ch.id), left = Math.max(0, ch.amount_cents - rec);
+    var ty = GF.get(ch.type) || { name: isLoan ? "Loan recovery" : "Collection fee" };
+    return '<div class="rowcard" style="align-items:flex-start"><span class="grow"><span class="text-body-lg">' + esc(ty.name) + "</span>" +
+      '<span class="text-body-md tone-muted">' + U.money(rec) + " taken of " + U.money(ch.amount_cents) + (left ? " · " + U.money(left) + " left" : " · all taken") + "</span>" +
+      '<span class="text-body-sm tone-muted">' + (isLoan ? "Goes to " + esc(lender) + ", through GroFunder" : "The cooperative keeps this") + (ch.priority > 10 && p.loan_left_cents ? ". Waits until the loan is recovered" : "") + "</span></span>" +
+      U.chip(R.L.chargeStatus[ch.status]) + "</div>";
+  }).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">Nothing yet: the charges start when the arrangement is recorded.</span></div>';
+
+  var wh = R.withheldOf(c.id), remitted = {};
+  R.lines.filter(function (l) { return l.live; }).forEach(function (l) { remitted[l.payout_item] = R.get(l.remittance); });
+  document.getElementById("withheld").innerHTML = wh.length ? wh.map(function (w) {
+    var po = GF.get(w.payout), ch = R.chargeOf(w.charge), ty = GF.get(ch.type) || {}, rem = remitted[w.payout];
+    var state = w.status === "DRAFT" ? '<span class="status status-info">On the draft</span>' : rem ? U.chip(R.L.remittance[rem.status]) : '<span class="status status-warning">To remit</span>';
+    return '<div class="rowcard" style="align-items:flex-start"><span class="grow"><span class="text-body-lg tabular">' + U.money(w.amount_cents) + "</span>" +
+      '<span class="text-body-md tone-muted">' + esc(po.details.label) + " · " + esc(ty.name || "") + "</span>" +
+      '<span class="text-body-sm tone-muted">' + (w.status === "PAID" ? "Paid " + f.date(w.paid_at, "short") : "Not paid yet") + (rem ? " · " + esc(rem.reference) : "") + "</span></span>" + state + "</div>";
+  }).join("") : '<div class="rowcard"><span class="text-body-md tone-muted">Nothing withheld yet.</span></div>';
+
+  document.getElementById("history").innerHTML = R.historyOf(c.id).map(function (h) {
+    return '<div class="rowcard" style="align-items:flex-start">' + U.chip(R.L.status[h.to_status]) + '<span class="grow"><span class="text-body-md">' +
+      (h.from_status ? "From " + R.L.status[h.from_status][1].toLowerCase() : "Queued when the loan defaulted") + (h.details.reason ? ': "' + esc(h.details.reason) + '"' : "") + "</span>" +
+      '<span class="text-body-sm tone-muted">' + U.when(h.changed_at) + " · " + (h.changed_by ? esc((GF.get(h.changed_by) || {}).name || h.changed_by) : "automatically") + " · " + (h.source === "PORTAL" ? "this cooperative" : h.source === "CONSOLE" ? "GroFunder" : "the system") + "</span></span></div>";
+  }).join("");
+  if (window.Proto) Proto.applyRoles(document.getElementById("acts"));
+}
+
+/* The arrangement (28, step 4): FULL, or PARTIAL as an amount or a share, within the terms' maximum. */
+function agree() {
+  var p = R.progress(c), debt = c.debt_at_agreement_cents || GF.loans.get(c.loan).balance_cents;
+  var max = t ? t.max_per_payout_bps : 10000, first3 = esc(first);
+  var fee = c.fee_charge ? R.chargeOf(c.fee_charge).amount_cents : R.feeFor(t, debt);
+  var body =
+    '<p class="text-body-md">' + first3 + " owes " + U.money(debt) + " on loan " + loan.reference + ". Agree how much of each payout goes to it; at most " + U.pct(max) + " of a payout, by " + (t ? "version " + t.version + " of" : "") + " the collection terms.</p>" +
+    '<div class="col gap-2" role="radiogroup" aria-label="Arrangement" id="arr">' +
+    '<label class="radio-card" style="flex-direction:row;gap:12px;align-items:flex-start"><input type="radio" name="ar" value="FULL"' + (c.arrangement === "FULL" ? " checked" : "") + ' style="margin-top:2px"><span class="col gap-1"><span class="text-title-sm">As much as the terms allow</span><span class="text-body-sm tone-muted">' + U.pct(max) + " of every payout until the loan is paid</span></span></label>" +
+    '<label class="radio-card" style="flex-direction:row;gap:12px;align-items:flex-start"><input type="radio" name="ar" value="BPS"' + (c.per_payout_bps ? " checked" : "") + ' style="margin-top:2px"><span class="col gap-1"><span class="text-title-sm">A share of each payout</span>' +
+      '<div class="field" style="width:160px"><div class="field-box has-trail"><input class="field-input in-toolbar tabular" id="a-bps" inputmode="decimal" value="' + (c.per_payout_bps ? c.per_payout_bps / 100 : 30) + '" aria-label="Share of each payout"><span class="trail affix">%</span></div></div></span></label>' +
+    '<label class="radio-card" style="flex-direction:row;gap:12px;align-items:flex-start"><input type="radio" name="ar" value="CENTS"' + (c.per_payout_cents ? " checked" : "") + ' style="margin-top:2px"><span class="col gap-1"><span class="text-title-sm">A fixed amount from each payout</span>' +
+      '<div class="field money" style="width:200px"><div class="field-box"><span class="lead affix">Ksh</span><input class="field-input in-toolbar tabular" id="a-cents" inputmode="decimal" value="' + (c.per_payout_cents ? (c.per_payout_cents / 100).toFixed(2) : "2,000.00") + '" aria-label="Amount from each payout"></div></div>' +
+      '<span class="text-body-sm tone-muted">Never more than ' + U.pct(max) + " of a payout, whichever is lower.</span></span></label></div>" +
+    '<span class="field-error hidden" id="arr-e"></span>' +
+    '<div class="form-grid"><div class="field"><label class="field-label" for="a-on">Agreed on</label><input class="field-input tabular" id="a-on" type="date" max="' + GF.TODAY + '" value="' + (c.agreed_on || GF.TODAY) + '"></div>' +
+    '<div class="field"><label class="field-label" for="a-via">How</label><select class="field-input" id="a-via"><option value="IN_PERSON"' + (c.details.agreed_via === "IN_PERSON" ? " selected" : "") + '>In person</option><option value="PHONE"' + (c.details.agreed_via === "PHONE" ? " selected" : "") + ">By phone</option></select></div></div>" +
+    '<div class="field"><label class="field-label" for="a-note">Note <span class="optional">(optional)</span></label><textarea class="field-input" id="a-note" rows="2">' + esc(c.details.agreement_note || "") + "</textarea></div>" +
+    '<div class="card col gap-1" id="a-fee"><span class="text-title-sm">The collection fee</span><span class="text-body-md">' +
+      (fee ? U.money(fee) + (t && t.fee_basis === "PERCENT_OF_DEBT" ? " — " + U.pct(t.fee_rate_bps) + " of " + U.money(debt) + (t.fee_cap_cents ? ", capped at " + U.money(t.fee_cap_cents) : "") : " — a flat fee per case") : "No fee under these terms") + "</span>" +
+      '<span class="text-body-sm tone-muted">' + (c.fee_charge ? "Worked out when the arrangement was first recorded, and not worked out again." : "Worked out once, now. The loan is recovered first; the fee comes after.") + "</span></div>" +
+    '<p class="text-body-sm tone-muted">' + first3 + " is told the arrangement and the fee, in the app and by SMS.</p>";
+  /* The shell's dialog closes before onSubmit, so the save is its own button and the refusals stay in view. */
+  body += '<div class="actions"><button class="btn btn-text" type="button" data-cancel>Cancel</button><button class="btn btn-filled" type="button" id="a-go">' + (c.arrangement ? "Save the change" : "Record it") + "</button></div>";
+  var d = Proto.dialog({ title: (c.arrangement ? "Change" : "Record") + " the arrangement", wide: true, body: body });
+  d.querySelector("#a-go").addEventListener("click", function () {
+    (function (dl) {
+      var kind = (dl.querySelector('input[name="ar"]:checked') || {}).value, err = dl.querySelector("#arr-e");
+      var on = dl.querySelector("#a-on").value;
+      if (!kind) { err.textContent = "Choose how much of each payout goes to the loan."; err.classList.remove("hidden"); return; }
+      if (kind === "BPS") {
+        var bps = Math.round(parseFloat(dl.querySelector("#a-bps").value || "0") * 100);
+        if (!(bps > 0)) { err.textContent = "Give a share above zero."; err.classList.remove("hidden"); return; }
+        if (bps > max) { err.textContent = "At most " + U.pct(max) + " of a payout, by the collection terms."; err.classList.remove("hidden"); return; }
+      }
+      if (kind === "CENTS") {
+        var cents = Math.round(parseFloat(String(dl.querySelector("#a-cents").value).replace(/[^0-9.]/g, "") || "0") * 100);
+        if (!(cents > 0)) { err.textContent = "Give an amount above zero."; err.classList.remove("hidden"); return; }
+      }
+      if (!on || on > GF.TODAY) { err.textContent = "The date agreed can't be in the future."; err.classList.remove("hidden"); return; }
+      Proto.close();
+      Proto.snack(c.arrangement ? "Arrangement changed. " + first + " is told" : "Arrangement recorded. " + first + " is told, and their next payout carries the deduction");
+    })(d);
+  });
+  var sync = function () {
+    var kind = (d.querySelector('input[name="ar"]:checked') || {}).value;
+    d.querySelector("#a-bps").disabled = kind !== "BPS";
+    d.querySelector("#a-cents").disabled = kind !== "CENTS";
+  };
+  d.addEventListener("change", sync); sync();
+}
+draw();
+</script>
+</body>
+</html>

@@ -11,8 +11,13 @@
 <link rel="stylesheet" href="../../assets/tokens.css">
 <link rel="stylesheet" href="../../assets/kit.css">
 <script src="../../assets/data/canon.js"></script>
+<script src="../../assets/data/kyc.js"></script>
+<script src="../../assets/data/groups.js"></script>
 <script src="../../assets/data/partners.js"></script>
 <script src="../../assets/data/consents.js"></script>
+<script src="../../assets/data/credit.js"></script>
+<script src="../../assets/data/loans.js"></script>
+<script src="../../assets/data/gateway.js"></script>
 <script src="../assets/console.js"></script>
 <script src="partners-ui.js"></script>
 <script src="../assets/nav.js" defer></script>
@@ -23,6 +28,7 @@
 <div data-screen data-title="Lending partner" data-dest="partners" data-wide data-back="index.html" id="screen">
 
   <p class="proto-note"><b>Consents (phase 15, note 22's amendment to 24, 2026-11-09).</b> The activation checklist adds the partner's sharing document: bound to <code>loan.sharing</code> for this partner, with a version in force. Shamba's is an English draft, not bound. <i>Consent documents</i> lists the partner's documents.</p>
+  <p class="proto-note"><b>Gateway (phase 17, 24 part 2; Operations and up).</b> The adapter's declared capabilities, each "no" with what GroFunder makes up for (arrears counted when it doesn't signal them), the last message received with a warning after 3 days of silence while loans are live (27), events needing attention, and the three logs. Mavuno has no adapter yet: an API partner needs one for its code before it can be activated.</p>
   <p class="proto-note"><b>LP3 · Partner (note 24 part 1; <code>GET partners/{id}/</code>).</b> Tabs: <b>Overview</b> (legal details, contact, what members see, the activation checklist from <code>readiness</code>, and the status history), <b>Connection</b>, <b>Products</b> and <b>Remittances</b>. <code>?tab=connection</code> opens a tab.</p>
   <p class="proto-note"><b>Activation</b> (<code>manage</code>) needs every checklist row met; the refusal lists what is missing. API: a verified connection for the partner's environment. PORTAL: refused until the partner portal exists (L6), then a partner staff login. Both: a product with terms in force covering a cooperative. Pausing and ending need a reason; ending also retires its products and ends their coverage (S3). Live loans carry on.</p>
   <p class="proto-note"><b>Secrets are never shown</b> (note 24, Secrets): the console sees only whether each is set and when, and the Owner can replace them (<code>credentials</code>). No endpoint returns a secret, so there is nothing to reveal; code reads one only to make a call, and each read is audited (S4). A new URL, key id or secret clears "verified", so it must be tested again.</p>
@@ -94,6 +100,28 @@ function readinessCard() {
   }).join("") + "</div></div></div>";
 }
 /* Its consent documents (phase 15, note 22): the sharing document, and its own loan agreement if it has one (Q9). */
+/* The gateway (phase 17, UI-120; 24 part 2, 27): the adapter's declared capabilities, what GroFunder makes up for,
+ * the last message and silence, and the logs. lending_partners.operate: Operations and up. */
+function gatewayCard() {
+  var Gw = GF.gateway; if (!Gw) return "";
+  var cap = Gw.ADAPTERS[p.code], ev = Gw.events.filter(function (e) { return e.partner === p.id; });
+  var last = ev.map(function (e) { return e.received_at; }).sort().pop(), attn = ev.filter(function (e) { return ["FAILED", "HELD", "REJECTED"].indexOf(e.status) > -1; }).length;
+  var MAKE = { signals_arrears: "GroFunder counts arrears nightly from the schedule and payments", signals_closed: "A zero balance is taken as closed", pushes_schedule: "The poll reads the schedule",
+    signs_timestamp: "The adapter checks the partner's own signature; a change request asks for ours", supports_amend: "Staff cancel and prepare a new draft instead", cancel_after_approval: "Staff cancel only when the partner's status says so",
+    sends_disbursement_details: "Missing details are filled from reads, marked estimated and flagged" };
+  var rows = p.mode !== "API" ? '<p class="text-body-md tone-muted">A portal partner (L6): its staff\'s actions raise the same events, with no adapter.</p>' :
+    !cap ? '<div class="banner banner-warning"><span class="mdi mdi-alert-outline" aria-hidden="true"></span><div class="grow"><span class="text-body-md">No adapter for ' + esc(p.code) + " yet. An API partner needs an adapter for its code before it can be activated (24 part 2).</span></div></div>" :
+    '<div class="rowcards" id="gw-caps">' + Object.keys(Gw.L.CAP).map(function (k) {
+      return '<div class="rowcard" style="padding-left:0;padding-right:0;align-items:flex-start">' + icon(cap[k] ? "check-circle-outline" : "minus-circle-outline", cap[k] ? "tone-primary" : "tone-muted") +
+        '<span class="grow"><span class="text-body-md">' + Gw.L.CAP[k] + ": " + (cap[k] ? "yes" : "no") + "</span>" + (cap[k] ? "" : '<span class="text-body-sm tone-muted">' + MAKE[k] + "</span>") + "</span></div>";
+    }).join("") + "</div>";
+  return '<div class="section" data-roles="owner full ops" id="gateway-card"><div class="section-body" style="gap:8px"><div class="section-header"><div class="grow"><span class="text-title-md">Gateway</span>' +
+    '<span class="text-body-sm tone-muted">What ' + esc(p.name) + "'s adapter declares, and what GroFunder makes up for. An API partner needs an adapter for its code to be activated.</span></div></div>" + rows +
+    (p.mode !== "ENDED_MODE" ? '<dl class="facts stack"><dt>Last message</dt><dd id="gw-last">' + (last ? U.when(last) : '<span class="tone-muted">None yet</span>') + ((function () { var h = Gw.health(p.id); return h.silent_days ? ' <span class="status status-warning" id="gw-silent">No events for ' + h.silent_days + " days</span>" : ""; })()) + "</dd>" +
+      "<dt>Needing attention</dt><dd>" + (attn ? '<a href="events.html?status=attention">' + attn + " event" + (attn === 1 ? "" : "s") + "</a> failed, held or rejected" : "None") + "</dd></dl>" +
+      '<div class="actions actions-start"><a class="btn btn-outlined btn-sm" href="events.html">Events</a><a class="btn btn-outlined btn-sm" href="calls.html">Calls</a><a class="btn btn-outlined btn-sm" href="reads.html">Data reads</a></div>' : "") +
+    "</div></div>";
+}
 function docsCard() {
   var C = GF.consents; if (!C) return "";
   var docs = C.partnerDocs(p.id);
@@ -117,7 +145,7 @@ document.getElementById("p-overview").innerHTML = '<div class="col gap-4">' +
     "<dt>Members see</dt><dd>" + esc(pr.member_display.name) + ' · care <span class="tabular">' + f.phone(pr.member_display.phone) + '</span> · paybill <span class="tabular">' + pr.member_display.paybill + "</span></dd>" +
     "<dt>Texts it sends members</dt><dd>" + (pr.sends_sms.length ? pr.sends_sms.map(function (k) { return L.sms[k]; }).join(", ") : '<span class="tone-muted">None: GroFunder texts every moment</span>') + "</dd>" +
     "<dt>Remits our share</dt><dd>" + (pr.remittance.cycle === "MONTHLY" ? "Monthly" : "Quarterly") + (pr.remittance.notes ? ". " + esc(pr.remittance.notes) : "") + "</dd></dl></div></div>" +
-  auditCard() + "</div>" + '<div class="col gap-4">' + readinessCard() + docsCard() + historyCard() + "</div>";
+  auditCard() + "</div>" + '<div class="col gap-4">' + readinessCard() + docsCard() + gatewayCard() + historyCard() + "</div>";
 
 /* G81 (approved 2026-11-08): the partner's audit entries, read only, for Full and Owner. */
 function auditCard() {

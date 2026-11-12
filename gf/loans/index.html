@@ -29,6 +29,7 @@
 
   <p class="proto-note"><b>LN1 · Loans (note 26 part 1).</b> GroFunder's one queue: requests to review first, oldest first, then drafts waiting for a member, approved loans waiting to be sent, and the ended ones. A request shows how many approvals it has of how many its product needs ("1 of 2 approvals", Q2); a draft shows when it expires (7 days, Q4); a loan that fails a check now says which (<code>details.checks</code>).</p>
   <p class="proto-note"><b>Who does what.</b> Every office role reads (<code>loans.view</code>). Operations and up prepare drafts and take a member's SMS code (<code>loans.prepare</code>). Full and Owner approve and reject (<code>loans.review</code>, Q1), cancel after approval (<code>loans.manage</code>) and pause a cooperative, cluster or circle; only the Owner pauses everyone (Q6).</p>
+  <p class="proto-note"><b>After forwarding (phase 17, note 26 part 2).</b> With the lender (forwarded, amendment asked for, approved), being repaid, behind (days late and amount overdue), and ended (repaid, written off, rejected by the lender). Open flags show on the row; the Flags section lists them all. Parachichi Bora's loans at Gatundu, with Tegemeo, show every stage.</p>
   <p class="proto-note"><b>The story</b> (loans.js): drawn as if Mavuno Capital were active, and with Tujenge Kiamwangi's members verified (phases 11 and 13 aren't changed while they're reviewed). Its two live loans fill its two borrowing spaces. Forwarding to the lender comes with the gateway (L4): an approved loan shows it as the next step only.</p>
 
   <div data-state="loaded" class="col gap-4">
@@ -49,7 +50,7 @@
 
 <script>
 var Lo = GF.loans, U = LoansUI, esc = U.esc, f = GF.fmt;
-var GROUPS = [["review", "To review", ["REQUESTED"]], ["drafts", "Drafts", ["DRAFT"]], ["approved", "Approved", ["APPROVED"]], ["ended", "Ended", ["GF_REJECTED", "CANCELLED"]], ["all", "All", null]];
+var GROUPS = [["review", "To review", ["REQUESTED"]], ["drafts", "Drafts", ["DRAFT"]], ["approved", "Approved", ["APPROVED"]], ["lender", "With the lender", ["FORWARDED", "AMENDMENT_REQUIRED", "PARTNER_APPROVED"]], ["repaid", "Being repaid", ["ACTIVE"]], ["behind", "Behind", ["IN_ARREARS", "DEFAULTED"]], ["ended", "Ended", ["GF_REJECTED", "CANCELLED", "PARTNER_REJECTED", "CLOSED", "WRITTEN_OFF"]], ["all", "All", null]];
 var pick = new URLSearchParams(location.search).get("show") || "review";
 function count(g) { return Lo.loans.filter(function (l) { return !g[2] || g[2].indexOf(l.status) > -1; }).length; }
 function draw() {
@@ -65,7 +66,10 @@ function draw() {
       '<td class="num tabular">' + U.whole(l.amount_cents) + '<span class="cell-sub">' + Lo.durationLine(l.duration, GF.partners.get(l.terms).duration_unit) + "</span></td>" +
       "<td>" + esc(pr.name) + '<span class="cell-sub">' + esc(GF.partners.get(l.partner).name) + "</span></td>" +
       "<td>" + U.statusLine(l) + (e && !e.ok ? '<span class="cell-sub tone-error">Can\'t be approved now: ' + e.failed.map(function (x) { return x.code; }).join(", ") + "</span>" : "") +
-        (l.end_reason ? '<span class="cell-sub">' + Lo.L.end[l.end_reason] + "</span>" : "") + "</td>" +
+        (l.end_reason ? '<span class="cell-sub">' + Lo.L.end[l.end_reason] + "</span>" : "") +
+        (l.status === "IN_ARREARS" || l.status === "DEFAULTED" ? '<span class="cell-sub tone-error">' + l.days_past_due + " days late, " + U.money(l.overdue_cents) + " overdue</span>" : "") +
+        (l.details.partner && l.details.partner.stage && ["FORWARDED", "AMENDMENT_REQUIRED"].indexOf(l.status) > -1 ? '<span class="cell-sub">' + esc(l.details.partner.stage) + "</span>" : "") +
+        (Lo.flagsOf(l.id).some(function (x) { return x.status === "OPEN"; }) ? '<span class="cell-sub tone-warning">Open flag</span>' : "") + "</td>" +
       '<td class="text-body-sm' + (wait ? " tone-warning" : "") + '">' + U.when(since) + (wait ? "<br>Waiting over a day" : "") + "</td></tr>";
   }).join("") : '<tr><td colspan="6" class="text-body-md tone-muted">Nothing here.</td></tr>';
 }
